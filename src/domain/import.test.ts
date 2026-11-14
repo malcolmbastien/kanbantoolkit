@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { inferStage, parseImport, parseJiraCsv, parseTrello, planImport } from './import'
+import { guessCsvColumns, inferStage, parseImport, parseJiraCsv, parsePlainCsv, parseTrello, planImport, readCsv } from './import'
 import type { ImportMapping } from './import'
 import type { IssueType, User } from './types'
 
@@ -153,6 +153,71 @@ ABC-3,Other card,,Incident,To Do,,,2026-10-04T10:00:00Z,,,
   it('refuses a file that is neither export', () => {
     expect(() => parseTrello('{}')).toThrow(/Trello/)
     expect(() => parseJiraCsv('Name,Value\na,b')).toThrow(/Summary/)
+  })
+})
+
+describe('importing a plain CSV', () => {
+  const plain = [
+    'ID;Title;Status;Description;Type;Assignee;Labels;Created;Resolved;Due;Parent;Archived',
+    'K-1;"Fix, login";Doing;"Line one\nLine two";Bug;"Riley Kim";ui,frontend;2026-10-01;2026-10-03;2026-10-10;;false',
+    'K-2;Child card;To Do;Child body;Task;Maya Blake;backend;2026-10-02;;;K-1;;',
+  ].join('\n')
+  const columns = {
+    key: 0,
+    title: 1,
+    status: 2,
+    description: 3,
+    type: 4,
+    assignee: 5,
+    labels: 6,
+    created: 7,
+    resolved: 8,
+    due: 9,
+    parent: 10,
+    archived: 11,
+  }
+
+  it('reads arbitrary headers and quoted fields, including a newline inside one', () => {
+    const parsed = parsePlainCsv(plain, columns)
+    expect(parsed.source).toBe('csv')
+    expect(parsed.lists.map((list) => list.name)).toEqual(['Doing', 'To Do'])
+    expect(parsed.cards[0]).toMatchObject({
+      key: 'K-1',
+      title: 'Fix, login',
+      description: 'Line one\nLine two',
+      typeName: 'Bug',
+      labelNames: ['ui', 'frontend'],
+      dueDate: '2026-10-10',
+    })
+    expect(parsed.cards[1]).toMatchObject({ key: 'K-2', parentKey: 'K-1' })
+    expect(parsed.people.map((person) => person.name)).toEqual(['Riley Kim', 'Maya Blake'])
+  })
+
+  it('plans the stages, people and types through the same import pipeline', () => {
+    const plan = planImport(parsePlainCsv(plain, columns), { listStages: {} }, { types, users, defaultTypeId: 't-none' })
+    expect(plan.source).toBe('csv')
+    const first = plan.cards.find((card) => card.key === 'K-1')
+    const child = plan.cards.find((card) => card.key === 'K-2')
+    expect(first).toMatchObject({ laneKey: 'stage:inProgress', typeId: 't-bug', assigneeIds: ['u-riley'], dueDate: '2026-10-10' })
+    expect(child).toMatchObject({ laneKey: 'stage:notStarted', typeId: 't-task', assigneeIds: ['u-maya'], parentKey: 'K-1' })
+  })
+
+  it('infers a destination from a completion date when there is no status column', () => {
+    const parsed = parsePlainCsv('Title,Resolved\nFinished,2026-10-03\nOpen,\n', { title: 0, resolved: 1 })
+    expect(parsed.lists.map((list) => list.name)).toEqual(['Done', 'No status'])
+  })
+
+  it('reads a BOM and a tab-separated file, and guesses the common columns', () => {
+    const table = readCsv('\uFEFFTitle\tStatus\tOwner\tTags\nA\tDoing\tRiley Kim\tui')
+    expect(table.headers).toEqual(['Title', 'Status', 'Owner', 'Tags'])
+    expect(table.rows[0]).toEqual(['A', 'Doing', 'Riley Kim', 'ui'])
+    expect(guessCsvColumns(table.headers)).toMatchObject({ title: 0, status: 1, assignee: 2, labels: 3 })
+  })
+
+  it('refuses a file without a title column, and warns about a parent that is not in the file', () => {
+    expect(() => parsePlainCsv('A,B\n1,2', {})).toThrow(/title/)
+    const parsed = parsePlainCsv('Title,Parent\nOrphan,MISSING', { title: 0, parent: 1 })
+    expect(parsed.warnings.some((warning) => /not in this file/.test(warning))).toBe(true)
   })
 })
 

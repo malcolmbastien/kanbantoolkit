@@ -25,6 +25,56 @@ const board = {
   ],
 }
 
+test('a plain CSV is mapped by column and imported as one board', async ({ page }) => {
+  await page.goto('/app?view=boards')
+  await page.getByRole('button', { name: /Import board/ }).click()
+  const dialog = page.locator('[data-import-board-dialog]')
+  const csv = [
+    'ID,Title,Status,Type,Assignee,Tags,Due',
+    'K-1,"Fix, login",Doing,Bug,Riley Kim,"ui,frontend",2026-10-10',
+    'K-2,Child card,To Do,Task,,backend,',
+  ].join('\n')
+
+  await dialog.getByLabel('Import source').selectOption('csv')
+  await dialog.getByLabel('Import file').setInputFiles({
+    name: 'plain-board.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(csv),
+  })
+
+  // The headers are guessed, and every guess can be corrected before anything is written.
+  await expect(dialog.getByLabel('CSV column for Title')).toHaveValue('1')
+  await expect(dialog.getByLabel('CSV column for Status')).toHaveValue('2')
+  await expect(dialog.locator('[data-import-preview]')).toContainText('2 cards')
+  await expect(dialog.getByRole('button', { name: 'Stage for Doing' })).toContainText('In Progress')
+  await expect(dialog.getByLabel('Person for Riley Kim')).toHaveValue('u-rk')
+  await dialog.getByLabel('Imported board name').fill('Plain import')
+
+  await dialog.getByRole('button', { name: 'Import board' }).click()
+  await expect(page.locator('[data-workflow="cards"]')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Plain import/ })).toBeVisible()
+  await expect(page.locator('[data-card-id]').filter({ hasText: 'Fix, login' })).toBeVisible()
+  await expect(page.locator('[data-card-id]').filter({ hasText: 'Child card' })).toBeVisible()
+  await expect(page.getByText('ui', { exact: true })).toBeVisible()
+  await expect(page.getByText('frontend', { exact: true })).toBeVisible()
+})
+
+test('cancelling a plain CSV import leaves no board behind', async ({ page }) => {
+  await page.goto('/app?view=boards')
+  await page.getByRole('button', { name: /Import board/ }).click()
+  const dialog = page.locator('[data-import-board-dialog]')
+  await dialog.getByLabel('Import source').selectOption('csv')
+  await dialog.getByLabel('Import file').setInputFiles({
+    name: 'not-this-one.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from('Title,Status\nA card,Doing\n'),
+  })
+  await dialog.getByLabel('Imported board name').fill('CSV should not exist')
+  await expect(dialog.locator('[data-import-preview]')).toContainText('1 card')
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await expect(page.getByRole('button', { name: /CSV should not exist/ })).toHaveCount(0)
+})
+
 test('a Trello board is imported as one board and opens with its cards', async ({ page }) => {
   await page.goto('/app?view=boards')
   await page.getByRole('button', { name: /Import board/ }).click()

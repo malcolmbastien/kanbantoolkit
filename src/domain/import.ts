@@ -13,7 +13,7 @@ import type { IssueType, Stage, User } from './types'
  * cards in one update, so an import that is cancelled leaves no half-board behind.
  */
 
-export type ImportSource = 'trello' | 'jira'
+export type ImportSource = 'trello' | 'jira' | 'csv'
 
 export interface ParsedList {
   key: string
@@ -241,8 +241,21 @@ export function parseTrello(source: string): ParsedImport {
   }
 }
 
-/** One CSV field, quotes and doubled quotes and all. */
-function parseCsv(source: string): string[][] {
+/** One CSV field, quotes and doubled quotes and all. The delimiter is sniffed from the header line. */
+function detectDelimiter(source: string): string {
+  const end = source.search(/\r?\n/)
+  const line = end === -1 ? source : source.slice(0, end)
+  const counts: Record<string, number> = { ',': 0, ';': 0, '\t': 0 }
+  let quoted = false
+  for (const char of line) {
+    if (char === '"') quoted = !quoted
+    else if (!quoted && char in counts) counts[char] += 1
+  }
+  if (counts['\t'] >= counts[','] && counts['\t'] >= counts[';']) return '\t'
+  return counts[';'] > counts[','] ? ';' : ','
+}
+
+function parseCsv(source: string, delimiter = detectDelimiter(source)): string[][] {
   const rows: string[][] = []
   let row: string[] = []
   let field = ''
@@ -260,7 +273,7 @@ function parseCsv(source: string): string[][] {
       }
     } else if (char === '"') {
       quoted = true
-    } else if (char === ',') {
+    } else if (char === delimiter) {
       row.push(field)
       field = ''
     } else if (char === '\n' || char === '\r') {
@@ -276,6 +289,156 @@ function parseCsv(source: string): string[][] {
   row.push(field)
   if (row.some((cell) => cell.trim() !== '')) rows.push(row)
   return rows
+}
+
+/** The largest plain CSV this import accepts, so a pasted export cannot freeze the browser. */
+export const MAX_CSV_ROWS = 5_000
+
+export interface CsvTable {
+  headers: string[]
+  rows: string[][]
+}
+
+/** Read the header and rows of a plain CSV without deciding what any column means. */
+export function readCsv(source: string): CsvTable {
+  const rows = parseCsv(source.replace(/^\uFEFF/, ''))
+  if (rows.length === 0) throw new Error('That file is empty — choose a CSV with a header row.')
+  const headers = rows[0].map((header) => header.trim())
+  if (!headers.some(Boolean)) throw new Error('That file has no header row — the first row must name the columns.')
+  if (rows.length - 1 > MAX_CSV_ROWS) {
+    throw new Error(`That file has ${rows.length - 1} rows; this import takes up to ${MAX_CSV_ROWS}.`)
+  }
+  return { headers, rows: rows.slice(1) }
+}
+
+/** What each column in a plain CSV means. An absent optional column is `undefined`. */
+export interface CsvColumns {
+  title?: number
+  key?: number
+  status?: number
+  description?: number
+  type?: number
+  assignee?: number
+  labels?: number
+  created?: number
+  resolved?: number
+  due?: number
+  parent?: number
+  archived?: number
+}
+
+/** The common names a plain spreadsheet uses, guessed only so the reader can correct them. */
+export function guessCsvColumns(headers: string[]): CsvColumns {
+  const normal = headers.map((header) => header.trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' '))
+  const pick = (...names: string[]): number | undefined => {
+    const index = normal.findIndex((header) => names.includes(header))
+    return index < 0 ? undefined : index
+  }
+  return {
+    title: pick('title', 'summary', 'name', 'card'),
+    key: pick('key', 'id', 'issue key', 'card id'),
+    status: pick('status', 'list', 'column', 'state', 'stage'),
+    description: pick('description', 'desc', 'details', 'notes', 'body'),
+    type: pick('type', 'issue type', 'card type'),
+    assignee: pick('assignee', 'assignees', 'owner', 'assigned to', 'person'),
+    labels: pick('labels', 'label', 'tags', 'tag'),
+    created: pick('created', 'created at', 'created date', 'date created'),
+    resolved: pick('resolved', 'resolved at', 'done', 'completed', 'completed at', 'closed at'),
+    due: pick('due', 'due date', 'deadline'),
+    parent: pick('parent', 'parent key', 'parent id', 'epic', 'epic link'),
+    archived: pick('archived', 'is archived'),
+  }
+}
+
+const archivedValue = (value: string): boolean => /^(true|yes|y|1|archived)$/i.test(value.trim())
+
+/** Read a plain CSV once the reader has said what each column means. */
+export function parsePlainCsv(source: string, columns: CsvColumns): ParsedImport {
+  if (columns.title === undefined) throw new Error('Choose which column holds the card title.')
+  const table = readCsv(source)
+  const cell = (row: string[], index: number | undefined) => (index === undefined ? '' : (row[index] ?? '').trim())
+  const warnings: string[] = []
+  const lists: ParsedList[] = []
+  const listKeys = new Map<string, string>()
+  const people = new Map<string, ParsedPerson>()
+  const cards: ParsedCard[] = []
+  const cardKeys = new Set<string>()
+
+  for (const [index, row] of table.rows.entries()) {
+    const title = cell(row, columns.title)
+    if (!title) {
+      warnings.push(`Skipped row ${index + 2}: it has no title.`)
+      continue
+    }
+    const created = timestamp(cell(row, columns.created))
+    const resolved = timestamp(cell(row, columns.resolved))
+    if (cell(row, columns.created) && created === undefined) {
+      warnings.push(`Skipped an unreadable created date on “${title}”.`)
+    }
+    if (cell(row, columns.resolved) && resolved === undefined) {
+      warnings.push(`Skipped an unreadable completion date on “${title}”.`)
+    }
+    const due = dateOnly(cell(row, columns.due))
+    if (cell(row, columns.due) && due === undefined) {
+      warnings.push(`Skipped an unreadable due date on “${title}”.`)
+    }
+
+    const status = cell(row, columns.status) || (resolved !== undefined ? 'Done' : 'No status')
+    if (!listKeys.has(status)) {
+      const key = `status-${lists.length}`
+      listKeys.set(status, key)
+      lists.push({ key, name: status, order: lists.length })
+    }
+
+    const key = cell(row, columns.key) || `row-${index + 2}`
+    if (cardKeys.has(key)) {
+      warnings.push(`Skipped duplicate card key “${key}”.`)
+      continue
+    }
+    cardKeys.add(key)
+
+    const assignees = cell(row, columns.assignee)
+      .split(/[,;]/)
+      .map((name) => name.trim())
+      .filter(Boolean)
+    const assigneeKeys: string[] = []
+    for (const name of assignees) {
+      const personKey = `person-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
+      if (!people.has(personKey)) people.set(personKey, { key: personKey, name })
+      assigneeKeys.push(personKey)
+    }
+    const labels = cell(row, columns.labels)
+      .split(/[,;]/)
+      .map((label) => label.trim())
+      .filter(Boolean)
+
+    cards.push({
+      key,
+      title,
+      description: cell(row, columns.description) || undefined,
+      listKey: listKeys.get(status)!,
+      ...(cell(row, columns.type) ? { typeName: cell(row, columns.type) } : {}),
+      assigneeKeys,
+      labelNames: [...new Set(labels)],
+      checklist: [],
+      ...(created === undefined ? {} : { createdAt: created }),
+      ...(resolved === undefined ? {} : { resolvedAt: resolved }),
+      ...(due === undefined ? {} : { dueDate: due }),
+      ...(cell(row, columns.parent) ? { parentKey: cell(row, columns.parent) } : {}),
+      ...(archivedValue(cell(row, columns.archived)) ? { archived: true } : {}),
+    })
+  }
+
+  if (columns.status === undefined) {
+    warnings.push('No status column was chosen; cards without a completion date were imported into Backlog.')
+  }
+  for (const card of cards) {
+    if (card.parentKey && !cardKeys.has(card.parentKey)) {
+      warnings.push(`“${card.title}” names a parent “${card.parentKey}” that is not in this file; imported at the root.`)
+    }
+  }
+
+  return { source: 'csv', boardName: 'CSV import', lists, cards, people: [...people.values()], warnings }
 }
 
 /** Read a Jira CSV export. Header names are matched case-insensitively and by common aliases. */
@@ -361,6 +524,7 @@ export function parseJiraCsv(source: string): ParsedImport {
 /** Read either export, or trust the source the person chose. */
 export function parseImport(source: string, format?: ImportSource): ParsedImport {
   const kind = format ?? (source.trim().startsWith('{') ? 'trello' : 'jira')
+  if (kind === 'csv') throw new Error('Choose which CSV column holds the title before importing.')
   return kind === 'trello' ? parseTrello(source) : parseJiraCsv(source)
 }
 
