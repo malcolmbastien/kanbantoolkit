@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowUpRight, Link2, Rows3 } from 'lucide-react'
 import { boundaryInStage, boundaryEntries, type BoundaryEntry } from '@/domain/boundary'
 import { STAGES, STAGE_LABELS } from '@/domain/lanes'
-import { chipColors, STAGE_ACCENT, STAGE_DOT, STAGE_SURFACE, tintOn } from '@/lib/colors'
+import { softChipColors, STAGE_COLUMN, STAGE_DOT, tintOn } from '@/lib/colors'
 import { detailFor, type BoardDetail } from '@/domain/boardDetail'
 import { announce } from '@/lib/announce'
 import { stillScrolling } from '@/lib/useStillScroll'
@@ -150,18 +150,17 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
               role="group"
               aria-label={`${STAGE_LABELS[stage]} — external dependencies`}
               className={cn(
-                'flex min-h-[140px] min-w-[196px] flex-1 flex-col overflow-hidden rounded-xl border border-slate-300/80 shadow-sm',
-                STAGE_SURFACE[stage],
+                'flex min-h-[140px] min-w-[196px] flex-1 flex-col overflow-hidden rounded-xl border shadow-sm',
+                STAGE_COLUMN[stage].surface,
               )}
-              style={{ borderTop: `4px solid ${STAGE_ACCENT[stage]}` }}
             >
-              <div className="mx-1 mt-1 mb-1 rounded-md bg-white/60 px-2.5 py-1.5">
+              <div className={cn('mx-1 mt-1 mb-1 rounded-md px-2.5 py-1.5 shadow-sm', STAGE_COLUMN[stage].header)}>
                 <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1">
-                  <span className={cn('h-1.5 w-1.5 rounded-full', STAGE_DOT[stage])} />
-                  <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide text-slate-700">
+                  <span aria-hidden className="h-1.5 w-1.5" />
+                  <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide">
                     {STAGE_LABELS[stage]}
                   </span>
-                  <span className="rounded-full bg-white/70 px-1.5 py-0.5 text-micro font-semibold tabular-nums text-slate-600 ring-1 ring-slate-300/60">
+                  <span className={cn('rounded-full px-1.5 py-0.5 text-micro font-bold tabular-nums', STAGE_COLUMN[stage].count)}>
                     {inStage.length}
                   </span>
                 </div>
@@ -232,9 +231,11 @@ function BoundaryCard({
   const [hovered, setHovered] = useState(false)
   const closeHover = useCallback(() => setHovered(false), [])
 
-  const chip = chipColors(type.color)
+  const chip = softChipColors(type.color)
+  const chipStyle = { backgroundColor: chip.background, color: chip.color, borderColor: tintOn(type.color, 0.32) }
   // The same recede a card wears when it is not a choice in a pick mode.
   const dimCls = dimmed ? 'opacity-40 saturate-50' : ''
+  const cardBorder = entry.stage === 'done' ? 'border-emerald-200/80' : 'border-slate-300/80'
   const dependents = expanded ? entry.dependents : entry.dependents.slice(0, 3)
   const hidden = entry.dependents.length - dependents.length
 
@@ -292,8 +293,8 @@ function BoundaryCard({
           <div>
             <div className="flex items-center gap-1.5">
               <span
-                className="shrink-0 rounded px-1.5 py-px text-micro font-bold uppercase tracking-wide"
-                style={{ backgroundColor: chip.background, color: chip.color }}
+                className="shrink-0 rounded border px-1.5 py-px text-micro font-bold uppercase tracking-wide"
+                style={chipStyle}
               >
                 {type.name}
               </span>
@@ -329,13 +330,16 @@ function BoundaryCard({
         data-boundary-state={entry.state}
         onClick={select}
         className={cn(
-          'cursor-pointer rounded-lg border bg-white p-2 shadow-sm transition hover:shadow-md',
-          selected ? 'border-slate-900 ring-2 ring-slate-900' : 'border-slate-300/80 hover:border-slate-400',
+          'cursor-pointer rounded-lg border bg-white p-2 shadow-xs transition hover:shadow-sm',
+          cardBorder,
+          selected
+            ? 'outline-2 outline-solid outline-offset-[-2px] outline-slate-900 shadow-lg'
+            : 'hover:border-slate-400',
           dimCls,
         )}
       >
         <div className="flex items-center gap-1.5">
-          <span className="shrink-0 rounded px-1.5 py-px text-micro font-bold uppercase tracking-wide" style={{ backgroundColor: chip.background, color: chip.color }}>
+          <span className="shrink-0 rounded border px-1.5 py-px text-micro font-bold uppercase tracking-wide" style={chipStyle}>
             {type.name}
           </span>
           {selected && (
@@ -362,7 +366,7 @@ function BoundaryCard({
             select()
           }}
           aria-pressed={selected}
-          className="mt-1 w-full rounded text-left text-meta font-semibold leading-snug text-slate-900 outline-none transition hover:underline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500"
+          className="mt-0.5 w-full rounded text-left text-meta font-semibold leading-snug text-slate-900 outline-none transition hover:underline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500"
           title={selected ? 'Clear the highlight' : 'Show the cards on this board that wait on it'}
         >
           <span className="line-clamp-2">{entry.dependency.title}</span>
@@ -391,13 +395,16 @@ function BoundaryCard({
       // card that can only be selected with a pointer is half a control.
       onClick={select}
       className={cn(
-        'cursor-pointer rounded-lg border bg-white p-2.5 shadow-md transition hover:shadow-lg',
-        selected ? 'border-slate-900 ring-2 ring-slate-900' : 'border-slate-300/80 hover:border-slate-400',
+        'cursor-pointer rounded-lg border bg-white p-2.5 shadow-sm transition hover:shadow-md',
+        cardBorder,
+        selected
+          ? 'outline-2 outline-solid outline-offset-[-2px] outline-slate-900 shadow-lg'
+          : 'hover:border-slate-400',
         dimCls,
       )}
     >
       <div className="flex items-center gap-1.5">
-        <span className="shrink-0 rounded px-1.5 py-px text-micro font-bold uppercase tracking-wide" style={{ backgroundColor: chip.background, color: chip.color }}>
+        <span className="shrink-0 rounded border px-1.5 py-px text-micro font-bold uppercase tracking-wide" style={chipStyle}>
           {type.name}
         </span>
         {selected && (
@@ -417,7 +424,7 @@ function BoundaryCard({
         </button>
       </div>
 
-      <h3 id={`boundary-${entry.dependency.id}`} className="mt-1">
+      <h3 id={`boundary-${entry.dependency.id}`} className="mt-0.5">
         <button
           onClick={(event) => {
             // The card's own click is the same act; stopping here would be pointless, but the

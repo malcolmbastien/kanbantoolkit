@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Archive, ArchiveX, ArrowRight, Ban, Bell, BellOff, CalendarClock, CalendarDays, Check, ChevronDown, Copy, CornerLeftUp, Flag, Link2, Minus, MoreHorizontal, Plus, RotateCcw, Send, SquareArrowOutUpRight, Target, Trash2, TriangleAlert, Waypoints, X } from 'lucide-react'
+import { Archive, ArchiveX, ArrowLeftRight, ArrowRight, Ban, Bell, BellOff, CalendarClock, CalendarDays, Check, ChevronDown, Copy, CornerLeftUp, Flag, Link2, Minus, MoreHorizontal, Plus, RotateCcw, Send, SquareArrowOutUpRight, Target, Trash2, TriangleAlert, X } from 'lucide-react'
 import {
   archiveOutcome,
   attributedObjectives,
@@ -403,18 +403,32 @@ export function ItemPanel({ itemId }: Props) {
 
   // Filing a parent files its whole subtree. A person pressing that on an initiative should see
   // the cascade before it happens; a card with nothing below it files in one press as before.
+  // Discarding asks for an optional reason even when it has no children: the archive keeps the
+  // verdict, and this is where the person can say why.
   const requestArchive = () => {
     const below = descendants(item.id, graph)
-    if (below.length === 0) {
+    const discard = !complete
+    if (below.length === 0 && !discard) {
       archiveItem(item.id)
       return
     }
     askConfirm({
-      title: `${complete ? 'Archive' : 'Discard'} “${item.title}”?`,
-      body: `This also files ${below.length} item${below.length === 1 ? '' : 's'} below it. Finished work is archived; unfinished work is discarded.`,
-      confirmLabel: complete ? 'Archive' : 'Discard',
-      danger: !complete,
-      onConfirm: () => archiveItem(item.id),
+      title: `${discard ? 'Discard' : 'Archive'} “${item.title}”?`,
+      body:
+        below.length > 0
+          ? `This also files ${below.length} item${below.length === 1 ? '' : 's'} below it. Finished work is archived; unfinished work is discarded.`
+          : 'It leaves the board as unfinished. Its history stays, and you can restore it from the Archive.',
+      confirmLabel: discard ? 'Discard' : 'Archive',
+      danger: discard,
+      ...(discard
+        ? {
+            note: {
+              label: 'Why are you discarding it? (optional)',
+              placeholder: 'e.g. Superseded by the new onboarding flow',
+            },
+          }
+        : {}),
+      onConfirm: (note) => archiveItem(item.id, note),
     })
   }
 
@@ -1138,13 +1152,21 @@ export function ItemPanel({ itemId }: Props) {
               {watching ? <BellOff size={15} /> : <Bell size={15} />}
             </IconButton>
             {!archived && (
-              <IconButton
+              <button
+                type="button"
+                data-item-connections
                 title={connectionsOnItem ? 'Hide this item’s connections' : 'Show this item’s connections on the board'}
-                active={connectionsOnItem}
+                aria-pressed={connectionsOnItem}
                 onClick={() => setConnectionScope(connectionsOnItem ? null : item.id)}
+                className={cn(
+                  'flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-micro font-medium transition',
+                  connectionsOnItem
+                    ? 'border-rose-300 bg-rose-50 text-rose-700'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900',
+                )}
               >
-                <Waypoints size={15} />
-              </IconButton>
+                <ArrowLeftRight size={12} aria-hidden /> Connections
+              </button>
             )}
             {canWrite && !archived && (
               <IconButton

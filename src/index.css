@@ -10,7 +10,7 @@
    * this is the same slate hue lifted a step, still clearly below the column tints and the card.
    * One token so a later adjustment is one line rather than a hunt for the class.
    */
-  --color-board-ground: #d5dde8;
+  --color-board-ground: #e9eef5;
 
   /*
    * The type scale. Sizes used to be arbitrary — `text-[10px]` here, `text-[11px]` there,

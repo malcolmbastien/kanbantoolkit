@@ -18,6 +18,26 @@ async function choose(page: Page, level: 'Mini' | 'Summary' | 'Full'): Promise<v
   await expect(page.getByRole('radio', { name: level })).toHaveAttribute('aria-checked', 'true')
 }
 
+test('a blocked card wears its state on the card, not only in the badge row', async ({ page }) => {
+  await openBoard(page)
+  const blocked = page.locator('[data-card-id="st-enterprise-sso"]')
+  const normal = page.locator('[data-card-id="st-signup-rebuild"]')
+  await expect(blocked).toHaveAttribute('data-card-blocked', '')
+  await expect(normal).not.toHaveAttribute('data-card-blocked')
+
+  const border = (locator: typeof blocked) =>
+    locator.evaluate((el) => {
+      const style = getComputedStyle(el)
+      return { leftWidth: style.borderLeftWidth, leftColor: style.borderLeftColor }
+    })
+  const blockedBorder = await border(blocked)
+  const normalBorder = await border(normal)
+  // The rose rail is the blocked card's alone: normal cards carry no type-colour rail.
+  expect(blockedBorder.leftWidth).toBe('4px')
+  expect(normalBorder.leftWidth).toBe('1px')
+  expect(blockedBorder.leftColor).not.toBe(normalBorder.leftColor)
+})
+
 test('Summary keeps the title, type, due date and people, and drops the extras', async ({ page }) => {
   await openBoard(page)
   await expect(page.getByRole('radio', { name: 'Full' })).toHaveAttribute('aria-checked', 'true')

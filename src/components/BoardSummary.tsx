@@ -19,7 +19,7 @@ import { initiativeHealth, type HealthFlagInfo } from '@/domain/health'
 import { boardInitiatives, canAddInitiative, initiativeCellOf, initiativeRanks, initiativeTypeById, initiativeTypeId, isInitiativeItem, tagsOf } from '@/domain/board'
 import { detailFor, type BoardDetail } from '@/domain/boardDetail'
 import { childrenOf, isLeaf, lanePath, leavesUnder, topLevelLanes } from '@/domain/lanes'
-import { STAGE_ACCENT, STAGE_SURFACE, tintOn } from '@/lib/colors'
+import { STAGE_ACCENT, STAGE_COLUMN, tintOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import {
   ArrowLeftRight,
@@ -209,6 +209,10 @@ export function BoardSummary({
   const isInitiatives = variant === 'initiatives'
   // The board the person is actually reading — the band's host when this is a band.
   const readBoard = boards.find((b) => b.id === (viewedBoardId ?? boardId))
+  // A management board reads outcomes, not working links: a programme keeps the connections door
+  // on its own initiatives flow and drops it from linked bands; a portfolio drops it everywhere.
+  const showConnections =
+    readBoard?.band === 'portfolio' ? false : readBoard?.band === 'program' ? boardId === readBoard.id : true
   // A band is read on the board in front of the reader, so the dial of that board decides how
   // much of the band's initiatives to draw. A team board's own flow uses its own choice.
   const detail: BoardDetail = editMode ? 'full' : detailFor(boardDetail, viewedBoardId ?? boardId)
@@ -389,6 +393,7 @@ export function BoardSummary({
         onOpenDependencies={openItemDependencies}
         openDependencies={model.openDependencies.get(c.id)?.size ?? 0}
         hasDependencies={Boolean(model.dependenciesOf.get(c.id)?.length)}
+        showConnections={showConnections}
         // A multi-select group is a group of cards. Initiatives cannot join it, so they recede and
         // stop answering the pointer rather than inviting a click that the store would refuse.
         dimmed={picking || multiSelect.length > 0}
@@ -463,21 +468,20 @@ export function BoardSummary({
             onAddInitiative={interactive && addsInitiatives ? addInitiativeTo : undefined}
             // A section with more cells claims more of the width, so every *cell* gets an
             // equal share of the board — splitting a column doesn't squeeze its own cells.
-            style={{
-              borderTopWidth: 4,
-              borderTopStyle: 'solid',
-              borderTopColor: STAGE_ACCENT[stage],
+            // A section with more cells claims more of the width, so every *cell* gets an
+            // equal share of the board — splitting a column doesn't squeeze its own cells.
+            style={
               // A folded section gives its width back rather than its share of it. A stacked
               // one claims a single share — its cells are its own full width already — while
               // a split column shares itself out, so either way every cell holds one share
               // of the board and splitting never squeezes the cells it made.
-              ...(folded
+              folded
                 ? { flexGrow: 0, flexBasis: '36px', flexShrink: 0 }
-                : { flexGrow: split && !rows ? cells.length : 1, flexBasis: 0, flexShrink: 1 }),
-            }}
+                : { flexGrow: split && !rows ? cells.length : 1, flexBasis: 0, flexShrink: 1 }
+            }
             className={cn(
-              'flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200/90',
-              STAGE_SURFACE[stage],
+              'flex min-w-0 flex-col overflow-hidden rounded-xl border',
+              STAGE_COLUMN[stage].surface,
             )}
           >
             {split ? (
@@ -586,9 +590,14 @@ function Cell({
   // the name its own ground without becoming a card: the work below stays the brightest plane.
   const head = cn(
     HEAD_ROW,
-    'mx-1 mt-1 mb-1 gap-1.5 rounded-md px-2.5 py-1.5 text-slate-700',
-    isSection ? 'bg-white/60' : 'bg-white/75',
+    'mx-1 mt-1 mb-1 gap-1.5 rounded-md px-2.5 py-1.5',
+    isSection && stage
+      ? cn('shadow-sm', STAGE_COLUMN[stage].header)
+      : 'border border-slate-200 bg-white/75 text-slate-700',
   )
+  const headCount = isSection && stage
+    ? cn('rounded-full px-1.5 py-0.5 font-bold', STAGE_COLUMN[stage].count)
+    : 'rounded-full bg-white/70 px-1.5 py-0.5 font-semibold text-slate-600 ring-1 ring-slate-300/60'
   // A cell with nothing in it still needs to read as a place work can go. The drag gap counts
   // as content: while an initiative is in the air over an empty cell, the shadow is what the
   // cell shows.
@@ -664,7 +673,7 @@ function Cell({
       data-cell-id={leaf ? lane.id : undefined}
       data-section-id={sectionId}
     >
-      <div className={head}>
+      <div className={head} data-lane-header>
         {/* The same three slots the cards workflow uses: the fold control left, the name
             centred, the count and any edit controls right. The left slot was a spacer, which is
             what put this workflow's fold control over on the right with the editing. */}
@@ -675,7 +684,12 @@ function Cell({
                 e.stopPropagation()
                 toggleCollapse(lane.id)
               }}
-              className="grid h-6 w-6 shrink-0 place-items-center rounded text-slate-600 transition hover:bg-slate-200 hover:text-slate-800 pointer-coarse:h-9 pointer-coarse:w-9"
+              className={cn(
+                'grid h-6 w-6 shrink-0 place-items-center rounded transition pointer-coarse:h-9 pointer-coarse:w-9',
+                isSection
+                  ? 'text-white/80 hover:bg-white/15 hover:text-white'
+                  : 'text-slate-600 hover:bg-slate-200 hover:text-slate-800',
+              )}
               title={collapsedLanes[lane.id] === true ? 'Expand' : 'Collapse column'}
             >
               {collapsedLanes[lane.id] === true ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
@@ -692,7 +706,10 @@ function Cell({
             title="Rename this lane"
             // Bigger than its row, like the board's headers: the negative margin cancels the
             // padding, so the field is easier to hit and its text has not moved.
-            className="w-full self-stretch -my-0.5 rounded py-0.5 text-center text-meta font-bold uppercase leading-tight tracking-wide text-slate-700 transition hover:bg-slate-900/5"
+            className={cn(
+              'w-full self-stretch -my-0.5 rounded py-0.5 text-center text-meta font-bold uppercase leading-tight tracking-wide transition',
+              isSection ? 'text-white hover:bg-white/15' : 'text-slate-700 hover:bg-slate-900/5',
+            )}
             inputClassName="w-full self-stretch -my-0.5 rounded bg-white px-1 py-0.5 text-center text-meta font-semibold uppercase leading-tight tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
           />
         ) : (
@@ -702,7 +719,7 @@ function Cell({
         )}
         <span className="flex items-center justify-end gap-1">
           <span
-            className="shrink-0 rounded-full bg-white/70 px-1.5 py-0.5 font-mono text-micro font-semibold tabular-nums text-slate-600 ring-1 ring-slate-300/60"
+            className={cn('shrink-0 text-micro font-semibold tabular-nums', headCount)}
             title={`${count} initiative${count === 1 ? '' : 's'}`}
           >
             {count}

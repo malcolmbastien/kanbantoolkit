@@ -94,16 +94,28 @@ export function BulkActions() {
     }
   }
   const requestArchive = () => {
-    if (below.size === 0) {
+    const discard = !allComplete
+    if (below.size === 0 && !discard) {
       archiveItems(multiSelect)
       return
     }
     askConfirm({
-      title: `${allComplete ? 'Archive' : 'Discard'} ${count} item${count === 1 ? '' : 's'}?`,
-      body: `This also files ${below.size} item${below.size === 1 ? '' : 's'} below. Finished work is archived; unfinished work is discarded.`,
-      confirmLabel: allComplete ? 'Archive' : 'Discard',
-      danger: !allComplete,
-      onConfirm: () => archiveItems(multiSelect),
+      title: `${discard ? 'Discard' : 'Archive'} ${count} item${count === 1 ? '' : 's'}?`,
+      body:
+        below.size > 0
+          ? `This also files ${below.size} item${below.size === 1 ? '' : 's'} below. Finished work is archived; unfinished work is discarded.`
+          : 'The work leaves the board as unfinished. Its history stays, and you can restore it from the Archive.',
+      confirmLabel: discard ? 'Discard' : 'Archive',
+      danger: discard,
+      ...(discard
+        ? {
+            note: {
+              label: 'Why are you discarding it? (optional)',
+              placeholder: 'e.g. No longer part of the plan',
+            },
+          }
+        : {}),
+      onConfirm: (note) => archiveItems(multiSelect, note),
     })
   }
   const parentCandidates = items.filter(

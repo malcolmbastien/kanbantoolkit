@@ -59,6 +59,12 @@ test('an initiative on a team board links to a portfolio objective', async ({ pa
   await expect(group.getByRole('button', { name: 'New initiative' })).toBeVisible()
 })
 
+test('a portfolio does not put connections doors on its cards', async ({ page }) => {
+  await page.goto('/app?board=b-strategy')
+  await expect(page.locator('[data-card-id]').first()).toBeVisible()
+  await expect(page.locator('[data-open-connections]')).toHaveCount(0)
+})
+
 test('a portfolio initiative offers the item-scoped connections reading', async ({ page }) => {
   await page.goto('/app?board=b-strategy')
   // A mapped outcome, drawn in its objective's flow but living on a programme board.

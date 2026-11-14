@@ -125,7 +125,7 @@ describe('initiative health', () => {
     const unowned = healthy()
     unowned.items = unowned.items.map((i) => ({ ...i, assignees: [] }))
     expect(initiativeHealth('init', unowned, NOW).flags.map((f) => f.flag)).toEqual(['unowned'])
-    expect(initiativeHealth('init', unowned, NOW).flags[0].label).toBe('3 unowned')
+    expect(initiativeHealth('init', unowned, NOW).flags[0].label).toBe('2 unowned')
 
     // Nothing underneath at all is a state, not a finding: no badge, and no level.
     const empty: Graph = { ...healthy(), edges: [], placements: [] }
@@ -152,6 +152,8 @@ describe('initiative health', () => {
     graph.placements.push(at('d', 'backlog', NOW - DAY))
     graph.lanes = [...graph.lanes, lane('backlog', 'backlog')]
     graph.items[2] = { ...graph.items[2], blocked: true } // b
+    // c is moved into In Progress before its owner is removed: not-started work is not unowned.
+    graph.placements = graph.placements.map((p) => (p.itemId === 'c' ? { ...p, laneId: 'ip' } : p))
     graph.items[3] = { ...graph.items[3], assignees: [] } // c — nobody on it
     graph.items.push(card('gate', { typeId: 't-initiative' }))
     graph.placements.push(at('gate', 'ns', NOW - DAY))

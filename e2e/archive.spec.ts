@@ -34,6 +34,9 @@ test('a card in play is discarded, and the archive says so without keeping its c
   await expect(panel.getByRole('button', { name: 'Discard' })).toBeVisible()
   await expect(panel.getByRole('button', { name: 'Archive', exact: true })).toHaveCount(0)
   await panel.getByRole('button', { name: 'Discard' }).click()
+  const confirm = page.locator('[data-confirm-dialog]')
+  await confirm.getByLabel(/Why are you discarding it/).fill('Superseded by usage-based billing')
+  await confirm.getByRole('button', { name: 'Discard', exact: true }).click()
 
   // It leaves the board…
   await expect(page.locator('[data-card-id="st-usage-billing"]')).toHaveCount(0)
@@ -57,6 +60,9 @@ test('a card in play is discarded, and the archive says so without keeping its c
   await expect(drawer.getByRole('button', { name: 'Mark blocked' })).toHaveCount(0)
   // Read-only fields, but the one action that brings it back is still there.
   await expect(drawer.getByRole('button', { name: 'Restore' })).toBeVisible()
+  // The optional reason travels with the discard into the record.
+  await drawer.getByRole('button', { name: 'History' }).click()
+  await expect(drawer.getByText('Discarded — Superseded by usage-based billing')).toBeVisible()
 
   // Pressing on another row is not a click on the backdrop: the drawer must not close before the
   // row's own click opens the next item.
@@ -81,6 +87,7 @@ test('a discarded child stays in the drawer, not as a warning on the initiative 
   const childPanel = page.locator('[data-item-panel]')
   await childPanel.getByRole('button', { name: 'More', exact: true }).click()
   await childPanel.getByRole('button', { name: 'Discard', exact: true }).click()
+  await page.locator('[data-confirm-dialog]').getByRole('button', { name: 'Discard', exact: true }).click()
   await expect(page.locator('[data-card-id="st-usage-billing"]')).toHaveCount(0)
   await page.keyboard.press('Escape')
 

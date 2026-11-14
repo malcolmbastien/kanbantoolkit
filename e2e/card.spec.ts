@@ -57,6 +57,16 @@ test('the roll-up sits under the title, and the foot keeps its measurements', as
   expect(shape.rollup!.bottom, 'the roll-up stays out of the foot row').toBeLessThanOrEqual(Math.min(...tops))
 })
 
+test('a checklist is the first fact in the card footer', async ({ page }) => {
+  await openBoard(page)
+  const footer = page.locator('[data-card-id="st-payment-retries"] [data-card-footer]')
+  const order = await footer.evaluate((el) => {
+    const row = el.firstElementChild
+    return row ? [...row.children].map((child) => child.getAttribute('title') ?? child.textContent?.trim() ?? '') : []
+  })
+  expect(order[0]).toMatch(/^Checklist/)
+})
+
 test('pressing the roll-up opens the card it sits on, not the card it names', async ({ page }) => {
   await openBoard(page)
   const card = page.locator('[data-card-id="st-signup-rebuild"]')
@@ -141,6 +151,40 @@ test('a new card is offered only in the Backlog column', async ({ page }) => {
   for (const name of ['Not Started', 'In Progress', 'Done']) {
     await expect(laneRegion(page, name).getByRole('button', { name: /^Add card to / })).toHaveCount(0)
   }
+})
+
+test('a column header wears its stage colour', async ({ page }) => {
+  await openBoard(page)
+  const done = page.locator('[data-workflow="cards"] [data-lane-header]').filter({ hasText: 'Done' }).first()
+  await expect(done).toHaveClass(/bg-emerald-700/)
+  await expect(done.locator('[data-lane-count]')).toHaveClass(/bg-white\/20/)
+
+  // A sub-column header is a white shelf with a thin outline, not a second dark column.
+  const dev = page.locator('[data-workflow="cards"] [data-lane-header]').filter({ hasText: 'Dev' }).first()
+  expect(await dev.evaluate((el) => getComputedStyle(el).borderTopWidth)).toBe('1px')
+})
+
+test('a Done card wears a thin green edge and one quiet surface', async ({ page }) => {
+  await openBoard(page)
+  const card = page.locator('[data-card-id="st-signup-screens"]')
+  await expect(card).toHaveClass(/border-emerald-200/)
+  const background = (part: string) =>
+    card.locator(part).evaluate((el) => getComputedStyle(el).backgroundColor)
+  expect(await background('[data-card-header]')).toBe('rgba(0, 0, 0, 0)')
+  expect(await background('[data-card-footer]')).toBe('rgba(0, 0, 0, 0)')
+})
+
+test('the selected card outline sits inside the card, so a column edge cannot cut it', async ({ page }) => {
+  await openBoard(page)
+  const card = page.locator('[data-card-id="st-usage-billing"]')
+  await card.click()
+  await expect(page.locator('[data-item-panel]')).toBeVisible()
+
+  const outline = await card.evaluate((el) => {
+    const style = getComputedStyle(el)
+    return { style: style.outlineStyle, width: style.outlineWidth, offset: style.outlineOffset }
+  })
+  expect(outline).toEqual({ style: 'solid', width: '3px', offset: '-3px' })
 })
 
 test('a new card is selected, with its title ready to type', async ({ page }) => {

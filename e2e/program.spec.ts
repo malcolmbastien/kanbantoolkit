@@ -16,6 +16,17 @@ test('a programme board names each linked band as another board’s initiatives 
   await expect(page.getByRole('button', { name: /^Team / })).toBeVisible()
 })
 
+test('a programme keeps the connections door on its own flow and drops it from linked bands', async ({ page }) => {
+  await page.goto('/app?board=b-delivery')
+  const own = page.locator('[data-workflow="initiatives"]').first()
+  await expect(own.locator('[data-card-id]').first()).toBeVisible()
+  await expect(own.locator('[data-open-connections]').first()).toBeVisible()
+
+  const band = page.locator('[data-linked-board]').first()
+  await expect(band.locator('[data-card-id]').first()).toBeVisible()
+  await expect(band.locator('[data-open-connections]')).toHaveCount(0)
+})
+
 test('a linked band keeps the initiative kind banner', async ({ page }) => {
   await page.goto('/app?board=b-lob')
   await expect(page.getByText('Linked boards', { exact: true })).toBeVisible()

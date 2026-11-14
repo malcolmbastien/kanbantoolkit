@@ -28,7 +28,7 @@ test('a full column wears the alarm colour, not only a badge', async ({ page }) 
   // the board uses nowhere else — hazard tape and the words — not a tint another stage could be
   // mistaken for. The cards stay white, which keeps a busy column reading as a column.
   const over = cell('Not Started')
-  await expect(over).toHaveClass(/border-rose-500/)
+  await expect(over).toHaveClass(/border-rose-400/)
   await expect(over.locator('[data-wip-stripe="over"]')).toHaveCount(1)
   expect(
     await over.locator('[data-wip-stripe]').evaluate((el) => getComputedStyle(el).backgroundImage),
@@ -37,7 +37,7 @@ test('a full column wears the alarm colour, not only a badge', async ({ page }) 
   await expect(over.locator('[data-wip-label="over"]')).toHaveText('Over WIP limit')
 
   // A column with no limit is untouched.
-  await expect(cell('In Progress')).not.toHaveClass(/border-(rose|amber)-500/)
+  await expect(cell('In Progress')).not.toHaveClass(/border-(rose|amber)-(400|500)/)
 
   // Bring Backlog to its own count, and it reads amber: at a limit is a watch, not a risk.
   await page.getByRole('button', { name: 'Edit board' }).click()
@@ -50,8 +50,17 @@ test('a full column wears the alarm colour, not only a badge', async ({ page }) 
   await page.getByRole('button', { name: 'Save' }).click()
 
   const at = cell('Backlog')
-  await expect(at).toHaveClass(/border-amber-500/)
+  await expect(at).toHaveClass(/border-amber-400/)
   await expect(at.locator('[data-wip-label="at"]')).toHaveText('At WIP limit')
+
+  // A folded column keeps the alarm colour on its strip: red for over, amber for at.
+  await over.getByTitle('Collapse column').click()
+  const strip = page
+    .locator('[data-workflow="cards"] [role="treeitem"][aria-expanded="false"]')
+    .filter({ hasText: 'Not Started' })
+    .first()
+  const edge = await strip.evaluate((el) => getComputedStyle(el).borderTopColor)
+  expect(edge).toBe('rgb(225, 29, 72)')
 })
 
 test('cancelling the reason leaves the card exactly where it was', async ({ page }) => {

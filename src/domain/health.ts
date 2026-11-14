@@ -131,13 +131,14 @@ export function initiativeHealth(id: string, graph: Graph, now = Date.now()): In
     })
   }
 
-  // Uncovered work: committed cards below that nobody owns.
-  const unowned = open.filter((i) => stageOf(i.id, graph) !== 'backlog' && (i.assignees ?? []).length === 0)
+  // Uncovered work: work under way below that nobody owns. Not Started is still a plan and
+  // Backlog is inventory, so neither needs an owner yet.
+  const unowned = open.filter((i) => stageOf(i.id, graph) === 'inProgress' && (i.assignees ?? []).length === 0)
   if (unowned.length > 0) {
     flags.push({
       flag: 'unowned',
       label: `${unowned.length} unowned`,
-      why: `${unowned.length} committed card${plural(unowned.length)} below ${unowned.length === 1 ? 'has' : 'have'} no owner`,
+      why: `${unowned.length} card${plural(unowned.length)} in progress below ${unowned.length === 1 ? 'has' : 'have'} no owner`,
       tone: 'watch',
       items: unowned.map((i) => i.id),
     })

@@ -122,13 +122,28 @@ export function boardAttention(
   return { population: makesCards ? 'cards' : 'initiatives', rows: orderRows(rows), counts }
 }
 
+/** Loudest first; work nobody has judged goes after every priority. */
+const PRIORITY_RANK: Record<NonNullable<Item['priority']> | 'none', number> = {
+  urgent: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+  none: 4,
+}
+
 /**
- * Worst first: the number of signals, then the longest-known age, then the title. A reader who
- * stops after the first row has still seen the one with the most wrong with it.
+ * Work that needs a look comes first; within it, a person's own judgement leads. An urgent card
+ * with one signal is looked at before a low card with four. Within a priority, the number of
+ * signals, then the longest-known age, then the title. A reader who stops after the first row has
+ * still seen the one the team marked as most important.
  */
 export function orderRows(rows: AttentionRow[]): AttentionRow[] {
+  const rank = (item: Item) => (item.priority ? PRIORITY_RANK[item.priority] : PRIORITY_RANK.none)
+  const needsLook = (row: AttentionRow) => (row.signals.length > 0 ? 0 : 1)
   return [...rows].sort(
     (a, b) =>
+      needsLook(a) - needsLook(b) ||
+      rank(a.item) - rank(b.item) ||
       b.signals.length - a.signals.length ||
       (b.ageDays ?? -1) - (a.ageDays ?? -1) ||
       a.item.title.localeCompare(b.item.title, undefined, { sensitivity: 'base' }),
@@ -142,8 +157,6 @@ export function orderRows(rows: AttentionRow[]): AttentionRow[] {
 function cardRows(graph: Graph, boardId: string, flows: BoardFlow[], now: number): AttentionRow[] {
   const flowsHere = cardsFlows(flows, boardId)
   const laneIds = new Set(flowsHere.flatMap((flow) => workflowLanes(graph.lanes, flow.id)).map((l) => l.id))
-  // "Backlog" is two answers on a board with two cards flows, so the row says which tree it means.
-  const nameOfFlow = flowsHere.length > 1 ? (laneId: string) => flows.find((f) => f.id === graph.lanes.find((l) => l.id === laneId)?.flowId)?.name : undefined
   const rows: AttentionRow[] = []
   for (const placement of graph.placements) {
     if (placement.boardId !== boardId || !laneIds.has(placement.laneId)) continue
@@ -155,7 +168,7 @@ function cardRows(graph: Graph, boardId: string, flows: BoardFlow[], now: number
     const age = ageDays(placement, now)
     rows.push({
       item,
-      status: cardStatus(graph, placement, stage, nameOfFlow?.(placement.laneId)),
+      status: cardStatus(graph, placement, stage),
       stage,
       ...(age !== undefined ? { ageDays: age } : {}),
       signals: cardSignals(item, stage, age, now, graph),
@@ -164,11 +177,14 @@ function cardRows(graph: Graph, boardId: string, flows: BoardFlow[], now: number
   return rows
 }
 
-/** The lane path (the root's nameless top excluded), with the stage as the fallback. */
-function cardStatus(graph: Graph, placement: Placement, stage: Stage, flowName?: string): string {
+/**
+ * The lowest-level column the card sits in, with the stage as the fallback. The dashboard is read
+ * away from the board, so the full lane path would repeat ancestors a reader cannot see; "Dev" is
+ * the answer to "where is it", and the board's own tree supplies the rest.
+ */
+function cardStatus(graph: Graph, placement: Placement, stage: Stage): string {
   const path = lanePath(graph.lanes, placement.laneId).filter(Boolean)
-  const where = path.length > 0 ? path.join(' · ') : STAGE_LABELS[stage]
-  return flowName ? `${flowName} · ${where}` : where
+  return path.at(-1) ?? STAGE_LABELS[stage]
 }
 
 function cardSignals(
@@ -249,13 +265,13 @@ function cardSignals(
     })
   }
 
-  // The same test as the assignee filter's "Unassigned" entry, so the count and the filtered
-  // board cannot disagree.
-  if ((item.assignees ?? []).length === 0) {
+  // Ownership is a commitment: work under way needs a person. Work not started is still a plan,
+  // and a Backlog item is inventory — neither is a finding just because nobody holds it yet.
+  if (stage === 'inProgress' && (item.assignees ?? []).length === 0) {
     signals.push({
       key: 'unassigned',
       label: 'Unassigned',
-      why: 'Nobody is assigned',
+      why: 'It is in progress and nobody is assigned',
       tone: 'watch',
     })
   }

@@ -226,7 +226,7 @@ export function createSeed(): FlowState {
     targetEndDate: day(24),
   })
   card('st-pricing-cache', 'Cache the pricing catalogue', 't-task', 'b-atlas', a.dev, 'inProgress', 16, 2, {
-    assignees: ['u-ds'],
+    // In progress with nobody on it: the one state that makes "Unassigned" a finding.
   })
   card('st-payment-retries', 'Payment retries on soft decline', 't-story', 'b-atlas', a.test!, 'inProgress', 24, 4, {
     assignees: ['u-ds', 'u-mb'],
@@ -240,7 +240,7 @@ export function createSeed(): FlowState {
     ],
   })
   card('st-invoice-numbering', 'Migrate invoice numbering', 't-story', 'b-atlas', a.ns, 'notStarted', 19, 9, {
-    // Nobody on it, and overdue: committed work with no owner is exactly what health is for.
+    // Nobody on it yet, and overdue: not-started work may wait for an owner, but the promise has passed.
     targetStartDate: day(-8),
     targetEndDate: day(-3),
     dueDate: day(-3),

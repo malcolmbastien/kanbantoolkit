@@ -260,6 +260,34 @@ export const BUCKET_DOT: Record<Stage, string> = {
 export const STAGE_ACCENT: Record<Stage, string> = STAGE_COLOR
 
 /**
+ * A cards column's own reading: a light ground, a thin stage-coloured edge and a dark header in
+ * the stage's colour. The accent is the header now, not a bar above the column, and the count sits
+ * on the dark header as a small translucent pill.
+ */
+export const STAGE_COLUMN: Record<Stage, { surface: string; header: string; count: string }> = {
+  backlog: {
+    surface: 'border-slate-200 bg-slate-100/60',
+    header: 'bg-slate-600 text-white',
+    count: 'bg-white/20 text-white ring-1 ring-white/30',
+  },
+  notStarted: {
+    surface: 'border-blue-200 bg-blue-50/50',
+    header: 'bg-blue-600 text-white',
+    count: 'bg-white/20 text-white ring-1 ring-white/30',
+  },
+  inProgress: {
+    surface: 'border-violet-200 bg-violet-50/40',
+    header: 'bg-violet-600 text-white',
+    count: 'bg-white/20 text-white ring-1 ring-white/30',
+  },
+  done: {
+    surface: 'border-emerald-200 bg-emerald-50/40',
+    header: 'bg-emerald-700 text-white',
+    count: 'bg-white/20 text-white ring-1 ring-white/30',
+  },
+}
+
+/**
  * The stage colours for a *stacked* chart, where four bands sit against one another rather than
  * beside a label. The board's own accents are chosen for a column header and a dot; in a stack the
  * blue and violet are too close and the thin bands disappear. These use the Okabe-Ito qualitative
@@ -355,28 +383,32 @@ export const WIP_PILL = {
  *
  * A tinted wash was not enough: the board already uses colour to say which stage a column is, and
  * a soft amber or rose read as another pleasant column colour rather than as a problem. So a
- * breach is drawn in things this board uses nowhere else — a hazard-striped edge, a solid header
- * and the words. `lane` is the top-level column (ground and edge), `cell` the body of a nested
- * cell, `header` the name shelf (the words sit under the name on it), `rule` the hairline between
- * the two, `hazard` the tape's gradient, and `label` the sentence.
+ * breach is drawn in things this board uses nowhere else — a hazard-striped header, a solid title
+ * bar, a darker sentence beneath it, and a glow around the whole column. `lane` is the top-level
+ * column (ground and edge), `cell` the body of a nested cell, `header` the title bar and its edge,
+ * `rule` the sentence strip beneath it, `hazard` the tape's gradient, and `label` the sentence.
  */
 export const WIP_SURFACE = {
   over: {
-    lane: 'border-2 border-rose-500 bg-rose-100/60',
-    cell: 'border-2 border-rose-500 bg-rose-100/50',
-    header: 'bg-rose-600 text-white',
+    lane:
+      'border-2 border-rose-400 bg-rose-50/40 shadow-[0_0_0_1px_rgba(225,29,72,0.2),0_4px_12px_rgba(225,29,72,0.06)]',
+    cell: 'border-2 border-rose-400 bg-rose-50/40',
+    header: 'border border-rose-300 bg-rose-600 text-white shadow-sm',
     stripe: 'bg-rose-600 text-white',
-    hazard: 'repeating-linear-gradient(45deg, #e11d48 0 5px, #4c0519 5px 10px)',
-    rule: 'border-white/30',
+    hazard:
+      'repeating-linear-gradient(-45deg, rgba(255,255,255,0.22) 0 8px, rgba(0,0,0,0.12) 8px 16px)',
+    rule: 'border-rose-500/50 bg-rose-700 text-rose-100',
     label: 'Over WIP limit',
   },
   at: {
-    lane: 'border-2 border-amber-500 bg-amber-100/50',
-    cell: 'border-2 border-amber-500 bg-amber-100/40',
-    header: 'bg-amber-500 text-amber-950',
+    lane:
+      'border-2 border-amber-400 bg-amber-50/40 shadow-[0_0_0_1px_rgba(245,158,11,0.2),0_4px_12px_rgba(245,158,11,0.06)]',
+    cell: 'border-2 border-amber-400 bg-amber-50/40',
+    header: 'border border-amber-300 bg-amber-500 text-amber-950 shadow-sm',
     stripe: 'bg-amber-500 text-amber-950',
-    hazard: 'repeating-linear-gradient(45deg, #f59e0b 0 5px, #78350f 5px 10px)',
-    rule: 'border-amber-900/30',
+    hazard:
+      'repeating-linear-gradient(-45deg, rgba(255,255,255,0.22) 0 8px, rgba(0,0,0,0.12) 8px 16px)',
+    rule: 'border-amber-600/50 bg-amber-600 text-amber-50',
     label: 'At WIP limit',
   },
 } as const

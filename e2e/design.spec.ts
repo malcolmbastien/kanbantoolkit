@@ -324,35 +324,31 @@ test('a folded column at any depth is a strip, and its outline is not clipped', 
   await expect(laneRegion(page, 'Dev')).toHaveCount(0)
 })
 
-test('a folded column keeps its stage accent when it expands again', async ({ page }) => {
+test('a folded column keeps its stage header when it expands again', async ({ page }) => {
   await openBoard(page)
-  const accent = (locator: ReturnType<typeof page.locator>) =>
-    locator.evaluate((el) => {
-      const style = getComputedStyle(el)
-      return { width: style.borderTopWidth, colour: style.borderTopColor }
-    })
+  const header = (locator: ReturnType<typeof page.locator>) => locator.locator('[data-lane-header]').first()
 
-  // The initiatives flow: In Progress is violet.
+  // The initiatives flow: In Progress wears violet.
   const initiatives = page.locator('[data-workflow="initiatives"]')
   const initiativeColumn = () => initiatives.locator('[data-section-id]').filter({ hasText: 'IN PROGRESS' }).first()
-  expect(await accent(initiativeColumn())).toEqual({ width: '4px', colour: 'rgb(124, 58, 237)' })
+  await expect(header(initiativeColumn())).toHaveClass(/bg-violet-600/)
   await initiativeColumn().getByTitle('Collapse column').first().click()
   await expect(initiatives.getByTitle('Expand').first()).toBeVisible()
   await initiatives.getByTitle('Expand').first().click()
-  expect(await accent(initiativeColumn())).toEqual({ width: '4px', colour: 'rgb(124, 58, 237)' })
+  await expect(header(initiativeColumn())).toHaveClass(/bg-violet-600/)
 
-  // The cards flow uses the same accent on its top-level columns.
+  // The cards flow uses the same stage header on its top-level columns.
   const cards = page.locator('[data-flow-band]').first()
   const cardColumn = () =>
     cards
       .locator('[role="treeitem"][aria-level="2"]:not([data-lane-cell])')
       .filter({ hasText: 'IN PROGRESS' })
       .first()
-  expect(await accent(cardColumn())).toEqual({ width: '4px', colour: 'rgb(124, 58, 237)' })
+  await expect(header(cardColumn())).toHaveClass(/bg-violet-600/)
   await cardColumn().getByTitle('Collapse column').first().click()
   await expect(cards.getByTitle('Expand').first()).toBeVisible()
   await cards.getByTitle('Expand').first().click()
-  expect(await accent(cardColumn())).toEqual({ width: '4px', colour: 'rgb(124, 58, 237)' })
+  await expect(header(cardColumn())).toHaveClass(/bg-violet-600/)
 })
 
 test('the fold and policy controls have usable hit targets', async ({ page }) => {

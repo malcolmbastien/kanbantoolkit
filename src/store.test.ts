@@ -852,6 +852,17 @@ describe('store actions', () => {
     expect(s().items.find((i) => i.id === 'init-signup')!.log?.some((e) => e.kind === 'unarchived')).toBe(true)
   })
 
+  it('keeps an optional reason on the filing entry, only on the item the person filed', () => {
+    const reason = 'Superseded by the new onboarding programme'
+    s().archiveItem('init-signup', reason)
+    const root = s().items.find((i) => i.id === 'init-signup')!
+    expect(root.log?.at(-1)).toMatchObject({ kind: 'discarded', note: reason })
+    // The cascade files the subtree, but the reason belongs to the item the person pressed.
+    const child = s().items.find((i) => i.id === 'st-email')!
+    expect(child.log?.at(-1)).toMatchObject({ kind: 'discarded' })
+    expect(child.log?.at(-1)?.note).toBeUndefined()
+  })
+
   it('refuses to restore a child while its parent is still filed away', () => {
     s().archiveItem('init-signup')
     // The child is filed with its parent, but restoring it alone would leave a live card under an

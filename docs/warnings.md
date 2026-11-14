@@ -58,7 +58,7 @@ The flags themselves:
 | **N waiting** | risk | N cards below wait on work that is not done. | That work is done, or the links are removed. |
 | **N discarded** | watch | N items below were discarded. They remain in the hierarchy as history but no longer count toward progress. Reported in the drawer and the dashboard's health reading, not as a badge on the card face. | The items are restored, or the initiative is discarded or re-planned. |
 | **still Nd** | watch | The initiative is committed (Not Started or In Progress) and nothing below it has moved for at least 7 days. Where the last movement is unknown, the flag is not raised. | Something below moves. |
-| **N unowned** | watch | N committed cards below have no assignee. | Each gets an owner, or leaves the committed stages. |
+| **N unowned** | watch | N cards in progress below have no assignee. | Each gets an owner, or leaves In Progress. |
 | **N backlog** | watch | The initiative is committed, but N of its leaves are in Backlog. | Those cards leave Backlog, or the initiative returns to Backlog. |
 | **N ending later** | watch | N cards below are planned to end after the initiative's target end date. About the plan's window, not the due date: two promises on different days is not an inconsistency. | The target dates are brought into line, or the cards finish. |
 
@@ -79,7 +79,12 @@ them:
 | **Due soon** | watch | Its due date falls inside the next seven days — the window the board's **Due soon** filter names — and it is not done. A row never carries both **Overdue** and **Due soon**: a passed day is late, not soon. | It is done, or the date moves out of the window. |
 | **Late start** | watch | Its planned target start has passed and it has **not started**: a card in Backlog or Not Started, an initiative whose derived section is Backlog or Not Started. The date is the plan; the board's stage records whether work began, so an item under way is not late. An item with no planned start says nothing. | The work starts, or the target start is moved. |
 | **Stale** | watch | On a card: it has sat in Not Started or In Progress for at least 7 days. On an initiative: the health rule **still Nd**. A card in Backlog can show an age badge but is not stale. | It moves. |
-| **Unassigned** | watch | On a card: nobody is assigned. On an initiative: the health rule **N unowned**, counting committed cards below with no owner. | Assign somebody, or the work leaves the committed stages. |
+| **Unassigned** | watch | On a card: it is **In Progress** and nobody is assigned. On an initiative: the health rule **N unowned**, counting In Progress cards below with no owner. Work that has not started does not need an owner yet. | Assign somebody, or the work leaves In Progress. |
+
+The table also names each item's **Priority** — Urgent, High, Medium or Low; an unprioritised item
+shows a dash. The list leads with the highest priority, so an urgent card with one signal is read
+before a low card with several. Within a priority the order is unchanged: more signals first, then
+the longest-known age, then the title. Work nobody has prioritised comes after the judged rows.
 
 The band opens with **All issues**, the default view: every item carrying at least one signal. It is a
 way back from a filter rather than a signal of its own, so it is the one tile with no tone.

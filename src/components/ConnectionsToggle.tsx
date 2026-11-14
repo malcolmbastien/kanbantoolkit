@@ -1,4 +1,4 @@
-import { Waypoints } from 'lucide-react'
+import { ArrowLeftRight } from 'lucide-react'
 import { announce } from '@/lib/announce'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -69,7 +69,7 @@ export function ConnectionsToggle({ boardId }: { boardId: string }) {
           : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900',
       )}
     >
-      <Waypoints size={11} aria-hidden /> Connections
+      <ArrowLeftRight size={11} aria-hidden /> Connections
     </button>
   )
 }

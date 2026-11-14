@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef, useState } from 'react'
-import { Ban, Check, Clock, CornerDownRight, Link2, ListChecks, Lock } from 'lucide-react'
+import { ArrowLeftRight, Ban, Check, Clock, CornerDownRight, Link2, ListChecks, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, softChipColors, STAGE_COLOR, tintOn } from '@/lib/colors'
 import { dueLabel, dueState } from '@/domain/due'
@@ -144,6 +144,11 @@ interface Props {
    * The badge is a door; a surface that has no drawer leaves it out and the count is read only.
    */
   onOpenDependencies?: (itemId: string) => void
+  /**
+   * Whether to show the card's dependency/connections button. A management board reads outcomes;
+   * its bands are not working surfaces, so the door is left off where it would only add noise.
+   */
+  showConnections?: boolean
   /**
    * The day this card's planned start slipped, when the board still says it has not begun. The
    * card's face and the dashboard's attention list read the same rule (`lateStartDay`).
@@ -304,7 +309,7 @@ function DependencyCount({
   )
   const content = (
     <>
-      <Link2 size={11} className="shrink-0 text-slate-600" aria-hidden />
+      <ArrowLeftRight size={11} className="shrink-0 text-slate-600" aria-hidden />
       {count ? count : null}
     </>
   )
@@ -345,7 +350,7 @@ function DependencyCount({
 /** The ring a focused card wears — inside, so the board's geometry does not move. */
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
 
-function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', draggable, onDragStateChange, locked, selected, boundary, openDependencies, hasDependencies, onOpenDependencies, lateStart, multi, dimmed, filterDimmed, inert, connectRoot, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', draggable, onDragStateChange, locked, selected, boundary, openDependencies, hasDependencies, onOpenDependencies, showConnections = true, lateStart, multi, dimmed, filterDimmed, inert, connectRoot, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const complete = summary.done || completed
   const held = heldByOther(usePresence((state) => state.locks), item.id)
 
@@ -386,17 +391,29 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         }
       : {}
 
-  // Highlight priority: a selected boundary dependency (amber) > multi-select
-  // (indigo-600) > item selection (indigo-400).
+  // Highlight priority: a selected boundary dependency (slate) > multi-select
+  // (indigo) > item selection (indigo, strongest). The outline is drawn *inside* the card, so a
+  // card at the edge of a column keeps its whole frame; a ring outside it was clipped by the
+  // column's rounded box.
   const selectionCls = cn(
     boundary
-      ? 'ring-2 ring-slate-900'
+      ? 'z-10 outline-2 outline-solid outline-offset-[-2px] outline-slate-900 shadow-lg'
       : multi
-        ? 'ring-2 ring-indigo-600'
+        ? 'z-10 outline-2 outline-solid outline-offset-[-2px] outline-indigo-600 shadow-md'
         : selected
-          ? 'ring-2 ring-indigo-400'
+          ? 'z-10 outline-[3px] outline-solid outline-offset-[-3px] outline-indigo-600 shadow-lg'
           : '',
   )
+  // A blockage is the loudest fact a card can carry. Normal cards no longer wear a type-colour
+  // rail, so the one card with a rose rail is the one that is blocked; the callout says why.
+  const blocked = Boolean(item.blocked && !complete)
+  const cardEdges = blocked
+    ? 'border-rose-300 border-l-4 border-l-rose-600'
+    : summary.done
+      ? wide
+        ? 'border-emerald-300'
+        : 'border-emerald-200/80'
+      : 'border-slate-300/80'
   const lockCls = locked ? 'opacity-50 saturate-75' : ''
   // While a multi-select group is active, the cards outside it recede. A filter can also ask for
   // its non-matching cards to recede; hover or keyboard focus brings either back to full emphasis.
@@ -418,10 +435,10 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
   // chip, because it is metadata about the work below rather than a statement about this card.
   const blockedAlert = item.blocked && !complete ? (
     <span
-      className="flex w-full items-start gap-1.5 rounded-md bg-rose-50 px-2 py-1.5 text-rose-700 ring-1 ring-rose-200"
+      className="flex w-full items-start gap-1.5 rounded-md bg-rose-100 px-2 py-1.5 text-rose-800 ring-1 ring-rose-300"
       title={item.blockedReason ? `Blocked: ${item.blockedReason}` : 'Blocked'}
     >
-      <Lock size={12} className="mt-0.5 shrink-0" />
+      <Ban size={12} className="mt-0.5 shrink-0" />
       <span className="min-w-0 text-micro font-medium leading-snug">
         <span className="font-bold uppercase tracking-wide">Blocked</span>
         {item.blockedReason ? <span> · {item.blockedReason}</span> : null}
@@ -541,44 +558,52 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         data-card-id={item.id}
         data-card-detail="summary"
         data-card-initiative={wide ? '' : undefined}
+        data-card-blocked={blocked ? '' : undefined}
         data-pick-root={connectRoot ? '' : undefined}
         onClick={openOnClick}
         onContextMenu={openOnContextMenu}
         className={cn(
-          'group relative flex min-h-[76px] w-full flex-col overflow-hidden rounded-lg border border-l-[4px] border-slate-300/80 bg-white text-left shadow-sm transition',
+          'group relative flex min-h-[76px] w-full flex-col overflow-hidden rounded-lg border bg-white text-left shadow-xs transition',
+          cardEdges,
           summary.done && 'bg-slate-50',
           FOCUS_RING,
           draggable && !locked && !inert && 'touch-pan-y',
-          locked || inert ? 'cursor-default' : 'cursor-pointer hover:border-slate-400 hover:shadow-md',
+          locked || inert
+            ? 'cursor-default'
+            : cn(
+                'cursor-pointer hover:shadow-sm',
+                blocked ? 'hover:border-rose-300 hover:border-l-rose-600' : summary.done ? 'hover:border-emerald-300' : 'hover:border-slate-400',
+              ),
           selectionCls,
           lockCls,
           dimCls,
           dropTarget && 'ring-2 ring-indigo-500',
           connectRootCls,
         )}
-        style={{ borderLeftColor: type.color }}
       >
         <div className="flex items-center gap-1.5 px-2 pt-1.5">
           {type.id !== NONE_TYPE_ID && (
             <span
-              className="inline-flex min-h-[18px] shrink-0 items-center whitespace-nowrap rounded px-1.5 text-micro font-bold uppercase tracking-wide"
-              style={softChipColors(type.color)}
+              className="inline-flex min-h-[18px] shrink-0 items-center whitespace-nowrap rounded border px-1.5 text-micro font-bold uppercase tracking-wide"
+              style={{ ...softChipColors(type.color), borderColor: tintOn(type.color, 0.32) }}
             >
               {type.name}
             </span>
           )}
           <span className="ml-auto">
-            <DependencyCount
-              count={complete ? 0 : openDependencies}
-              onOpen={openDependenciesDoor}
-              always={wide && (summary.childCount > 0 || Boolean(hasDependencies))}
-            />
+            {showConnections && (
+              <DependencyCount
+                count={complete ? 0 : openDependencies}
+                onOpen={openDependenciesDoor}
+                always={wide && (summary.childCount > 0 || Boolean(hasDependencies))}
+              />
+            )}
           </span>
         </div>
 
         <div
           className={cn(
-            'line-clamp-2 break-words px-2 pt-1 text-body font-semibold leading-snug',
+            'line-clamp-2 break-words px-2 pt-0.5 text-body font-semibold leading-snug',
             summary.done ? 'text-slate-700' : 'text-slate-900',
           )}
         >
@@ -615,7 +640,6 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
   }
 
   if (detail === 'mini') {
-    const blocked = Boolean(item.blocked && !complete)
     const warned = miniAttention.some((warning) => warning.label !== 'Blocked')
     // The tile's accessible name is the same reading the hover layer gives a pointer: what it is,
     // what it rolls up to, who has it, and why it is marked.
@@ -699,8 +723,8 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
             <div className="flex items-center gap-1.5">
               {type.id !== NONE_TYPE_ID && (
                 <span
-                  className="inline-flex min-h-[18px] shrink-0 items-center whitespace-nowrap rounded px-1.5 text-micro font-bold uppercase tracking-wide"
-                  style={softChipColors(type.color)}
+                  className="inline-flex min-h-[18px] shrink-0 items-center whitespace-nowrap rounded border px-1.5 text-micro font-bold uppercase tracking-wide"
+                  style={{ ...softChipColors(type.color), borderColor: tintOn(type.color, 0.32) }}
                 >
                   {type.name}
                 </span>
@@ -811,6 +835,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         // The wide card is the initiative, and an initiative is what a card can roll up to — so
         // the marker is how a drop finds the cards that could be its target. A card is not one.
         data-card-initiative=""
+        data-card-blocked={blocked ? '' : undefined}
         data-pick-root={connectRoot ? '' : undefined}
         onContextMenu={(e) => {
           if (inert) {
@@ -832,7 +857,8 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         className={cn(
           // `@container` lets the card shed detail as its column narrows (see the `@[Npx]:`
           // variants below) instead of overflowing a customised flow.
-          '@container group relative flex w-full flex-col overflow-hidden rounded-lg border border-slate-300/80 bg-white text-left shadow-md transition',
+          '@container group relative flex w-full flex-col overflow-hidden rounded-lg border bg-white text-left shadow-sm transition',
+          cardEdges,
           summary.done && 'bg-slate-50',
           FOCUS_RING,
           // On touch: a vertical swipe still scrolls the board (the browser takes it, and the
@@ -840,7 +866,12 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           // would make the board unscrollable from a card; both the browser's would make a card
           // undraggable.
           draggable && !locked && !inert && 'touch-pan-y',
-          locked || inert ? 'cursor-default' : 'cursor-pointer hover:border-slate-400 hover:shadow-lg',
+          locked || inert
+            ? 'cursor-default'
+            : cn(
+                'cursor-pointer hover:shadow-md',
+                blocked ? 'hover:border-rose-300 hover:border-l-rose-600' : summary.done ? 'hover:border-emerald-300' : 'hover:border-slate-400',
+              ),
           selectionCls,
           lockCls,
           dimCls,
@@ -872,11 +903,13 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
                   <Lock size={12} />
                 </span>
               )}
-              <DependencyCount
-                count={complete ? 0 : openDependencies}
-                onOpen={openDependenciesDoor}
-                always={summary.childCount > 0 || Boolean(hasDependencies)}
-              />
+              {showConnections && (
+                <DependencyCount
+                  count={complete ? 0 : openDependencies}
+                  onOpen={openDependenciesDoor}
+                  always={summary.childCount > 0 || Boolean(hasDependencies)}
+                />
+              )}
               <PriorityBadge priority={item.priority} />
             </span>
           </div>
@@ -1026,22 +1059,8 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
       title={filterDimmed ? 'Does not match the active filters' : undefined}
       data-card-id={item.id}
       data-card-detail="full"
+      data-card-blocked={blocked ? '' : undefined}
       data-pick-root={connectRoot ? '' : undefined}
-      style={{
-        // The type is the rail down the left edge and the badge in the identity row. The rest of
-        // the surface is white, as the board's card spec asks: the lane is already tinted, and a
-        // card that tints itself too is a second, competing answer to "where am I?".
-        borderLeftColor: type.color,
-        // Lifted: out of the lane's flow, so the cards below close up behind it — but still
-        // mounted, because `dragend` has to reach a card that is in the document.
-        //
-        // These two properties and nothing more. A drag source that the browser can no longer
-        // hit-test cancels the drag on the spot — `dragstart` is followed immediately by
-        // `dragend` and no drop is ever offered. `visibility: hidden`, `pointer-events: none`,
-        // a negative `z-index` and a collapsed box all do exactly that; `opacity: 0` does not,
-        // because it changes only what is painted. Transparent is not the same as gone.
-
-      }}
       onClick={(e) => {
         e.stopPropagation()
         if (locked || inert) return
@@ -1060,15 +1079,20 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         onContextMenu(item.id, e.clientX, e.clientY)
       }}
       className={cn(
-        // Flat and quiet: a hairline border and the type as a rail down the left. The resting
-        // shadow is what makes the card an object on a tinted lane rather than another pale
-        // plane beside it; it deepens on hover, when the card is asked a question. What is loud
-        // on a card is its warnings, not its box.
-        'group relative flex min-h-[116px] w-full flex-col overflow-hidden rounded-lg border border-l-[4px] border-slate-300/80 text-left shadow-md transition',
-        summary.done ? 'bg-slate-50' : 'bg-white',
+        // Flat and quiet: a hairline border and white surface. The type is a chip in the identity
+        // row, not a rail: a coloured edge on every card competed with the one edge that matters,
+        // the rose rail of a blocked card. What is loud on a card is its state, not its type.
+        'group relative flex min-h-[116px] w-full flex-col overflow-hidden rounded-lg border bg-white text-left shadow-sm transition',
+        cardEdges,
+        summary.done && 'bg-slate-50',
         FOCUS_RING,
         draggable && !locked && !inert && 'touch-pan-y',
-        locked || inert ? 'cursor-default' : 'cursor-pointer hover:shadow-lg',
+        locked || inert
+          ? 'cursor-default'
+          : cn(
+              'cursor-pointer hover:shadow-md',
+              blocked ? 'hover:border-rose-300 hover:border-l-rose-600' : summary.done ? 'hover:border-emerald-300' : 'hover:border-slate-400',
+            ),
         selectionCls,
         lockCls,
         dimCls,
@@ -1078,11 +1102,14 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Tier 1 — identity and weight. The type sits at the leading edge and the two marks a
             reader weighs it by sit at the trailing edge, on the same line at every card width. */}
-        <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-3 py-1.5">
+        <div
+          data-card-header
+          className="flex items-center justify-between gap-2 px-3 pb-0.5 pt-1.5"
+        >
           {type.id !== NONE_TYPE_ID && (
             <span
-              className="inline-flex min-h-[20px] shrink-0 items-center whitespace-nowrap rounded px-1.5 text-micro font-bold uppercase tracking-wide"
-              style={softChipColors(type.color)}
+              className="inline-flex min-h-[20px] shrink-0 items-center whitespace-nowrap rounded border px-1.5 text-micro font-bold uppercase tracking-wide"
+              style={{ ...softChipColors(type.color), borderColor: tintOn(type.color, 0.32) }}
             >
               {type.name}
             </span>
@@ -1091,13 +1118,13 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
               leading chip, and with one child the row would start the marks at the left edge.
               The weight a reader scans for stays in the top-right corner whatever the type. */}
           <span className="ml-auto flex shrink-0 items-center gap-1.5">
-            <DependencyCount count={complete ? 0 : openDependencies} onOpen={openDependenciesDoor} />
+            {showConnections && <DependencyCount count={complete ? 0 : openDependencies} onOpen={openDependenciesDoor} />}
             <PriorityBadge priority={item.priority} />
           </span>
         </div>
 
         {/* Tier 2 — the title, then the lineage that places it, then what the card is saying. */}
-        <div className="flex flex-1 flex-col gap-1.5 px-3 py-2.5">
+        <div className="flex flex-1 flex-col gap-1.5 px-3 pb-2.5 pt-1.5">
           <div className={cn('line-clamp-2 break-words text-title font-semibold leading-snug', summary.done ? 'text-slate-700' : 'text-slate-900')}>
             {item.title}
           </div>
@@ -1130,10 +1157,11 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
 
         {/* Tier 3 — execution telemetry and ownership, on one quiet rule at the foot. */}
         {(hasChecklist || aged || summary.done || assignees.length > 0 || Boolean(item.dueDate) || hasExternalLink(item)) && (
-          <div className="mt-auto flex items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/60 px-3 py-1.5">
+          <div
+            data-card-footer
+            className="mt-auto flex items-center justify-between gap-2 border-t border-slate-100 px-3 py-1.5"
+          >
             <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-              <DueChip item={item} complete={complete} />
-              <ExternalLinkChip item={item} />
               {hasChecklist && (
                 <span
                   className="flex shrink-0 items-center gap-1 rounded bg-white px-1.5 py-0.5 text-micro text-slate-600 ring-1 ring-slate-200"
@@ -1151,6 +1179,8 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
                   </span>
                 </span>
               )}
+              <DueChip item={item} complete={complete} />
+              <ExternalLinkChip item={item} />
               {aged && (
                 <span
                   className="flex shrink-0 items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-micro font-semibold text-amber-700 ring-1 ring-amber-200"
@@ -1207,6 +1237,7 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
   if (a.inert !== b.inert || a.connectRoot !== b.connectRoot) return false
   if (a.openDependencies !== b.openDependencies) return false
   if (a.hasDependencies !== b.hasDependencies) return false
+  if (a.showConnections !== b.showConnections) return false
   if (a.lateStart !== b.lateStart) return false
   if (a.dropTarget !== b.dropTarget) return false
   if (a.parent?.id !== b.parent?.id || a.parent?.title !== b.parent?.title) return false
@@ -1236,8 +1267,9 @@ const summaryEqual = (a: CardSummary, b: CardSummary) =>
  *
  * A kind is the board's own label for an outcome — a bet, a programme, an experiment — and it is
  * the one thing a card never has. So it is drawn as the one thing a card never is: a band across
- * the top, in the kind's own colour. A card is tinted by its type and railed down the left; an
- * initiative wears its kind as a band. The two shapes are told apart before either is read.
+ * the top, in the kind's own colour. A card is white with its type as a chip; a blocked card
+ * carries the only coloured rail, and it is rose; an initiative wears its kind as a band. The
+ * shapes are told apart before either is read.
  *
  * **The band reads; it does not change.** The kind is edited from the card's context menu or the
  * drawer's Kind field, which are the app's normal homes for a property. A menu on the card face was
@@ -1283,8 +1315,8 @@ function TagChips({ tags }: { tags?: Tag[] }) {
         return (
           <span
             key={t.id}
-            className="shrink-0 rounded px-1.5 py-px text-micro font-medium"
-            style={{ backgroundColor: chip.background, color: chip.color }}
+            className="shrink-0 rounded border px-1.5 py-px text-micro font-medium"
+            style={{ backgroundColor: chip.background, color: chip.color, borderColor: tintOn(t.color, 0.32) }}
             title={`Tag: ${t.name}`}
           >
             {t.name}

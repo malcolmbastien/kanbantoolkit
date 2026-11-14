@@ -121,16 +121,28 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
     }
   }
   const requestArchive = () => {
-    if (below.size === 0) {
+    const discard = !allComplete
+    if (below.size === 0 && !discard) {
       archiveItems(itemIds)
       return
     }
     askConfirm({
-      title: `${allComplete ? 'Archive' : 'Discard'} ${count} item${count === 1 ? '' : 's'}?`,
-      body: `This also files ${below.size} item${below.size === 1 ? '' : 's'} below. Finished work is archived; unfinished work is discarded.`,
-      confirmLabel: allComplete ? 'Archive' : 'Discard',
-      danger: !allComplete,
-      onConfirm: () => archiveItems(itemIds),
+      title: `${discard ? 'Discard' : 'Archive'} ${count} item${count === 1 ? '' : 's'}?`,
+      body:
+        below.size > 0
+          ? `This also files ${below.size} item${below.size === 1 ? '' : 's'} below. Finished work is archived; unfinished work is discarded.`
+          : 'The work leaves the board as unfinished. Its history stays, and you can restore it from the Archive.',
+      confirmLabel: discard ? 'Discard' : 'Archive',
+      danger: discard,
+      ...(discard
+        ? {
+            note: {
+              label: 'Why are you discarding it? (optional)',
+              placeholder: 'e.g. Superseded by another card',
+            },
+          }
+        : {}),
+      onConfirm: (note) => archiveItems(itemIds, note),
     })
   }
   // Duplicating is offered for a card that is in a cell of the board in front of us: the copy

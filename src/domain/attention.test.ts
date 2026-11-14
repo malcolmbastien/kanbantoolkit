@@ -81,7 +81,7 @@ describe('board attention on a cards board', () => {
       card('c', { dueDate: '2026-10-01' }),
       // Filed away, so off the board.
       card('d', { archived: true, archivedAt: NOW - DAY }),
-      // Backlog: uncommitted, so never stale — but still unowned.
+      // Backlog: uncommitted, so neither stale nor unowned.
       card('e'),
       // A hard stop somebody set, and its reason.
       card('blocked', { assignees: ['u-1'], blocked: true, blockedReason: 'Waiting on legal' }),
@@ -118,12 +118,12 @@ describe('board attention on a cards board', () => {
     expect(attention.population).toBe('cards')
     expect(attention.rows.map((r) => r.item.id)).toEqual([
       'a',
-      'e',
       'late',
       'blocked',
       'soon',
       'waits',
       'b',
+      'e',
       'dep',
       'lateStarted',
     ])
@@ -134,8 +134,9 @@ describe('board attention on a cards board', () => {
       dueSoon: 1,
       lateStart: 1,
       stale: 1,
-      unassigned: 2,
+      unassigned: 1,
     })
+    expect(attention.rows.find((r) => r.item.id === 'e')?.signals).toEqual([])
 
     const a = attention.rows.find((r) => r.item.id === 'a')!
     expect(a.signals.map((s) => s.key)).toEqual(['overdue', 'stale', 'unassigned'])
@@ -245,6 +246,32 @@ describe('board attention on a cards board', () => {
     expect(attention.rows.find((r) => r.item.id === 'E')?.signals).toEqual([])
   })
 
+  it('puts the highest priority first among the work that needs a look', () => {
+    const graph = cardsBoard(
+      [
+        card('low', { title: 'Low', priority: 'low' }),
+        card('none', { title: 'None' }),
+        card('high', { title: 'High', priority: 'high' }),
+        card('urgent', { title: 'Urgent', priority: 'urgent' }),
+      ],
+      [at('low', 'ip', NOW - DAY), at('none', 'ip', NOW - DAY), at('high', 'ip', NOW - DAY), at('urgent', 'ip', NOW)],
+    )
+    // All four are unassigned, so all four need a look. Priority leads; nobody's judgement goes last.
+    expect(boardAttention(graph, 'b', [], flows(), { now: NOW }).rows.map((r) => r.item.id)).toEqual([
+      'urgent',
+      'high',
+      'low',
+      'none',
+    ])
+  })
+
+  it('does not call Not Started work unassigned', () => {
+    const graph = cardsBoard([card('a')], [at('a', 'ns', NOW - DAY)])
+    const attention = boardAttention(graph, 'b', [], flows(), { now: NOW })
+    expect(attention.counts.unassigned).toBe(0)
+    expect(attention.rows.find((r) => r.item.id === 'a')?.signals).toEqual([])
+  })
+
   it('does not count a card placed on another board', () => {
     const graph = cardsBoard([card('a')], [at('a', 'ip', NOW - DAY, 'other')])
     expect(boardAttention(graph, 'b', [], flows(), { now: NOW }).rows).toEqual([])
@@ -265,18 +292,28 @@ describe('board attention on a cards board', () => {
   })
 })
 
-describe('a board with more than one cards flow', () => {
-  it('says which flow a card is in, because "Backlog" is two answers', () => {
+describe('the status column', () => {
+  it('names the lowest-level column, without its ancestors or the flow', () => {
     const support: BoardFlow = { id: 'f-support', boardId: 'b', kind: 'cards', name: 'Support', order: 1 }
+    const supportQueue: Lane = {
+      id: 'support-queue',
+      boardId: 'b',
+      parentId: 'root-b',
+      order: 0,
+      name: 'Support queue',
+      stage: 'inProgress',
+      flowId: 'f-support',
+    }
+    const dev: Lane = { id: 'dev', boardId: 'b', parentId: 'ip', order: 0, name: 'Dev', flowId: CARDS }
     const graph = cardsBoard(
       [card('a'), card('b')],
-      [at('a', 'backlog'), at('b', 'support-backlog')],
-      [root('b', 'f-support'), lane('support-backlog', 'backlog', 'b', 'f-support')],
+      [at('a', 'dev'), at('b', 'support-queue')],
+      [dev, root('b', 'f-support'), supportQueue],
     )
     const attention = boardAttention(graph, 'b', [], [...flows(), support], { now: NOW })
     const status = (id: string) => attention.rows.find((r) => r.item.id === id)!.status
-    expect(status('a')).toBe('Cards · backlog lane')
-    expect(status('b')).toBe('Support · backlog lane')
+    expect(status('a')).toBe('Dev')
+    expect(status('b')).toBe('Support queue')
   })
 })
 

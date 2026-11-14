@@ -24,7 +24,7 @@ import { detailFor, type BoardDetail } from '@/domain/boardDetail'
 import { lateStartDay } from '@/domain/due'
 import { childrenOf, effectiveStage, isTopLevel, laneDepth, laneHoldsCards, rootLane, subtreeIds, wipState } from '@/domain/lanes'
 import { ageDays, initiativeScope, matchesFilters, type CardFilters, type FilterDisplay } from '@/domain/filters'
-import { STAGE_ACCENT, STAGE_SURFACE, tintOn, WIP_PILL, WIP_SURFACE } from '@/lib/colors'
+import { STAGE_ACCENT, STAGE_COLUMN, tintOn, WIP_PILL, WIP_SURFACE } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { usePanScroll } from '@/lib/usePanScroll'
@@ -219,23 +219,46 @@ function LaneBox({
     const over = wip === 'over'
     const at = wip === 'at'
     const count = countInLane(lane.id)
-    // A limit is an alarm, so at/over keeps its tinted pill; a plain count is only a label.
-    const pill = over ? WIP_PILL.over : at ? WIP_PILL.at : undefined
+    const darkHeader = !collapsed && (Boolean(wip) || Boolean(top && stage))
+    // A limit is an alarm, so at/over keeps its tinted pill; a top-level stage column wears its
+    // stage colour and a translucent count; a nested cell keeps the quiet white count.
+    const pill = over
+      ? WIP_PILL.over
+      : at
+        ? WIP_PILL.at
+        : top && stage
+          ? STAGE_COLUMN[stage].count
+          : undefined
     return (
       <div
+        data-lane-header
         className={cn(
           'mx-1 mt-1 mb-1 rounded-md px-2.5 py-1.5',
           collapsed
             ? // A collapsed row says so in its own right: a dashed edge and a muted ground, so
               // it reads as folded away rather than as a row that happens to be short.
               'border border-dashed border-slate-300 bg-slate-100/80 text-slate-500'
-            : // A full column's shelf is its warning surface; otherwise nested cells take a
-              // touch more ground than the column's own, so each name owns its side of the split.
+            : // A full column's shelf is its warning surface; otherwise a top-level stage column
+              // is a dark bar in its stage colour, and nested cells keep the quiet shelf.
               wip
-              ? WIP_SURFACE[wip].header
-              : cn('bg-white/60 text-slate-700', top ? '' : 'bg-white/75'),
+              ? cn('mb-2', WIP_SURFACE[wip].header)
+              : top && stage
+                ? cn('shadow-sm', STAGE_COLUMN[stage].header)
+                : top
+                  ? 'bg-white/60 text-slate-700'
+                  : 'border border-slate-200 bg-white/75 text-slate-700',
         )}
       >
+        {/* The tape belongs to the header, as the sample does: the column's own edge is rose,
+            not a second stripe painted over the stage colour. */}
+        {wip && !collapsed && (
+          <div
+            aria-hidden
+            data-wip-stripe={wip}
+            className="-mx-2.5 -mt-1.5 mb-1.5 h-2.5 rounded-t-md"
+            style={{ backgroundImage: WIP_SURFACE[wip].hazard }}
+          />
+        )}
         {/* Name truly centred, count and policy pinned right. The side columns are equal
             (1fr each) and the middle sizes to the name, so the centring holds whatever
             the lane's depth and whether the edge controls are present at all. */}
@@ -244,7 +267,16 @@ function LaneBox({
             {canCollapse ? (
               <button
                 onClick={(e) => { e.stopPropagation(); ctx.toggleCollapse(lane.id) }}
-                className="grid h-6 w-6 shrink-0 place-items-center rounded text-slate-500 transition hover:bg-slate-200 hover:text-slate-800 pointer-coarse:h-9 pointer-coarse:w-9"
+                className={cn(
+                  'grid h-6 w-6 shrink-0 place-items-center rounded transition pointer-coarse:h-9 pointer-coarse:w-9',
+                  wip
+                    ? over
+                      ? 'text-rose-100 hover:bg-rose-500/60 hover:text-white'
+                      : 'text-amber-900 hover:bg-amber-400/60 hover:text-amber-950'
+                    : darkHeader
+                      ? 'text-white/80 hover:bg-white/15 hover:text-white'
+                      : 'text-slate-500 hover:bg-slate-200 hover:text-slate-800',
+                )}
                 title={collapsed ? 'Expand' : `Collapse ${parentOrientation === 'columns' ? 'column' : 'row'}`}
               >
                 {collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
@@ -265,7 +297,10 @@ function LaneBox({
               // exactly, so the field is big to point at and its text has not moved a pixel.
               // A ring, not a border, for the same reason — the header bar and everything
               // under it must not shift the moment a name is clicked.
-              className="w-full self-stretch -my-0.5 rounded py-0.5 text-center text-meta font-bold uppercase leading-tight tracking-wide transition hover:bg-slate-900/5"
+              className={cn(
+                'w-full self-stretch -my-0.5 rounded py-0.5 text-center text-meta font-bold uppercase leading-tight tracking-wide transition',
+                darkHeader ? 'hover:bg-white/15' : 'hover:bg-slate-900/5',
+              )}
               inputClassName="w-full self-stretch -my-0.5 rounded bg-white px-1 py-0.5 text-center text-meta font-semibold uppercase leading-tight tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
             />
           ) : (
@@ -274,11 +309,12 @@ function LaneBox({
             </span>
           )}
           <span className="flex items-center justify-end gap-1">
-            {over && <AlertTriangle size={12} className="shrink-0 text-white" aria-label="Over its WIP limit" />}
+            {over && <AlertTriangle size={12} className="shrink-0 text-yellow-300" aria-label="Over its WIP limit" />}
             {at && <AlertTriangle size={12} className="shrink-0 text-amber-950" aria-label="At its WIP limit" />}
             <span
+              data-lane-count
               className={cn(
-                'shrink-0 font-mono text-micro tabular-nums',
+                'shrink-0 text-micro font-semibold tabular-nums',
                 pill ? cn('rounded-full px-1.5 py-0.5 font-bold', pill) : 'rounded-full bg-white/70 px-1.5 py-0.5 font-semibold text-slate-600 ring-1 ring-slate-300/60',
               )}
               title={
@@ -292,17 +328,17 @@ function LaneBox({
               {count}
               {lane.wipLimit !== undefined ? `/${lane.wipLimit}` : ''}
             </span>
-            {lane.description && <LanePolicy policy={lane.description} />}
+            {lane.description && <LanePolicy policy={lane.description} onDark={darkHeader} />}
           </span>
         </div>
 
-        {/* The sentence. The pill says how many; this says what it means, on the shelf a reader
-            is already looking at — no glyph to decode and no colour to interpret. */}
-        {wip && (
+        {/* The sentence. The pill says how many; this says what it means, in a strip of its own
+            beneath the title bar. */}
+        {wip && !collapsed && (
           <div
             data-wip-label={wip}
             className={cn(
-              'mt-1 border-t pt-1 text-center text-micro font-bold uppercase tracking-wide',
+              '-mx-2.5 -mb-1.5 mt-1.5 rounded-b-md border-t px-2.5 py-1 text-center text-micro font-bold uppercase tracking-wide',
               WIP_SURFACE[wip].rule,
             )}
           >
@@ -311,7 +347,13 @@ function LaneBox({
         )}
 
         {editMode && !isRoot && (
-          <div className="mt-1 flex w-0 min-w-full flex-wrap items-center gap-1.5" style={{ contain: 'inline-size' }}>
+          <div
+            className={cn(
+              'flex w-0 min-w-full flex-wrap items-center gap-1.5',
+              wip ? 'mt-2 rounded-md bg-white/95 p-1 text-slate-700' : 'mt-1',
+            )}
+            style={{ contain: 'inline-size' }}
+          >
             {/* The same control component the template editor uses — one cluster, one rulebook. */}
             <LaneEditControls
               isLeafCell={isLeafCell}
@@ -363,7 +405,7 @@ function LaneBox({
   // horizontal header, so folding it means hiding what is under that header. Drawing a strip
   // instead would give one row a header that looks nothing like the rows beside it.
   if (collapsed && parentOrientation === 'columns') {
-    const accent = stage ? STAGE_ACCENT[stage] : undefined
+    const accent = wip === 'over' ? '#e11d48' : wip === 'at' ? '#f59e0b' : stage ? STAGE_ACCENT[stage] : undefined
     const count = countInLane(lane.id)
     return (
       <div
@@ -387,7 +429,14 @@ function LaneBox({
       >
         <button
           onClick={() => ctx.toggleCollapse(lane.id)}
-          className="grid h-7 w-7 shrink-0 place-items-center rounded text-slate-700 transition hover:bg-white/70"
+          className={cn(
+            'grid h-7 w-7 shrink-0 place-items-center rounded transition',
+            wip === 'over'
+              ? 'text-rose-700 hover:bg-rose-100'
+              : wip === 'at'
+                ? 'text-amber-700 hover:bg-amber-100'
+                : 'text-slate-700 hover:bg-white/70',
+          )}
           title="Expand"
         >
           <ChevronsRight size={13} />
@@ -402,7 +451,12 @@ function LaneBox({
           {count}
         </span>
         <button onClick={() => ctx.toggleCollapse(lane.id)} className="flex min-h-0 flex-1 items-center justify-center" title="Expand">
-          <span className="rotate-180 whitespace-nowrap text-meta font-semibold uppercase tracking-wide text-slate-600 [writing-mode:vertical-rl]">
+          <span
+            className={cn(
+              'rotate-180 whitespace-nowrap text-meta font-semibold uppercase tracking-wide [writing-mode:vertical-rl]',
+              wip === 'over' ? 'text-rose-800' : wip === 'at' ? 'text-amber-800' : 'text-slate-600',
+            )}
+          >
             {lane.name}
           </span>
         </button>
@@ -441,27 +495,14 @@ function LaneBox({
         aria-expanded={!collapsed}
         className={cn(
           'relative flex h-full min-h-0 w-full flex-1 flex-col',
-          // No outer box: each top-level column is its own card, with a gap between them.
-          // The stage tints the whole column, so it reads at a glance without a label — unless
-          // the column is at or over its WIP limit, which takes the ground, the edge, the tape
-          // and the words: a full column is the thing a reader needs to see first.
+          // A top-level column is the object: a light ground, one thin stage edge, and a dark
+          // header in the stage colour. A nested cell sits on its section's tint and needs no
+          // frame; the air beside it is enough. A lane at or over its limit owns the colour.
           top && 'overflow-hidden rounded-xl border',
-          top && (wip ? WIP_SURFACE[wip].lane : 'border-slate-300/80'),
+          top && (wip ? WIP_SURFACE[wip].lane : stage ? STAGE_COLUMN[stage].surface : 'border-slate-300/80 bg-slate-100'),
           !top && wip ? WIP_SURFACE[wip].cell : '',
-          top && stage && !wip && STAGE_SURFACE[stage],
         )}
-        style={top && stage && !wip ? { borderTopWidth: 4, borderTopStyle: 'solid', borderTopColor: STAGE_ACCENT[stage] } : undefined}
       >
-        {/* Hazard tape: the one striped edge on the board, so a breach is not read as another
-            column colour. It replaces the stage accent line while the alarm stands. */}
-        {wip && (
-          <span
-            aria-hidden
-            data-wip-stripe={wip}
-            className="absolute inset-x-0 top-0 z-10 h-1.5"
-            style={{ backgroundImage: WIP_SURFACE[wip].hazard }}
-          />
-        )}
         {/* The root of the cards workflow is the board's whole flow, not a lane: its name is
             already the section's, and its count is the section's too. A header here would be a
             second title over the columns. */}
@@ -562,24 +603,14 @@ function LaneBox({
       aria-level={level}
       className={cn(
         'relative flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col',
-        // A top-level column is the object: one edge, one tint, one accent. A nested cell
-        // sits on its section's tint and needs none of the three — the air beside it is
-        // enough, and a second frame is what made a cell look like a box inside a box. A lane
-        // at or over its limit is the exception at both depths: the alarm owns the colour.
+        // A top-level column is the object: a light ground, one thin stage edge, and a dark
+        // header in the stage colour. A nested cell sits on its section's tint and needs none of
+        // the frame; the air beside it is enough. A lane at or over its limit owns the colour.
         top && 'overflow-hidden rounded-xl border',
-        top && (wip ? WIP_SURFACE[wip].lane : 'border-slate-300/80'),
-        top ? (wip ? '' : stage ? STAGE_SURFACE[stage] : 'bg-slate-100') : wip ? WIP_SURFACE[wip].cell : '',
+        top && (wip ? WIP_SURFACE[wip].lane : stage ? STAGE_COLUMN[stage].surface : 'border-slate-300/80 bg-slate-100'),
+        !top && wip ? WIP_SURFACE[wip].cell : '',
       )}
-      style={top && stage && !wip ? { borderTopWidth: 4, borderTopStyle: 'solid', borderTopColor: STAGE_ACCENT[stage] } : undefined}
     >
-      {wip && (
-        <span
-          aria-hidden
-          data-wip-stripe={wip}
-          className="absolute inset-x-0 top-0 z-10 h-1.5"
-          style={{ backgroundImage: WIP_SURFACE[wip].hazard }}
-        />
-      )}
       {!hideHeader && header(true)}
       <DropColumn
         laneId={lane.id}

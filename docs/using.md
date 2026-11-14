@@ -200,7 +200,8 @@ a program's outcome is decomposed into a team's initiative.
 ## The views
 
 - **Dashboard** — the board's initiatives at a glance: work progress, the target plan, the due
-  date and their health, each read as its own fact.
+  date and their health, each read as its own fact. Its **Needs attention** table also names each
+  item's priority and leads with the highest one, so the warnings that matter most come first.
 - **Timeline** — the same initiatives over their target dates. Each block carries its own people,
   as initials beside its dates; a bar too narrow for them keeps its title, and the names travel in
   its tooltip. The frozen Initiative column names each target window, so a row remains readable when
@@ -219,7 +220,8 @@ a program's outcome is decomposed into a team's initiative.
   [Lean metrics](metrics.md).
 - **Archive** — work that has left this board. Each board has its own archive, and it lists only
   the work filed from that board. A card in a Done column is **archived**; anything else is
-  **discarded**, dropped without claiming it was finished. Discarding a parent files its whole
+  **discarded**, dropped without claiming it was finished. Discarding asks for an optional reason,
+  which is kept in the item's history. Discarding a parent files its whole
   subtree: finished work is archived, unfinished work is discarded, and a parent with cards below
   asks first. The archive keeps that one fact, not the column the work sat in, and either item can
   be restored. A child cannot be restored while its parent is still filed away; restore the parent

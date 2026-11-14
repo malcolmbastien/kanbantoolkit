@@ -179,9 +179,9 @@ test('the drawer narrows connections to the open item, and closing it clears the
   const panel = page.locator('[data-item-panel]')
   await expect(panel).toBeVisible()
 
-  const toggle = page.getByRole('button', { name: 'Connections', exact: true })
+  const toggle = panel.getByRole('button', { name: 'Connections', exact: true })
   await expect(toggle).toHaveAttribute('aria-pressed', 'false')
-  await panel.getByTitle(/Show this item.s connections/).click()
+  await toggle.click()
   await expect(toggle).toHaveAttribute('aria-pressed', 'true')
 
   // Every string left is one that touches the open card: its parent, its blocker, or itself.
@@ -198,7 +198,7 @@ test('the drawer narrows connections to the open item, and closing it clears the
   // Closing the drawer ends the item reading; the board lens itself was never turned on.
   await page.keyboard.press('Escape')
   await expect(panel).toHaveCount(0)
-  await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.locator('[data-connections-toggle]')).toHaveAttribute('aria-pressed', 'false')
   await expect(page.locator('[data-connection-link]')).toHaveCount(0)
 })
 

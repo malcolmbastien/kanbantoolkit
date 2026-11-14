@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { Info, Trash2 } from 'lucide-react'
 import type { Lane } from '@/domain/types'
+import { cn } from '@/lib/utils'
 
 /** The settings panel's own width (`w-72`) — the popover clamps against it. */
 const PANEL_W = 288
@@ -9,7 +10,7 @@ const PANEL_W = 288
  * A lane's policy, revealed by hovering (or focusing) the info icon in the lane
  * header. Positioned `fixed` so the lane's rounded clipping can't cut it off.
  */
-export function LanePolicy({ policy }: { policy: string }) {
+export function LanePolicy({ policy, onDark = false }: { policy: string; onDark?: boolean }) {
   const ref = useRef<HTMLButtonElement>(null)
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
 
@@ -28,7 +29,12 @@ export function LanePolicy({ policy }: { policy: string }) {
         onMouseLeave={() => setPos(null)}
         onBlur={() => setPos(null)}
         onClick={(e) => e.stopPropagation()}
-        className="grid h-6 w-6 shrink-0 place-items-center rounded text-slate-600 transition hover:bg-slate-200 hover:text-slate-700 pointer-coarse:h-9 pointer-coarse:w-9"
+        className={cn(
+          'grid h-6 w-6 shrink-0 place-items-center rounded transition pointer-coarse:h-9 pointer-coarse:w-9',
+          onDark
+            ? 'text-white/80 hover:bg-white/15 hover:text-white'
+            : 'text-slate-600 hover:bg-slate-200 hover:text-slate-700',
+        )}
         title="Lane policy"
         aria-label="Lane policy"
       >

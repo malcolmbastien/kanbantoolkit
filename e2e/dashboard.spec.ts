@@ -51,6 +51,34 @@ test('the attention tiles fill every row, and All issues is the way back', async
   await expect(page.locator('[data-attention-summary]')).toContainText('need a look')
 })
 
+test('Needs attention shows priority, and the urgent work leads', async ({ page }) => {
+  await page.goto('/app?board=b-atlas&view=dashboard')
+  const attention = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Needs attention' }) })
+  await expect(attention.getByRole('columnheader', { name: 'Priority' })).toBeVisible()
+  await expect(attention.locator('[data-priority="urgent"]').first()).toContainText('Urgent')
+
+  const rows = attention.locator('tbody tr[data-item-row]')
+  await expect(rows.first().locator('[data-priority]')).toHaveAttribute('data-priority', 'urgent')
+  // Status is the lowest-level column, not the whole lane path: the dashboard is read away from
+  // the board, so its ancestors would be context the reader cannot see.
+  const sso = rows.filter({ hasText: 'Add SSO for enterprise tenants' })
+  await expect(sso.locator('td').nth(2)).toHaveText('Dev')
+  // Not Started work with no owner is not a finding; In Progress work is.
+  const notStarted = rows.filter({ hasText: 'Migrate invoice numbering' })
+  await expect(notStarted).not.toContainText('Unassigned')
+})
+
+test('attention card titles share a left edge under their type', async ({ page }) => {
+  await page.goto('/app?board=b-atlas&view=dashboard')
+  const attention = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Needs attention' }) })
+  const titles = attention.locator('[data-attention-title]')
+  await expect(titles.first()).toBeVisible()
+  const lefts = await titles.evaluateAll((elements) =>
+    elements.map((element) => Math.round(element.getBoundingClientRect().left)),
+  )
+  expect(new Set(lefts).size, 'every title starts in the same column').toBe(1)
+})
+
 test('the initiatives table has a section header of its own', async ({ page }) => {
   await page.goto('/app?board=b-lob&view=dashboard')
 

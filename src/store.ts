@@ -59,7 +59,12 @@ export interface ConfirmRequest {
   confirmLabel?: string
   /** Destructive actions get a red confirm button. */
   danger?: boolean
-  onConfirm: () => void
+  /**
+   * An optional note to ask for alongside the confirmation. The dialog's confirm callback receives
+   * the trimmed text, or `undefined` when it was left empty.
+   */
+  note?: { label: string; placeholder?: string }
+  onConfirm: (note?: string) => void
 }
 
 /**
@@ -383,7 +388,7 @@ export interface Actions {
   /** Block every listed item (an optional reason, recorded in each item's log). */
   blockItems: (itemIds: string[], reason?: string) => void
   unblockItems: (itemIds: string[], note?: string) => void
-  archiveItems: (itemIds: string[]) => void
+  archiveItems: (itemIds: string[], note?: string) => void
   deleteItems: (itemIds: string[]) => void
 
   /** Ask the user to confirm a destructive action (a styled in-app modal). */
@@ -682,7 +687,7 @@ export interface Actions {
   logTextEdit: (itemId: string, field: 'title' | 'description', before: string) => void
 
   /** File an item away (cascades to its whole subtree); stays searchable and in links. */
-  archiveItem: (itemId: string) => void
+  archiveItem: (itemId: string, note?: string) => void
   unarchiveItem: (itemId: string) => void
   /** Archive every resolved (Done) item on a board. */
   archiveDoneOnBoard: (boardId: string) => void
@@ -1112,7 +1117,7 @@ function subtreeRoots(ids: string[], graph: Pick<FlowState, 'items' | 'edges' | 
  * The verdict is taken once, from the workspace as it stands, and then kept on the item: rearranging
  * what is left of a board must not rewrite what happened to work that has already left it.
  */
-function fileAway(state: Store, ids: Set<string>, at: number): Item[] {
+function fileAway(state: Store, ids: Set<string>, at: number, note?: string, roots: Set<string> = ids): Item[] {
   return writeItems(state, (item) => {
     if (!ids.has(item.id) || item.archived) return item
     const discarded = !isComplete(item.id, state)
@@ -1123,7 +1128,10 @@ function fileAway(state: Store, ids: Set<string>, at: number): Item[] {
       // A finished item keeps no flag: absence is the completed case, so the field only ever
       // marks the items that were thrown away.
       ...(discarded ? { discarded: true } : {}),
-      log: [...(item.log ?? []), logEntry(discarded ? 'discarded' : 'archived')],
+      // The note belongs to the item the person filed. A cascade files the subtree with it, but
+      // repeating the same sentence on every child would make the parent's reason look like each
+      // child's own.
+      log: [...(item.log ?? []), logEntry(discarded ? 'discarded' : 'archived', roots.has(item.id) ? note : undefined)],
     }
   })
 }
@@ -2181,11 +2189,11 @@ export const useStore = create<Store>()(
         })
       },
 
-      archiveItems: (itemIds) => {
+      archiveItems: (itemIds, note) => {
         const state = get()
         const ids = subtreeRoots(itemIds, state)
         if (ids.size === 0) return
-        set({ items: fileAway(state, ids, Date.now()), multiSelect: [] })
+        set({ items: fileAway(state, ids, Date.now(), note, new Set(itemIds)), multiSelect: [] })
       },
 
       deleteItems: (itemIds) => {
@@ -3661,10 +3669,10 @@ export const useStore = create<Store>()(
         })
       },
 
-      archiveItem: (itemId) => {
+      archiveItem: (itemId, note) => {
         const state = get()
         const ids = new Set([itemId, ...descendants(itemId, state)])
-        set({ items: fileAway(state, ids, Date.now()) })
+        set({ items: fileAway(state, ids, Date.now(), note, new Set([itemId])) })
       },
 
       unarchiveItem: (itemId) => {

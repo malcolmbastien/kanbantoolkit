@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -9,20 +9,33 @@ import { useDialogFocus } from '@/lib/useDialogFocus'
  * lane, archive done) call `askConfirm`, and this renders a styled, accessible
  * dialog: Enter confirms (via the focused button), Escape or a click away
  * cancels, and focus returns to where it was.
+ *
+ * A request may also ask for an optional note — filing unfinished work uses it
+ * to say why the work was dropped, without making the reason mandatory.
  */
 export function ConfirmDialog() {
   const request = useStore((s) => s.confirm)
   const closeConfirm = useStore((s) => s.closeConfirm)
   const dialogRef = useRef<HTMLDivElement>(null)
+  const [note, setNote] = useState('')
+
+  // A new question starts with no answer from the last one.
+  useEffect(() => setNote(''), [request])
 
   // Escape, Tab and the return of the caret are the dialog's own — the confirm button takes the
-  // focus, because a dialog that asks a question should have the answer under the fingers.
-  useDialogFocus(dialogRef, closeConfirm, Boolean(request), '[data-confirm-yes]')
+  // focus, because a dialog that asks a question should have the answer under the fingers. When a
+  // note is requested, the note has the focus: the reason is the part that cannot be guessed.
+  useDialogFocus(
+    dialogRef,
+    closeConfirm,
+    Boolean(request),
+    request?.note ? '[data-confirm-note]' : '[data-confirm-yes]',
+  )
 
   if (!request) return null
 
   const confirm = () => {
-    request.onConfirm()
+    request.onConfirm(note.trim() || undefined)
     closeConfirm()
   }
 
@@ -47,6 +60,22 @@ export function ConfirmDialog() {
             {request.body && <p className="mt-1 text-meta leading-relaxed text-slate-600">{request.body}</p>}
           </div>
         </div>
+        {request.note && (
+          <div className="border-t border-slate-100 px-4 py-3">
+            <label htmlFor="confirm-note" className="block text-meta font-medium text-slate-700">
+              {request.note.label}
+            </label>
+            <textarea
+              id="confirm-note"
+              data-confirm-note
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder={request.note.placeholder}
+              rows={2}
+              className="mt-1 w-full resize-none rounded-md border border-slate-300 px-2 py-1.5 text-meta text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+            />
+          </div>
+        )}
         <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-4 py-2.5">
           <button
             onClick={closeConfirm}

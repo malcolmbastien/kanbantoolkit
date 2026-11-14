@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { BAND_STYLES } from './BandBadge'
+import { PRIORITY_META } from './PriorityBadge'
 import { blockedBelow, decompositionChildren, rollupOf, type Graph } from '@/domain/derive'
 import { boardInitiatives, initiativeTypeById, isPortfolio, portfolioInitiatives, tagsOf } from '@/domain/board'
 import { ATTENTION_TILES, boardAttention, type AttentionKey } from '@/domain/attention'
@@ -560,6 +561,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-100 text-micro uppercase tracking-wide text-slate-600">
                     <th className="px-4 py-2 font-semibold">Item</th>
+                    <th className="w-20 px-4 py-2 font-semibold">Priority</th>
                     <th className="px-4 py-2 font-semibold">Status</th>
                     <th className="px-4 py-2 font-semibold">Age</th>
                     <th className="px-4 py-2 font-semibold">Signals</th>
@@ -571,6 +573,8 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                 <tbody>
                   {visibleRows.map(({ item, status, ageDays: age, signals }) => {
                     const type = typeOf(item.typeId)
+                    const priority = item.priority ? PRIORITY_META[item.priority] : undefined
+                    const PriorityIcon = priority?.icon
                     return (
                       <tr
                         key={item.id}
@@ -584,15 +588,34 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                         <td className="max-w-[320px] px-4 py-2">
                           <div className="flex items-center gap-1.5">
                             <span
-                              className="shrink-0 rounded px-1 py-px text-micro font-bold uppercase tracking-wide"
+                              data-attention-type={type.id}
+                              className="rounded px-1 py-px text-micro font-bold uppercase tracking-wide"
                               style={{ backgroundColor: type.color, color: '#fff' }}
                             >
                               {type.name}
                             </span>
-                            <span className="truncate text-body font-semibold text-slate-800" title={item.title}>
-                              {item.title}
-                            </span>
                           </div>
+                          <div
+                            data-attention-title
+                            className="truncate text-body font-semibold text-slate-800"
+                            title={item.title}
+                          >
+                            {item.title}
+                          </div>
+                        </td>
+                        <td className="w-20 px-4 py-2 text-meta">
+                          {PriorityIcon && priority ? (
+                            <span
+                              data-priority={item.priority}
+                              title={`Priority: ${priority.label.toLowerCase()}`}
+                              className="inline-flex items-center gap-1 font-medium text-slate-700"
+                            >
+                              <PriorityIcon size={12} className={cn('shrink-0', priority.dot)} aria-hidden />
+                              {priority.label}
+                            </span>
+                          ) : (
+                            <span className="text-slate-500">—</span>
+                          )}
                         </td>
                         <td className="px-4 py-2 text-meta text-slate-600">{status}</td>
                         <td
@@ -642,7 +665,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                   })}
                   {visibleRows.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-4 py-6 text-center text-meta text-slate-600">
+                      <td colSpan={6} className="px-4 py-6 text-center text-meta text-slate-600">
                         No item carries this signal.
                       </td>
                     </tr>
