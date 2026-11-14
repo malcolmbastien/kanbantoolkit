@@ -158,6 +158,8 @@ interface Props {
   dropTarget?: boolean
   /** Dimmed because another card is part of the active multi-select group. */
   dimmed?: boolean
+  /** Outside the active card filters, and the board is keeping it as context. */
+  filterDimmed?: boolean
   /**
    * Not a choice in the pick mode that is open. A press, a right-click, a lift or a key does
    * nothing: the card is drawn only to be read, not acted on, until the pick ends.
@@ -343,7 +345,7 @@ function DependencyCount({
 /** The ring a focused card wears — inside, so the board's geometry does not move. */
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
 
-function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', draggable, onDragStateChange, locked, selected, boundary, openDependencies, hasDependencies, onOpenDependencies, lateStart, multi, dimmed, inert, connectRoot, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', draggable, onDragStateChange, locked, selected, boundary, openDependencies, hasDependencies, onOpenDependencies, lateStart, multi, dimmed, filterDimmed, inert, connectRoot, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const complete = summary.done || completed
   const held = heldByOther(usePresence((state) => state.locks), item.id)
 
@@ -396,8 +398,11 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           : '',
   )
   const lockCls = locked ? 'opacity-50 saturate-75' : ''
-  // While a multi-select group is active, the cards outside it recede.
-  const dimCls = dimmed ? 'opacity-40 saturate-50' : ''
+  // While a multi-select group is active, the cards outside it recede. A filter can also ask for
+  // its non-matching cards to recede; hover or keyboard focus brings either back to full emphasis.
+  const dimCls = dimmed || filterDimmed
+    ? 'opacity-40 saturate-50 hover:opacity-100 hover:saturate-100 focus-visible:opacity-100 focus-visible:saturate-100'
+    : ''
   // The pick's root: the one card the edge is being formed around. It keeps a halo while the
   // cards that are neither the root nor a choice recede.
   const connectRootCls = connectRoot ? 'ring-2 ring-indigo-600 ring-offset-2 ring-offset-white shadow-lg' : ''
@@ -530,6 +535,9 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
       <div
         {...dragProps}
         {...cardKeyboard(item, locked || inert, onOpen, onContextMenu)}
+        aria-label={filterDimmed ? `${item.title} — does not match the active filters` : item.title}
+        data-filter-dimmed={filterDimmed ? '' : undefined}
+        title={filterDimmed ? 'Does not match the active filters' : undefined}
         data-card-id={item.id}
         data-card-detail="summary"
         data-card-initiative={wide ? '' : undefined}
@@ -626,7 +634,9 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         ref={tileRef}
         {...dragProps}
         {...cardKeyboard(item, locked || inert, onOpen, onContextMenu)}
-        aria-label={label}
+        aria-label={filterDimmed ? `${label} — does not match the active filters` : label}
+        data-filter-dimmed={filterDimmed ? '' : undefined}
+        title={filterDimmed ? 'Does not match the active filters' : undefined}
         data-card-id={item.id}
         data-card-detail="mini"
         data-card-initiative={wide ? '' : undefined}
@@ -793,6 +803,9 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
       <div
         {...dragProps}
         {...cardKeyboard(item, locked || inert, onOpen, onContextMenu)}
+        aria-label={filterDimmed ? `${item.title} — does not match the active filters` : item.title}
+        data-filter-dimmed={filterDimmed ? '' : undefined}
+        title={filterDimmed ? 'Does not match the active filters' : undefined}
         data-card-id={item.id}
         data-card-detail="full"
         // The wide card is the initiative, and an initiative is what a card can roll up to — so
@@ -1008,6 +1021,9 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
     <div
       {...dragProps}
       {...cardKeyboard(item, locked || inert, onOpen, onContextMenu)}
+      aria-label={filterDimmed ? `${item.title} — does not match the active filters` : item.title}
+      data-filter-dimmed={filterDimmed ? '' : undefined}
+      title={filterDimmed ? 'Does not match the active filters' : undefined}
       data-card-id={item.id}
       data-card-detail="full"
       data-pick-root={connectRoot ? '' : undefined}
@@ -1187,7 +1203,7 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
   if (a.item !== b.item || a.type !== b.type || a.users !== b.users || a.detail !== b.detail) return false
   if (a.wide !== b.wide || a.blockedTone !== b.blockedTone) return false
   if (a.draggable !== b.draggable || a.locked !== b.locked) return false
-  if (a.selected !== b.selected || a.boundary !== b.boundary || a.multi !== b.multi || a.dimmed !== b.dimmed) return false
+  if (a.selected !== b.selected || a.boundary !== b.boundary || a.multi !== b.multi || a.dimmed !== b.dimmed || a.filterDimmed !== b.filterDimmed) return false
   if (a.inert !== b.inert || a.connectRoot !== b.connectRoot) return false
   if (a.openDependencies !== b.openDependencies) return false
   if (a.hasDependencies !== b.hasDependencies) return false

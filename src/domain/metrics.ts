@@ -1,5 +1,5 @@
 import type { FlowWindow } from './flowWindow'
-import type { Item, Stage } from './types'
+import type { Item, ItemLogEntry, Stage } from './types'
 
 /**
  * Flow metrics — lead time, cycle time, throughput and a cumulative flow diagram — derived from
@@ -91,6 +91,161 @@ export function stageAt(record: FlowRecord, at: number): Stage {
 export function committedAt(record: FlowRecord): number | undefined {
   if (record.startedIn !== 'backlog') return record.createdAt
   return record.moves.find((m) => m.to !== 'backlog')?.at
+}
+
+/** One stage's share of a card's recorded life. */
+export interface FlowStageSpan {
+  stage: Stage
+  ms: number
+  share: number
+  current: boolean
+}
+
+/** A card's recorded life up to `now` or its delivery. */
+export interface FlowStats {
+  start: number
+  stop: number
+  total: number
+  currentStage: Stage
+  segments: FlowStageSpan[]
+  /** Backlog and Not Started: time before the work was under way. */
+  waitingMs: number
+  /** In Progress. */
+  workingMs: number
+  /** Done. */
+  finishedMs: number
+}
+
+const FLOW_STAGES: Stage[] = ['backlog', 'notStarted', 'inProgress', 'done']
+
+/**
+ * A card's life, split by stage.
+ *
+ * The clock starts at creation, not at the first recorded move: a card created into a committed
+ * column has been there since it was made. It stops at `resolvedAt` or `archivedAt`, or at `now`
+ * for work still in flight, so Done and the archive do not keep accruing time. The stages are the
+ * durable grain; a cell may be renamed or removed after the move that entered it.
+ */
+export function flowStats(record: FlowRecord, now: number, stopAt?: number): FlowStats {
+  const naturalStop = Math.min(
+    now,
+    record.resolvedAt ?? Number.POSITIVE_INFINITY,
+    record.archivedAt ?? Number.POSITIVE_INFINITY,
+  )
+  const stop = Math.max(record.createdAt, Math.min(stopAt ?? naturalStop, naturalStop, now))
+  const moves = record.moves
+    .filter((move) => move.at > record.createdAt && move.at <= stop)
+    .sort((a, b) => a.at - b.at)
+  const ms = new Map<Stage, number>(FLOW_STAGES.map((stage) => [stage, 0]))
+  let stage = record.startedIn
+  let at = record.createdAt
+  for (const move of moves) {
+    if (move.at > at) ms.set(stage, (ms.get(stage) ?? 0) + move.at - at)
+    stage = move.to
+    at = Math.max(at, move.at)
+  }
+  if (stop > at) ms.set(stage, (ms.get(stage) ?? 0) + stop - at)
+  const total = Math.max(0, stop - record.createdAt)
+  const segments = FLOW_STAGES.map((entry) => ({
+    stage: entry,
+    ms: ms.get(entry) ?? 0,
+    share: total > 0 ? (ms.get(entry) ?? 0) / total : 0,
+    current: entry === stage,
+  }))
+  return {
+    start: record.createdAt,
+    stop,
+    total,
+    currentStage: stage,
+    segments,
+    waitingMs: (ms.get('backlog') ?? 0) + (ms.get('notStarted') ?? 0),
+    workingMs: ms.get('inProgress') ?? 0,
+    finishedMs: ms.get('done') ?? 0,
+  }
+}
+
+export interface CardFlowReading extends FlowStats {
+  /** Wall-clock age since creation; the label changes to lead once the card stops. */
+  openMs: number
+  /** Creation to stop: lead time so far, or the final lead time. */
+  leadMs: number
+  /** First commitment to stop, or absent while the card is still in Backlog. */
+  cycleMs?: number
+  committedAt?: number
+  /** When the current position was reached — the last move into it, or creation. */
+  currentSince: number
+  /** Time in the current position; the stage's own clock is `segments`. */
+  currentMs: number
+  blockedMs: number
+  /** The current block's age, when the card is blocked at the stop time. */
+  currentBlockMs?: number
+  backwardMoves: number
+  lastMoveAt?: number
+}
+
+/**
+ * The drawer's card reading: stage time plus the facts a single stage table does not answer —
+ * cycle time, blocked intervals, rework and the last recorded move.
+ *
+ * `entries` is the card's log, not only its moves, so a block can be timed from the two entries
+ * that bracket it. Pass the board the drawer is open on; a block from another board is not this
+ * reading's block.
+ */
+export function cardFlowReading(
+  record: FlowRecord,
+  entries: readonly ItemLogEntry[],
+  now: number,
+  boardId?: string,
+): CardFlowReading {
+  const stats = flowStats(record, now)
+  const committed = committedAt(record)
+  const cycleMs =
+    committed !== undefined && committed <= stats.stop ? Math.max(0, stats.stop - committed) : undefined
+  const relevant = entries
+    .filter(
+      (entry) =>
+        (entry.kind === 'blocked' || entry.kind === 'unblocked') &&
+        (boardId === undefined || entry.boardId === undefined || entry.boardId === boardId),
+    )
+    .sort((a, b) => a.at - b.at || a.id.localeCompare(b.id))
+
+  let blockedMs = 0
+  let blockedAt: number | undefined
+  for (const entry of relevant) {
+    if (entry.at > stats.stop) break
+    if (entry.kind === 'blocked') {
+      blockedAt ??= Math.max(record.createdAt, entry.at)
+    } else if (entry.kind === 'unblocked' && blockedAt !== undefined) {
+      blockedMs += Math.max(0, entry.at - blockedAt)
+      blockedAt = undefined
+    }
+  }
+  const currentBlockMs = blockedAt === undefined ? undefined : Math.max(0, stats.stop - blockedAt)
+  if (currentBlockMs !== undefined) blockedMs += currentBlockMs
+
+  const order = new Map(FLOW_STAGES.map((stage, index) => [stage, index]))
+  const backwardMoves = record.moves.filter((move) => {
+    if (move.at > stats.stop || move.from === undefined) return false
+    return (order.get(move.to) ?? 0) < (order.get(move.from) ?? 0)
+  }).length
+  const lastMoveAt = record.moves
+    .filter((move) => move.at <= stats.stop)
+    .reduce<number | undefined>((latest, move) => (latest === undefined || move.at > latest ? move.at : latest), undefined)
+  const currentSince = Math.max(record.createdAt, lastMoveAt ?? record.createdAt)
+
+  return {
+    ...stats,
+    openMs: Math.max(0, now - record.createdAt),
+    leadMs: stats.total,
+    ...(cycleMs === undefined ? {} : { cycleMs }),
+    ...(committed === undefined ? {} : { committedAt: committed }),
+    currentSince,
+    currentMs: Math.max(0, stats.stop - currentSince),
+    blockedMs,
+    ...(currentBlockMs === undefined ? {} : { currentBlockMs }),
+    backwardMoves,
+    ...(lastMoveAt === undefined ? {} : { lastMoveAt }),
+  }
 }
 
 /** Whether the card was still work in flight at a moment — delivered or filed away is neither. */

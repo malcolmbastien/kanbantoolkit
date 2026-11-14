@@ -142,8 +142,26 @@ beside it. The same drawer opens from search, the dashboard, the timeline and th
   waits on reaches Done.
 - **Comments** is the conversation about the item; write at the bottom of that tab. A comment is
   Markdown and `@` mentions a teammate.
+- **Flow** is the drawer's reading of time. For a card it sits after the fields in **Overview**,
+  with the stage breakdown at the top of **History**. It is derived from the card's own moves, not
+  from a field somebody keeps up to date. Overview shows three numbers in one row: **Open** (or
+  **Lead** once the card has stopped), **Cycle** from the first commitment, and the current cell —
+  or **Delivered**/**Filed** with the day it stopped. A short note appears below them only when the
+  card has blocked time or backward moves. Everything else belongs to **Breakdown**, which opens
+  History's stage bar and rows: the scope, the waiting/working/finished split, blocked time in
+  detail, the last move, the board's p85 when the sample can carry it, and the caveat when the log
+  begins after creation. A delivered card's clocks stop at delivery and a filed card's at the
+  archive. The drawer reads the whole log, not its first page, so an age is never under-reported
+  behind a shorter page.
+  An initiative has **no cycle of its own**: its section and progress are derived from the leaves.
+  Its Flow card shows **Progress**, **Leaves done** and **Open** as three numbers, then the
+  distribution of its leaves, the oldest open leaf, and one quiet line for blocked/waiting/unowned
+  work or the last movement of its children. When the child history is not loaded it says
+  **Movement not loaded** rather than treating the initiative's creation as a movement, and there
+  is deliberately no section-age clock until the work below can support one.
 - **History** is the item's own record of changes: every move, edit, block and link, with who and
-  when. Comments stay in Comments rather than being mixed into the record.
+  when. For a card, the **Flow** section above the list draws the same time reading by stage;
+  Comments stay in Comments rather than being mixed into the record.
 
 Opening a card also brings it into view: the board scrolls the card into the middle of what is left
 beside the drawer, so its column and neighbours are in front of the reader. A card already in view is

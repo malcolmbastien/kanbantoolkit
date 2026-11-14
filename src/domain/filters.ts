@@ -7,6 +7,8 @@ import type { Item, Lane, Placement } from './types'
  * (type, blocked, overdue, unassigned); within a category they're a union.
  * An empty filter set matches everything.
  */
+export type FilterDisplay = 'dim' | 'hide'
+
 export interface CardFilters {
   /** Selected card-type ids. Empty = every type. */
   typeIds: string[]

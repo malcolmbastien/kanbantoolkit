@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { appendHistory, fetchItemLog, fetchMovements, fetchNoteHits, mergeLog, movesOf } from './history'
+import { appendHistory, fetchItemLog, fetchWholeItemLog, fetchMovements, fetchNoteHits, mergeLog, movesOf } from './history'
 import { useAuth } from './auth'
 import type { ItemLogEntry } from '@/domain/types'
 
@@ -64,6 +64,47 @@ describe('reading a card’s history', () => {
     ])
     expect(mergeLog(undefined, undefined)).toEqual([])
     expect(mergeLog(local, undefined)).toEqual(local)
+  })
+
+  it('follows every page, because a reading from the first page alone would be short', async () => {
+    useAuth.setState({ providers: [], user: signedIn, dev: false, loaded: true })
+    const pages: Record<string, { entries: ItemLogEntry[]; nextCursor: string | null; total: number }> = {
+      '/api/workspace/items/i-1/log': { entries: [entry('c', 3)], nextCursor: 'cursor-1', total: 3 },
+      '/api/workspace/items/i-1/log?cursor=cursor-1': {
+        entries: [entry('b', 2)],
+        nextCursor: 'cursor-2',
+        total: 3,
+      },
+      '/api/workspace/items/i-1/log?cursor=cursor-2': {
+        entries: [entry('a', 1)],
+        nextCursor: null,
+        total: 3,
+      },
+    }
+    const fetchMock = vi.fn(async (path: string) => new Response(JSON.stringify(pages[path]), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    expect(await fetchWholeItemLog('i-1')).toEqual({
+      entries: [entry('a', 1), entry('b', 2), entry('c', 3)],
+      nextCursor: null,
+      total: 3,
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('answers the pages it has and the cursor to continue when a later page fails', async () => {
+    useAuth.setState({ providers: [], user: signedIn, dev: false, loaded: true })
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ entries: [entry('b', 2)], nextCursor: 'cursor-1', total: 2 }), { status: 200 }))
+      .mockResolvedValueOnce(new Response('no', { status: 500 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    expect(await fetchWholeItemLog('i-1')).toEqual({
+      entries: [entry('b', 2)],
+      nextCursor: 'cursor-1',
+      total: 2,
+    })
   })
 
   it('reads only moves that landed in a stage, in order', () => {

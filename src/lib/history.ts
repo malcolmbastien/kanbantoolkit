@@ -81,6 +81,41 @@ export async function fetchItemLog(itemId: string, cursor?: string | null): Prom
   return getJson<LogPage>(`/api/workspace/items/${encodeURIComponent(itemId)}/log${query}`)
 }
 
+/**
+ * The most pages one drawer open will read. A reading calculated from one page is a shorter age
+ * than the card has had, so the whole log is read; the cap keeps a pathological card from fetching
+ * without end, and a cursor that survives it is shown as history still to load.
+ */
+export const HISTORY_PAGE_LIMIT = 40
+
+/**
+ * A card's whole log, for a reading that must not be computed from its first page.
+ *
+ * Every page is followed before the answer is returned. A failure part-way through answers what
+ * arrived and the cursor to continue from, which is the same contract as one page: the caller can
+ * show the reading it has and say that history remains.
+ */
+export async function fetchWholeItemLog(itemId: string): Promise<LogPage | undefined> {
+  const first = await fetchItemLog(itemId)
+  if (!first) return undefined
+  let entries = first.entries
+  let cursor = first.nextCursor
+  let total = first.total
+  // A cursor that repeats is a server bug; following it would loop forever.
+  const seen = new Set<string>()
+  let pages = 1
+  while (cursor && pages < HISTORY_PAGE_LIMIT && !seen.has(cursor)) {
+    seen.add(cursor)
+    const page = await fetchItemLog(itemId, cursor)
+    if (!page) return { entries, nextCursor: cursor, total }
+    entries = mergeLog(entries, page.entries)
+    cursor = page.nextCursor
+    total = page.total
+    pages += 1
+  }
+  return { entries, nextCursor: cursor, total }
+}
+
 /** One board's moves, for the flow reading. */
 export async function fetchMovements(boardId: string): Promise<{ moves: BoardMove[]; truncated: boolean } | undefined> {
   return getJson<{ moves: BoardMove[]; truncated: boolean }>(

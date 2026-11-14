@@ -23,7 +23,7 @@ import { boardCardTypeId, tagsOf } from '@/domain/board'
 import { detailFor, type BoardDetail } from '@/domain/boardDetail'
 import { lateStartDay } from '@/domain/due'
 import { childrenOf, effectiveStage, isTopLevel, laneDepth, laneHoldsCards, rootLane, subtreeIds, wipState } from '@/domain/lanes'
-import { ageDays, initiativeScope, matchesFilters, type CardFilters } from '@/domain/filters'
+import { ageDays, initiativeScope, matchesFilters, type CardFilters, type FilterDisplay } from '@/domain/filters'
 import { STAGE_ACCENT, STAGE_SURFACE, tintOn, WIP_PILL, WIP_SURFACE } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -63,6 +63,8 @@ interface Ctx {
   boards: Board[]
   editMode: boolean
   filters: CardFilters
+  /** How cards outside the filters read: dimmed in place, or not drawn at all. */
+  filterDisplay: FilterDisplay
   /** External dependency (the boundary workflow) whose local dependents are highlighted. */
   boundaryId: string | null
   /** Multi-select group (shift+click). */
@@ -544,9 +546,11 @@ function LaneBox({
   // Every narrowing here reads the filter panel — including its text criterion. The
   // top-bar search is a cross-board finder; it no longer also filters these columns,
   // and a deep-linked ?q= lands in the text filter instead (see App).
+  const matches = (item: (typeof boardItems)[number]) =>
+    matchesFilters(item, ctx.filters, ctx.model.status.get(item.id)?.resolved ?? false, Date.now(), ctx.ageOf(item.id), ctx.initiativeScope)
   const cards = boardItems
     .filter((i) => effectiveLane.get(i.id) === lane.id)
-    .filter((i) => matchesFilters(i, ctx.filters, ctx.model.status.get(i.id)?.resolved ?? false, Date.now(), ctx.ageOf(i.id), ctx.initiativeScope))
+    .filter((i) => ctx.filterDisplay === 'dim' || matches(i))
 
   return (
     <div
@@ -588,6 +592,9 @@ function LaneBox({
           const p = pid ? ctx.model.itemsById.get(pid) : undefined
           const parent: CardParent | undefined = p ? { id: p.id, title: p.title, type: typeOf(p.typeId) } : undefined
           const roll = ctx.model.rollup.get(c.id)!
+          // A card outside the active filters is still on the board in Dim mode; only its
+          // emphasis changes. Hide mode has already removed it above.
+          const filteredOut = ctx.filterDisplay === 'dim' && !matches(c)
           const stage = ctx.effectiveLane.get(c.id) ? effectiveStage(lanes, ctx.effectiveLane.get(c.id)!) : undefined
           // The pick's root is the card the edge is being formed for: it keeps its place and its
           // ring while everything that is not a choice recedes. Waiting for a parent, only the
@@ -622,6 +629,7 @@ function LaneBox({
                 (ctx.boundaryId !== null && !ctx.model.openDependencies.get(c.id)?.has(ctx.boundaryId)) ||
                 picking
               }
+              filterDimmed={filteredOut}
               inert={picking}
               connectRoot={pickRoot}
               users={ctx.users}
@@ -819,6 +827,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   const issueTypes = useStore((s) => s.issueTypes)
   const users = useStore((s) => s.users)
   const filters = useStore((s) => s.filters)
+  const filterDisplay = useStore((s) => s.filterDisplay)
   const boundaryId = useStore((s) => s.boundaryId)
   const toggleBoundary = useStore((s) => s.toggleBoundary)
   const multiSelect = useStore((s) => s.multiSelect)
@@ -1015,7 +1024,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
     return map
   }, [placements, boardId])
   const ctx: Ctx = {
-    lanes, items, issueTypes, graph, users, boards, editMode, detail, filters, boundaryId, boardId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, effectiveLane,
+    lanes, items, issueTypes, graph, users, boards, editMode, detail, filters, filterDisplay, boundaryId, boardId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, effectiveLane,
     model,
     ageOf: (itemId) => ageDays(boardPlacement.get(itemId)),
     initiativeScope: initiativeScope(filters, graph),

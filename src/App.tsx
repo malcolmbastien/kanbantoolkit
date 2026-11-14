@@ -142,7 +142,9 @@ export default function App() {
         target?.closest('[data-lane-settings]') ||
         target?.closest('[data-board-settings]') ||
         target?.closest('[data-reason-dialog]') ||
-        target?.closest('[data-card-menu]')
+        target?.closest('[data-card-menu]') ||
+        target?.closest('[data-filters-toggle]') ||
+        target?.closest('[data-filter-clear]')
       ) {
         return
       }
@@ -315,7 +317,7 @@ export default function App() {
             <MyWorkView />
           </Suspense>
         ) : showFilters && boardSurface ? (
-          <Suspense fallback={<aside aria-busy="true" className="h-full w-[420px] shrink-0 border-l border-slate-300 bg-slate-100" />}>
+          <Suspense fallback={<aside aria-busy="true" className="h-full w-[460px] shrink-0 border-l border-slate-300 bg-slate-100" />}>
             <FilterPanel />
           </Suspense>
         ) : selectedItemId ? (

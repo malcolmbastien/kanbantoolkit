@@ -51,6 +51,18 @@ it depends on, and why it has a red or amber marker. It is one person's reading,
 browser per board. It changes only the drawing: counts, WIP, filters, search, drag, the card menu and
 the keyboard all work the same. **Edit board** always shows Full and disables the dial.
 
+**Filters** opens the board’s filter drawer: text, type, initiative, assignee, priority, tag, age,
+blocked, overdue and due-soon, plus saved sets. At the top, **Filter mode** chooses what
+happens to the cards outside the filter. **Dim** is the default: they stay in their lanes, recede
+visually, and still open, drag and take the keyboard; counts and WIP continue to describe the whole
+lane. **Hide** narrows the board to the matches. The choice is view state with the filters, so it
+resets on a reload; it is not written into the workspace or the URL.
+
+While a filter is active, **Clear filters** sits beside **Filters** in the secondary bar, so the
+board can be read whole again without opening the drawer. Opening **Filters** over an open card
+replaces the card drawer with the filter drawer; the press does not dismiss the card and move the
+control first.
+
 The same secondary bar has a **Connections** toggle. When it is on, every hierarchy edge (parent →
 child, solid blue) and dependency (waiting item → blocker, solid red) between items this board
 renders is drawn above the board — both with a circle at the start and an arrow at the end. A red
@@ -133,12 +145,15 @@ link, a list or a heading — while the field still stores Markdown. Markdown sh
 type too: `# ` starts a heading, `- ` or `1. ` a list, and `**bold**`, `*italic*` and `` `code` ``
 are recognised as they close. **Comments** is the conversation about the card, with the composer at
 the bottom of that tab; **Hierarchy** shows the parent and the work below; **History** is the card's
-record of changes — every move, edit, block and link, with who and when.
+record of changes — every move, edit, block and link, with who and when. A **Flow** card below the
+fields reduces the card's own time to three numbers — open or lead, cycle, and the current cell or
+delivery day — with a short note only when it has been blocked or moved backwards. **Breakdown**
+opens the stage-by-stage reading at the top of History.
 
-<img src="img/guide/card-drawer.webp" alt="The card drawer for Rebuild the signup form: type, title, Overview, Comments, Hierarchy and History tabs, status, priority, people and the parent initiative" width="420">
+<img src="img/guide/card-drawer.webp" alt="The card drawer for Rebuild the signup form: type, title, Overview, Comments, Hierarchy and History tabs, status, priority, people, the Flow reading and the parent initiative" width="420">
 
-*The side drawer, with the board still behind it: the fields in Overview, the conversation in
-Comments, the parent in Hierarchy and the changes in History.*
+*The side drawer, with the board still behind it: the fields and Flow in Overview, the conversation
+in Comments, the parent in Hierarchy and the changes in History.*
 
 A comment is written at the bottom of **Comments**, and typing `@` offers a teammate to mention.
 Mentions are flat: there are no replies and no threads. The person is recorded on the comment and

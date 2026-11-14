@@ -15,15 +15,17 @@ import {
 } from '@/domain/derive'
 import { boardInitiativeTypes, boardTags, canServeObjective, canSetParent, cardTypes, initiativeTypeById, isPortfolio, NONE_TYPE_ID, placementOn, tagsOf } from '@/domain/board'
 import { periodNameOf } from '@/domain/periods'
-import { lanePath, STAGE_LABELS } from '@/domain/lanes'
+import { effectiveStage, lanePath, STAGE_LABELS } from '@/domain/lanes'
 import { initiativeHealth } from '@/domain/health'
+import { initiativeFlowReading } from '@/domain/initiativeFlow'
+import { cardFlowReading, cycleTimes, deliveredSince, flowRecordFromMoves, MIN_SAMPLE, percentile, windowStart, type StageMove } from '@/domain/metrics'
 import { insertMention, mentionQueryAt, mentionedIds } from '@/domain/mentions'
 import { renderCommentMarkdown } from '@/lib/mentionMarkup'
 import { DescriptionEditor } from './DescriptionEditor'
 import { PRIORITY_META, PRIORITY_ORDER } from './PriorityBadge'
 import { DueChip } from './DueChip'
 import { FORMER_MEMBER, initialsOf, nameOfUser } from '@/domain/users'
-import { chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, STAGE_DOT, stageChip, TAG_PALETTE } from '@/lib/colors'
+import { chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, STAGE_DOT, STAGE_STACK, stageChip, TAG_PALETTE } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useReturnFocus } from '@/lib/useDialogFocus'
 import { usePresence, heldByOther } from '@/lib/presence'
@@ -31,7 +33,9 @@ import { dropLease, takeLease } from '@/lib/lease'
 import { useAuth } from '@/lib/auth'
 import { useMay } from '@/lib/permissions'
 import { useSync } from '@/lib/sync'
-import { fetchItemLog, mergeLog, type LogPage } from '@/lib/history'
+import { fetchItemLog, fetchMovements, fetchWholeItemLog, mergeLog, movesOf, type BoardMove, type LogPage } from '@/lib/history'
+import { SEED_TODAY } from '@/domain/seed'
+import { isDemoWorkspace } from '@/lib/demo'
 import { toggleWatch } from '@/lib/watch'
 import { useStore, isBoardSurface, type ItemPanelTab } from '@/store'
 import { buildBoardModel } from '@/domain/boardModel'
@@ -65,6 +69,29 @@ const CHIP = 'flex items-center gap-1 rounded-full py-0.5 pl-0.5 pr-1.5 text-met
 /** The stages in the order a board reads them, which is the order the work below is listed in. */
 const STAGE_ORDER: Stage[] = ['backlog', 'notStarted', 'inProgress', 'done']
 
+const MINUTE_MS = 60_000
+const HOUR_MS = 3_600_000
+const DAY_MS = 86_400_000
+
+/**
+ * A span as a person reads it at a glance: hours for less than a day, one decimal below ten days,
+ * whole days above. `0m` is honest for a card made moments ago; a bare `0d` would not be.
+ */
+function spanLabel(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return '0m'
+  if (ms < HOUR_MS) return `${Math.max(1, Math.round(ms / MINUTE_MS))}m`
+  if (ms < DAY_MS) return `${Math.max(1, Math.round(ms / HOUR_MS))}h`
+  const days = ms / DAY_MS
+  return days < 10 ? `${Math.round(days * 10) / 10}d` : `${Math.round(days)}d`
+}
+
+/** A delivered date, without the year when it is this year: "12 Mar". */
+function dayLabel(at: number): string {
+  const date = new Date(at)
+  const sameYear = date.getFullYear() === new Date().getFullYear()
+  return date.toLocaleDateString([], { day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) })
+}
+
 export function ItemPanel({ itemId }: Props) {
   const items = useStore((s) => s.items)
   const edges = useStore((s) => s.edges)
@@ -72,6 +99,7 @@ export function ItemPanel({ itemId }: Props) {
   const placements = useStore((s) => s.placements)
   const lanes = useStore((s) => s.lanes)
   const boards = useStore((s) => s.boards)
+  const flows = useStore((s) => s.flows)
   const issueTypes = useStore((s) => s.issueTypes)
   const objectives = useStore((s) => s.objectives)
   const periods = useStore((s) => s.periods)
@@ -108,6 +136,9 @@ export function ItemPanel({ itemId }: Props) {
   const boardSurface = useStore(isBoardSurface)
   const addAssignee = useStore((s) => s.addAssignee)
   const boardId = useStore((s) => s.boardId)
+  const flowWindow = useStore((s) => s.flowWindow)
+  const metricsFlowId = useStore((s) => s.metricsFlowId)
+  const metricsTypeId = useStore((s) => s.metricsTypeId)
   const onPortfolioBoard = useStore((s) => isPortfolio(s.boards.find((b) => b.id === s.boardId)))
   const selectBoard = useStore((s) => s.selectBoard)
   const connectionScopeId = useStore((s) => s.connectionScopeId)
@@ -251,16 +282,14 @@ export function ItemPanel({ itemId }: Props) {
     useSync.getState().forget(itemId)
   }, [refusal?.reason, locks, itemId])
 
-  // Comments and History are the readers of a card's whole log, so it is asked for when either
-  // tab is opened rather than when the drawer is. A deployment with no history answers `undefined`
-  // and the card's own log, when it has one, is what is shown.
+  // The drawer reads a card's whole log, not its first page: the Flow reading must not report a
+  // shorter age than the card has had. Every page is followed behind the existing skeleton, and a
+  // deployment with no history answers `undefined` — the card's own log is then what is shown.
+  // The panel is keyed by item id, so a different card gets a fresh read.
   useEffect(() => {
-    if (tab !== 'comments' && tab !== 'history') return
-    // Both tabs read the same log; once it is loaded, moving between them must not throw the
-    // earlier pages away and ask again.
-    if (historyPage !== undefined) return
     let live = true
-    void fetchItemLog(itemId).then((page) => {
+    setHistoryPage(undefined)
+    void fetchWholeItemLog(itemId).then((page) => {
       if (!live) return
       setHistoryPage(page ?? null)
       if (page?.entries.length) recordHistory(itemId, page.entries)
@@ -268,8 +297,10 @@ export function ItemPanel({ itemId }: Props) {
     return () => {
       live = false
     }
-  }, [itemId, tab, recordHistory, historyPage])
+  }, [itemId, recordHistory])
 
+  // A read that stopped part-way leaves a cursor, and the History tab still offers the rest.
+  // This is the manual continuation, not the normal path.
   const loadEarlier = async () => {
     if (!historyPage?.nextCursor || historyBusy) return
     setHistoryBusy(true)
@@ -277,12 +308,96 @@ export function ItemPanel({ itemId }: Props) {
     setHistoryBusy(false)
     if (!page) return
     setHistoryPage((current) =>
-      current
-        ? { entries: mergeLog(current.entries, page.entries), nextCursor: page.nextCursor, total: page.total }
-        : current,
+      current ? { entries: mergeLog(current.entries, page.entries), nextCursor: page.nextCursor, total: page.total } : current,
     )
     recordHistory(itemId, page.entries)
   }
+
+  // The demo is a fixed snapshot, so it is read at the demo's own today. A real workspace is read
+  // now. This is the same clock the Flow view uses, so the drawer and the board cannot disagree.
+  const now = useMemo(
+    () => (isDemoWorkspace({ boards, flows, lanes, items, placements }) ? SEED_TODAY : Date.now()),
+    [boards, flows, lanes, items, placements],
+  )
+
+  // The board's moves, for the comparison line. A static deployment answers nothing and the local
+  // logs are the fallback; the reading itself never uses this for the card's own clocks.
+  const [boardMoves, setBoardMoves] = useState<{ moves: BoardMove[]; truncated: boolean } | null | undefined>(undefined)
+  useEffect(() => {
+    if (!boardSurface) {
+      setBoardMoves(null)
+      return
+    }
+    let live = true
+    setBoardMoves(undefined)
+    void fetchMovements(boardId).then((answer) => {
+      if (live) setBoardMoves(answer ?? null)
+    })
+    return () => {
+      live = false
+    }
+  }, [boardId, boardSurface])
+
+  /**
+   * Every move this browser can see, keyed by card: the board's read plus each card's local log.
+   * `undefined` while the board's moves are still being asked for; otherwise a card with no moves
+   * is known not to have any here, which is different from not knowing.
+   */
+  const movesByItem = useMemo(() => {
+    if (boardMoves === undefined) return undefined
+    const map = new Map<string, StageMove[]>()
+    for (const move of boardMoves?.moves ?? []) {
+      const list = map.get(move.itemId) ?? []
+      list.push({
+        at: move.at,
+        to: move.toStage,
+        ...(move.fromStage ? { from: move.fromStage } : {}),
+      })
+      map.set(move.itemId, list)
+    }
+    for (const entry of items) {
+      for (const logEntry of entry.log ?? []) {
+        if (logEntry.kind !== 'moved' || !logEntry.toStage) continue
+        const list = map.get(entry.id) ?? []
+        list.push({
+          at: logEntry.at,
+          to: logEntry.toStage,
+          ...(logEntry.fromStage ? { from: logEntry.fromStage } : {}),
+        })
+        map.set(entry.id, list)
+      }
+    }
+    for (const list of map.values()) list.sort((a, b) => a.at - b.at)
+    return map
+  }, [boardMoves, items])
+
+  /**
+   * The delivered sample the board's Flow view would read, with the same window, flow and type.
+   * Only its p85 is wanted here, and only when the sample can carry a percentile at all. Returns
+   * `undefined` while the moves are loading, on a static deployment, and below `MIN_SAMPLE`.
+   */
+  const boardSample = useMemo(() => {
+    if (!movesByItem) return undefined
+    const laneOnBoard = new Map(
+      placements.filter((placement) => placement.boardId === boardId).map((placement) => [placement.itemId, placement.laneId]),
+    )
+    const initiativeType = issueTypes.find((type) => type.name === 'Initiative')?.id
+    const flowFilter = metricsFlowId && lanes.some((lane) => lane.boardId === boardId && lane.flowId === metricsFlowId) ? metricsFlowId : null
+    const typeFilter = metricsTypeId && items.some((entry) => entry.typeId === metricsTypeId) ? metricsTypeId : null
+    const cards = [...laneOnBoard.keys()]
+      .map((id) => items.find((entry) => entry.id === id))
+      .filter((entry): entry is Item => Boolean(entry) && entry!.typeId !== initiativeType)
+      .filter((entry) => flowFilter === null || lanes.find((lane) => lane.id === laneOnBoard.get(entry.id))?.flowId === flowFilter)
+      .filter((entry) => typeFilter === null || entry.typeId === typeFilter)
+    const records = cards.map((card) =>
+      flowRecordFromMoves(card, effectiveStage(lanes, laneOnBoard.get(card.id)!), movesByItem.get(card.id) ?? []),
+    )
+    const since = windowStart(flowWindow, now)
+    const cycles = cycleTimes(deliveredSince(records, since))
+    if (cycles.length < MIN_SAMPLE) return undefined
+    const p85 = percentile(cycles, 85)
+    return p85 === undefined ? undefined : { n: cycles.length, p85 }
+  }, [movesByItem, placements, boardId, items, issueTypes, metricsFlowId, metricsTypeId, lanes, flowWindow, now])
 
   if (!item) return null
 
@@ -324,6 +439,30 @@ export function ItemPanel({ itemId }: Props) {
 
   const initiativeTypeId = issueTypes.find((t) => t.name === 'Initiative')?.id
   const isInitiative = Boolean(initiativeTypeId && item.typeId === initiativeTypeId)
+
+  /* ---- The Flow reading ---------------------------------------------------------------
+     A card's own moves, scoped to the board the drawer is open on when it is placed there.
+     A card read from another board's band, or with no placement, falls back to the whole log
+     and says "All boards" rather than pretending one flow is another. An initiative gets the
+     rollup reading instead; it has no cycle of its own. */
+  const boardPlacement = itemPlacements.find((placement) => placement.boardId === boardId)
+  const scoped = boardSurface && Boolean(boardPlacement)
+  const scopedLog = scoped
+    ? log.filter((entry) => entry.boardId === undefined || entry.boardId === boardId)
+    : log
+  const scopedStage: Stage =
+    (scoped && boardPlacement ? effectiveStage(lanes, boardPlacement.laneId) : stage) ?? stage
+  const flowPath = boardPlacement ? lanePath(lanes, boardPlacement.laneId) : []
+  const currentCell = scoped ? flowPath.at(-1) ?? STAGE_LABELS[scopedStage] : STAGE_LABELS[scopedStage]
+  const flowScope = scoped ? boards.find((board) => board.id === boardId)?.name ?? 'This board' : 'All boards'
+  const earliestLogged = scopedLog.length > 0 ? Math.min(...scopedLog.map((entry) => entry.at)) : undefined
+  const historyPartial = Boolean(historyPage?.nextCursor)
+  const historyLate = earliestLogged !== undefined && earliestLogged > item.createdAt + DAY_MS
+  const cardRecord = isInitiative ? undefined : flowRecordFromMoves(item, scopedStage, movesOf(scopedLog))
+  const cardReading = cardRecord
+    ? cardFlowReading(cardRecord, scopedLog, now, scoped ? boardId : undefined)
+    : undefined
+  const initiativeReading = isInitiative ? initiativeFlowReading(item, graph, movesByItem, now) : undefined
   const isSubtask = item.typeId === issueTypes.find((t) => t.name === 'Sub-task')?.id
   // Two types belong to the system rather than the user, so the control is not offered.
   const typeIsFixed = isInitiative || isSubtask
@@ -685,6 +824,289 @@ export function ItemPanel({ itemId }: Props) {
       )}
     </div>
   )
+
+  /* ---- Flow ---------------------------------------------------------------------------
+     One reading, two depths. Overview carries the compact card — what state the clocks are in
+     and the two or three facts a person asks for — and History carries the stage breakdown.
+     Neither invents a number: both are the moves this card's log holds. --------------------- */
+
+  const flowScopeText = scoped ? `On ${flowScope}` : 'All boards'
+  const stopped = cardReading !== undefined && cardReading.stop < now
+  const archivedFirst =
+    item.archivedAt !== undefined && (item.resolvedAt == null || item.archivedAt < item.resolvedAt)
+
+  const comparison =
+    scoped && boardSample && cardReading?.cycleMs !== undefined
+      ? { cycle: cardReading.cycleMs, p85: boardSample.p85, n: boardSample.n }
+      : undefined
+
+  // The three overview numbers, in the order a person asks: how long, how long in cycle, and
+  // where it is now (or when it stopped). The rest belongs to the breakdown.
+  const thirdLabel = archivedFirst ? 'Filed' : stopped ? 'Delivered' : currentCell
+  const thirdValue = archivedFirst
+    ? item.archivedAt
+      ? dayLabel(item.archivedAt)
+      : '—'
+    : stopped
+      ? item.resolvedAt
+        ? dayLabel(item.resolvedAt)
+        : '—'
+      : spanLabel(cardReading?.currentMs ?? 0)
+  const thirdTitle = archivedFirst
+    ? 'The day it was filed before it was done.'
+    : stopped
+      ? 'The day it was delivered.'
+      : 'Time in the current position.'
+  const cardNote = cardReading
+    ? [
+        cardReading.blockedMs > 0 ? `Blocked ${spanLabel(cardReading.blockedMs)}` : null,
+        cardReading.backwardMoves > 0
+          ? `${cardReading.backwardMoves} backward move${cardReading.backwardMoves === 1 ? '' : 's'}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : ''
+  const detailNote = cardReading
+    ? [
+        cardReading.blockedMs > 0 ? `Blocked ${spanLabel(cardReading.blockedMs)} in total` : null,
+        cardReading.currentBlockMs !== undefined
+          ? `${spanLabel(cardReading.currentBlockMs)} in the current block`
+          : null,
+        cardReading.backwardMoves > 0
+          ? `${cardReading.backwardMoves} backward move${cardReading.backwardMoves === 1 ? '' : 's'}`
+          : null,
+        cardReading.lastMoveAt !== undefined ? `Last moved ${spanLabel(now - cardReading.lastMoveAt)} ago` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : ''
+
+  const flowCaveat = historyPartial
+    ? 'History is only partly loaded, so these clocks may be short.'
+    : historyLate && earliestLogged !== undefined
+      ? `From moves recorded since ${dayLabel(earliestLogged)}; earlier time is not known.`
+      : undefined
+
+  const initiativeFlow = initiativeReading ? (
+    <section
+      data-initiative-flow
+      aria-label="Flow"
+      title="An initiative’s section and progress come from the leaves below it, so it has no cycle of its own."
+      className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-micro font-semibold uppercase tracking-wide text-slate-600">Flow</h3>
+        {item.archivedAt && <span className="text-micro text-slate-500">Filed {dayLabel(item.archivedAt)}</span>}
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-2" data-flow-stats>
+        <div data-flow-stat="progress" className="min-w-0">
+          <p className="truncate text-meta font-semibold tabular-nums text-slate-800">{initiativeReading.percent}%</p>
+          <p className="truncate text-micro text-slate-500">Progress</p>
+        </div>
+        <div data-flow-stat="leaves" className="min-w-0" title="Leaves below it that are done, of all leaves below it.">
+          <p className="truncate text-meta font-semibold tabular-nums text-slate-800">
+            {initiativeReading.leaves.done} / {initiativeReading.leaves.total}
+          </p>
+          <p className="truncate text-micro text-slate-500">Leaves done</p>
+        </div>
+        <div
+          data-flow-stat="open"
+          className="min-w-0"
+          title={
+            initiativeReading.historyFrom !== undefined
+              ? `Child moves recorded since ${dayLabel(initiativeReading.historyFrom)}; earlier movement is not known.`
+              : undefined
+          }
+        >
+          <p className="truncate text-meta font-semibold tabular-nums text-slate-800">
+            {spanLabel(initiativeReading.openMs)}
+          </p>
+          <p className="truncate text-micro text-slate-500">{item.archivedAt ? 'Open before filing' : 'Open'}</p>
+        </div>
+      </div>
+      {initiativeReading.leaves.total === 0 ? (
+        <p className="mt-1.5 text-micro text-slate-500">No work below it yet.</p>
+      ) : (
+        <>
+          <p data-flow-distribution className="mt-1.5 text-micro text-slate-600">
+            {initiativeReading.leaves.backlog} Backlog · {initiativeReading.leaves.notStarted} Not Started ·{' '}
+            {initiativeReading.leaves.inProgress} In Progress · {initiativeReading.leaves.done} Done
+          </p>
+          {initiativeReading.oldest && (
+            <button
+              type="button"
+              data-flow-oldest
+              onClick={() => openOrGo(initiativeReading.oldest!.id)}
+              title={`Open ${initiativeReading.oldest.title}`}
+              className="mt-1.5 flex w-full items-center gap-1.5 rounded text-left text-micro text-slate-700 transition hover:text-indigo-700"
+            >
+              <ArrowRight size={11} className="shrink-0 text-slate-400" />
+              <span className="min-w-0 flex-1 truncate">
+                Oldest open leaf: <span className="font-medium">{initiativeReading.oldest.title}</span>,{' '}
+                {spanLabel(initiativeReading.oldest.ms)}{' '}
+                {initiativeReading.oldest.clock === 'commitment' ? 'since commitment' : 'in its column'}
+              </span>
+            </button>
+          )}
+        </>
+      )}
+      {/* One line for the flags and the last movement, and nothing at all when there is nothing
+          to say. The deeper explanation is the health panel in Overview and the cards themselves. */}
+      {[
+        initiativeReading.blocked > 0 ? `Blocked ${initiativeReading.blocked}` : null,
+        initiativeReading.waiting > 0 ? `Waiting ${initiativeReading.waiting}` : null,
+        initiativeReading.unowned > 0 ? `Unowned ${initiativeReading.unowned}` : null,
+        !initiativeReading.lastMoveKnown
+          ? 'Movement not loaded'
+          : initiativeReading.lastMoveAt === undefined
+            ? null
+            : `Last moved ${spanLabel(now - initiativeReading.lastMoveAt)} ago`,
+      ].filter(Boolean).length > 0 && (
+        <p data-flow-movement className="mt-1.5 text-micro text-slate-600">
+          {[
+            initiativeReading.blocked > 0 ? `Blocked ${initiativeReading.blocked}` : null,
+            initiativeReading.waiting > 0 ? `Waiting ${initiativeReading.waiting}` : null,
+            initiativeReading.unowned > 0 ? `Unowned ${initiativeReading.unowned}` : null,
+            !initiativeReading.lastMoveKnown
+              ? 'Movement not loaded'
+              : initiativeReading.lastMoveAt === undefined
+                ? null
+                : `Last moved ${spanLabel(now - initiativeReading.lastMoveAt)} ago`,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </p>
+      )}
+    </section>
+  ) : null
+
+  const cardFlow =
+    historyPage === undefined ? (
+      <section data-card-flow aria-busy="true" className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+        <h3 className="text-micro font-semibold uppercase tracking-wide text-slate-600">Flow</h3>
+        <p className="mt-1 text-meta text-slate-500" data-flow-loading>
+          Reading this card&apos;s history…
+        </p>
+      </section>
+    ) : cardReading ? (
+      <section data-card-flow aria-label="Flow" className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-micro font-semibold uppercase tracking-wide text-slate-600">Flow</h3>
+          <button
+            type="button"
+            data-flow-breakdown
+            onClick={() => setTab('history')}
+            className="text-micro font-medium text-indigo-600 transition hover:text-indigo-500"
+          >
+            Breakdown
+          </button>
+        </div>
+        <div className="mt-2 grid grid-cols-3 gap-2" data-flow-stats>
+          <div
+            data-flow-stat="open"
+            className="min-w-0"
+            title={archivedFirst ? 'Created to the day it was filed.' : stopped ? 'Created to delivery.' : 'Creation to now.'}
+          >
+            <p className="truncate text-meta font-semibold tabular-nums text-slate-800">
+              {spanLabel(stopped ? cardReading.leadMs : cardReading.openMs)}
+            </p>
+            <p className="truncate text-micro text-slate-500">{stopped ? 'Lead' : 'Open'}</p>
+          </div>
+          <div
+            data-flow-stat="cycle"
+            className="min-w-0"
+            title={
+              cardReading.cycleMs === undefined
+                ? 'No cycle yet: the card has not left Backlog.'
+                : 'First commitment to now, or to delivery.'
+            }
+          >
+            <p
+              className={cn(
+                'truncate text-meta font-semibold tabular-nums',
+                cardReading.cycleMs === undefined ? 'text-slate-500' : 'text-slate-800',
+              )}
+            >
+              {cardReading.cycleMs === undefined ? (stopped ? '—' : 'Not yet') : spanLabel(cardReading.cycleMs)}
+            </p>
+            <p className="truncate text-micro text-slate-500">Cycle</p>
+          </div>
+          <div
+            data-flow-stat="position"
+            className="min-w-0"
+            title={thirdTitle}
+          >
+            <p className="truncate text-meta font-semibold tabular-nums text-slate-800">{thirdValue}</p>
+            <p className="truncate text-micro text-slate-500">{thirdLabel}</p>
+          </div>
+        </div>
+        {(cardNote || !scoped) && (
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-micro text-slate-600">
+            {!scoped && <span data-flow-scope className="text-slate-500">All boards</span>}
+            {cardNote && <span data-flow-note>{cardNote}</span>}
+          </p>
+        )}
+      </section>
+    ) : null
+
+  const flowDetail = cardReading ? (
+    <section data-flow-detail aria-label="Flow" className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-micro font-semibold uppercase tracking-wide text-slate-600">Flow</h3>
+        <span className="text-micro text-slate-600">{flowScopeText}</span>
+      </div>
+      <p className="mt-1 text-meta font-medium text-slate-800">
+        Created {dayLabel(cardReading.start)} · {stopped ? 'Lead' : 'Open'} {spanLabel(cardReading.total)} ·{' '}
+        {currentCell} for {spanLabel(cardReading.currentMs)}
+      </p>
+      <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-slate-200" aria-hidden>
+        {cardReading.segments
+          .filter((entry) => entry.ms > 0)
+          .map((entry) => (
+            <span
+              key={entry.stage}
+              style={{ width: `${entry.share * 100}%`, backgroundColor: STAGE_STACK[entry.stage] }}
+            />
+          ))}
+      </div>
+      <div className="mt-2 space-y-1">
+        {cardReading.segments.map((entry) => (
+          <div key={entry.stage} data-flow-stage={entry.stage} className="flex items-center gap-2 text-micro text-slate-700">
+            <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', STAGE_DOT[entry.stage])} />
+            <span className="min-w-0 flex-1 truncate">{STAGE_LABELS[entry.stage]}</span>
+            <span className="tabular-nums text-slate-600">{entry.ms > 0 ? spanLabel(entry.ms) : '—'}</span>
+            <span className="w-9 text-right tabular-nums text-slate-500">{Math.round(entry.share * 100)}%</span>
+            {entry.current ? (
+              <span className="rounded bg-white px-1 text-micro font-semibold text-indigo-600 ring-1 ring-indigo-200">
+                now
+              </span>
+            ) : (
+              <span className="w-8" aria-hidden />
+            )}
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-micro text-slate-600">
+        Waiting {spanLabel(cardReading.waitingMs)} · Working {spanLabel(cardReading.workingMs)} · Finished{' '}
+        {spanLabel(cardReading.finishedMs)}
+      </p>
+      {detailNote && (
+        <p data-flow-note className="mt-1 text-micro text-slate-600">
+          {detailNote}
+        </p>
+      )}
+      {comparison && (
+        <p data-flow-comparison className="mt-1 text-micro text-slate-600">
+          Cycle {spanLabel(comparison.cycle)} ·{' '}
+          {comparison.cycle / DAY_MS > comparison.p85
+            ? `past the board's p85 of ${comparison.p85.toFixed(1)}d`
+            : `board p85 ${comparison.p85.toFixed(1)}d`}
+        </p>
+      )}
+      {flowCaveat && <p className="mt-1 text-micro text-slate-500">{flowCaveat}</p>}
+    </section>
+  ) : null
 
   return (
     <aside
@@ -1449,6 +1871,11 @@ export function ItemPanel({ itemId }: Props) {
               </div>
             </section>
 
+            {/* The Flow reading. It sits after the properties because it is read the way they
+                are — a fact about the card — and before the description, which is the card's
+                own words rather than the record's. */}
+            {isInitiative ? initiativeFlow : cardFlow}
+
             {/* The direct parent, called out on its own rather than left to be read out of the
                 chain: it is the one relationship a card has, and the one thing about it you can
                 change. The whole chain is a tab away. */}
@@ -1915,45 +2342,48 @@ export function ItemPanel({ itemId }: Props) {
         )}
 
         {tab === 'history' && (
-          <Section label="History" count={historyEntries.length} aside={<span className="text-micro text-slate-600">Newest first</span>}>
-            {historyLoading ? (
-              <p className="text-meta text-slate-600" data-history-loading>
-                Loading history…
-              </p>
-            ) : historyEntries.length === 0 ? (
-              <p className="text-meta text-slate-600">No changes yet.</p>
-            ) : (
-              <div className="space-y-1">
-                {[...historyEntries].reverse().map((entry) => (
-                  <div key={entry.id} className="flex items-start gap-2 rounded-lg border border-slate-200 px-2.5 py-2">
-                    <span className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', LOG_STYLES[entry.kind] ?? 'bg-slate-300')} />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-meta text-slate-700">
-                        <span className="font-medium capitalize">{entry.kind}</span>
-                        {entry.note ? ` — ${entry.note}` : ''}
-                      </div>
-                      <div className="text-micro text-slate-600">
-                        {whenLabel(entry.at)}
-                        {authorOf(entry) ? ` · ${authorOf(entry)}` : ''}
-                        {entry.via ? <span className="text-slate-500"> · via {entry.via}</span> : null}
+          <>
+            {flowDetail}
+            <Section label="History" count={historyEntries.length} aside={<span className="text-micro text-slate-600">Newest first</span>}>
+              {historyLoading ? (
+                <p className="text-meta text-slate-600" data-history-loading>
+                  Loading history…
+                </p>
+              ) : historyEntries.length === 0 ? (
+                <p className="text-meta text-slate-600">No changes yet.</p>
+              ) : (
+                <div className="space-y-1">
+                  {[...historyEntries].reverse().map((entry) => (
+                    <div key={entry.id} className="flex items-start gap-2 rounded-lg border border-slate-200 px-2.5 py-2">
+                      <span className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', LOG_STYLES[entry.kind] ?? 'bg-slate-300')} />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-meta text-slate-700">
+                          <span className="font-medium capitalize">{entry.kind}</span>
+                          {entry.note ? ` — ${entry.note}` : ''}
+                        </div>
+                        <div className="text-micro text-slate-600">
+                          {whenLabel(entry.at)}
+                          {authorOf(entry) ? ` · ${authorOf(entry)}` : ''}
+                          {entry.via ? <span className="text-slate-500"> · via {entry.via}</span> : null}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-                {historyPage?.nextCursor && (
-                  <button
-                    type="button"
-                    data-history-more
-                    onClick={() => void loadEarlier()}
-                    disabled={historyBusy}
-                    className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-meta text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60"
-                  >
-                    {historyBusy ? 'Loading…' : `Load earlier history (${Math.max(0, historyTotal - log.length)} more)`}
-                  </button>
-                )}
-              </div>
-            )}
-          </Section>
+                  ))}
+                  {historyPage?.nextCursor && (
+                    <button
+                      type="button"
+                      data-history-more
+                      onClick={() => void loadEarlier()}
+                      disabled={historyBusy}
+                      className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-meta text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60"
+                    >
+                      {historyBusy ? 'Loading…' : `Load earlier history (${Math.max(0, historyTotal - log.length)} more)`}
+                    </button>
+                  )}
+                </div>
+              )}
+            </Section>
+          </>
         )}
       </div>
       </fieldset>

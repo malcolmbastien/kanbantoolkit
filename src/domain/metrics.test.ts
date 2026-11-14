@@ -3,6 +3,7 @@ import {
   MAX_ALL_WEEKS,
   aging,
   bucketsFor,
+  cardFlowReading,
   committedAt,
   cumulativeFlow,
   cycleByWeek,
@@ -12,6 +13,7 @@ import {
   flowRecord,
   flowRecordFromMoves,
   firstRecordedMove,
+  flowStats,
   flowSummary,
   forecastBy,
   forecastWhen,
@@ -38,7 +40,7 @@ import {
   type FlowRecord,
   type StageMove,
 } from './metrics'
-import type { Item, Stage } from './types'
+import type { Item, ItemLogEntry, Stage } from './types'
 
 const DAY = 86_400_000
 /** A fixed "now" — Sat 17 Oct 2026, the demo's today. */
@@ -565,5 +567,159 @@ describe('how many by a date', () => {
     expect(forecastBy(0, [1, 2, 3, 4], T, T + DAY)).toMatchObject({ ok: false, reason: 'no-scope' })
     expect(forecastBy(5, [0, 0, 0, 0], T, T + DAY)).toMatchObject({ ok: false, reason: 'no-throughput' })
     expect(forecastBy(5, [1, 1, 1], T, T + DAY)).toMatchObject({ ok: false, reason: 'thin-history' })
+  })
+})
+
+describe('a card’s recorded life, stage by stage', () => {
+  it('starts at creation, not at the first move, and stops when the card is filed', () => {
+    const record = rec({ createdAt: T - 30 * DAY, resolvedAt: T - 5 * DAY })
+    const stats = flowStats(record, T)
+    expect(stats.start).toBe(T - 30 * DAY)
+    expect(stats.stop).toBe(T - 5 * DAY)
+    expect(stats.total).toBe(25 * DAY)
+    expect(stats.segments.find((s) => s.stage === 'backlog')?.ms).toBe(25 * DAY)
+    expect(stats.segments.find((s) => s.stage === 'backlog')?.share).toBe(1)
+  })
+
+  it('splits a card between the stages it sat in', () => {
+    const record = rec({
+      createdAt: T - 30 * DAY,
+      moves: [move(T - 20 * DAY, 'inProgress', 'backlog'), move(T - 8 * DAY, 'done', 'inProgress')],
+    })
+    const stats = flowStats(record, T)
+    expect(stats.total).toBe(30 * DAY)
+    expect(stats.segments.map((s) => [s.stage, s.ms / DAY])).toEqual([
+      ['backlog', 10],
+      ['notStarted', 0],
+      ['inProgress', 12],
+      ['done', 8],
+    ])
+    expect(stats.waitingMs / DAY).toBe(10)
+    expect(stats.workingMs / DAY).toBe(12)
+    expect(stats.finishedMs / DAY).toBe(8)
+  })
+
+  it('stops at the archive when the card was filed before it was done', () => {
+    const record = rec({
+      createdAt: T - 30 * DAY,
+      archivedAt: T - 10 * DAY,
+      moves: [move(T - 20 * DAY, 'inProgress', 'backlog')],
+    })
+    const stats = flowStats(record, T)
+    expect(stats.stop).toBe(T - 10 * DAY)
+    expect(stats.currentStage).toBe('inProgress')
+    expect(stats.total / DAY).toBe(20)
+  })
+
+  it('ignores a move after the stop, a duplicate stage and a negative interval', () => {
+    const record = rec({
+      createdAt: T - 30 * DAY,
+      resolvedAt: T - 5 * DAY,
+      startedIn: 'backlog',
+      moves: [
+        move(T - 20 * DAY, 'backlog', 'backlog'),
+        move(T - 4 * DAY, 'done', 'backlog'),
+        move(T - 2 * DAY, 'inProgress', 'done'),
+      ],
+    })
+    const stats = flowStats(record, T)
+    expect(stats.stop).toBe(T - 5 * DAY)
+    expect(stats.segments.find((s) => s.stage === 'backlog')?.ms).toBe(25 * DAY)
+    expect(stats.segments.find((s) => s.stage === 'inProgress')?.ms).toBe(0)
+    expect(stats.currentStage).toBe('backlog')
+  })
+
+  it('reads a card with no moves as its current stage since creation', () => {
+    const record = rec({ createdAt: T - 4 * DAY, startedIn: 'inProgress' })
+    const stats = flowStats(record, T)
+    expect(stats.total).toBe(4 * DAY)
+    expect(stats.currentStage).toBe('inProgress')
+    expect(stats.workingMs).toBe(4 * DAY)
+  })
+})
+
+describe('the drawer’s card reading', () => {
+  const logEntry = (at: number, kind: ItemLogEntry['kind'], boardId?: string): ItemLogEntry => ({
+    id: `${kind}-${at}`,
+    at,
+    kind,
+    ...(boardId ? { boardId } : {}),
+  })
+
+  it('has an open age but no cycle while the card is still in Backlog', () => {
+    const reading = cardFlowReading(rec({ createdAt: T - 12 * DAY }), [], T)
+    expect(reading.openMs).toBe(12 * DAY)
+    expect(reading.cycleMs).toBeUndefined()
+    expect(reading.currentMs).toBe(12 * DAY)
+  })
+
+  it('counts a cycle from the first commitment, not from creation', () => {
+    const reading = cardFlowReading(
+      rec({ createdAt: T - 30 * DAY, moves: [move(T - 18 * DAY, 'inProgress', 'backlog')] }),
+      [],
+      T,
+    )
+    expect(reading.committedAt).toBe(T - 18 * DAY)
+    expect(reading.cycleMs).toBe(18 * DAY)
+    expect(reading.currentSince).toBe(T - 18 * DAY)
+    expect(reading.currentMs).toBe(18 * DAY)
+  })
+
+  it('stops a delivered card’s clocks at resolvedAt and counts its backward moves', () => {
+    const reading = cardFlowReading(
+      rec({
+        createdAt: T - 30 * DAY,
+        resolvedAt: T - 4 * DAY,
+        moves: [
+          move(T - 20 * DAY, 'inProgress', 'backlog'),
+          move(T - 12 * DAY, 'notStarted', 'inProgress'),
+          move(T - 4 * DAY, 'done', 'notStarted'),
+        ],
+      }),
+      [logEntry(T - 10 * DAY, 'blocked'), logEntry(T - 6 * DAY, 'unblocked')],
+      T,
+    )
+    expect(reading.leadMs).toBe(26 * DAY)
+    expect(reading.cycleMs).toBe(16 * DAY)
+    expect(reading.blockedMs).toBe(4 * DAY)
+    expect(reading.currentBlockMs).toBeUndefined()
+    expect(reading.backwardMoves).toBe(1)
+    expect(reading.lastMoveAt).toBe(T - 4 * DAY)
+    expect(reading.currentMs).toBe(0)
+  })
+
+  it('adds an open block up to the stop and reads only this board’s blocks', () => {
+    const record = rec({ createdAt: T - 20 * DAY })
+    const at = (days: number) => T - days * DAY
+    const reading = cardFlowReading(
+      record,
+      [
+        logEntry(at(15), 'blocked', 'b-1'),
+        logEntry(at(14), 'unblocked', 'b-1'),
+        logEntry(at(10), 'blocked', 'b-1'),
+        logEntry(at(9), 'blocked', 'b-2'),
+        logEntry(at(2), 'unblocked', 'b-2'),
+      ],
+      T,
+      'b-1',
+    )
+    expect(reading.blockedMs).toBe(11 * DAY)
+    expect(reading.currentBlockMs).toBe(10 * DAY)
+  })
+
+  it('does not count a move after the stop as the current position', () => {
+    const reading = cardFlowReading(
+      rec({
+        createdAt: T - 30 * DAY,
+        archivedAt: T - 10 * DAY,
+        moves: [move(T - 20 * DAY, 'inProgress', 'backlog'), move(T - 2 * DAY, 'done', 'inProgress')],
+      }),
+      [],
+      T,
+    )
+    expect(reading.stop).toBe(T - 10 * DAY)
+    expect(reading.currentStage).toBe('inProgress')
+    expect(reading.lastMoveAt).toBe(T - 20 * DAY)
+    expect(reading.backwardMoves).toBe(0)
   })
 })

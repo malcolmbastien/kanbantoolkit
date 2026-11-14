@@ -2,10 +2,11 @@ import { Minus, Plus, X } from 'lucide-react'
 import { cardTypes, initiativeTypeId, NONE_TYPE_ID, tagsOf } from '@/domain/board'
 import { lineageOf, statusOf, type Graph } from '@/domain/derive'
 import { cardsFlows } from '@/domain/flows'
-import { activeFilterCount, ageDays, hasActiveFilters, initiativeScope, matchesFilters, sameFilters, type SavedFilter } from '@/domain/filters'
+import { ageDays, hasActiveFilters, initiativeScope, matchesFilters, sameFilters, type SavedFilter } from '@/domain/filters'
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
 import { chipColors } from '@/lib/colors'
 import { cn } from '@/lib/utils'
+import { announce } from '@/lib/announce'
 import { useStore } from '@/store'
 import { useState } from 'react'
 import type { Item } from '@/domain/types'
@@ -25,6 +26,8 @@ export function FilterPanel() {
   const lanes = useStore((s) => s.lanes)
   const issueTypes = useStore((s) => s.issueTypes)
   const filters = useStore((s) => s.filters)
+  const filterDisplay = useStore((s) => s.filterDisplay)
+  const setFilterDisplay = useStore((s) => s.setFilterDisplay)
   const toggleFilters = useStore((s) => s.toggleFilters)
   const toggleFilterType = useStore((s) => s.toggleFilterType)
   const setFilters = useStore((s) => s.setFilters)
@@ -36,7 +39,6 @@ export function FilterPanel() {
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const types = cardTypes(issueTypes)
-  const active = activeFilterCount(filters)
   const initiativeId = initiativeTypeId(issueTypes)
 
   // The cards this board shows (same set the cards workflow renders).
@@ -84,12 +86,12 @@ export function FilterPanel() {
   const flowsHere = cardsFlows(flows, boardId)
 
   return (
-    <aside className="flex h-full w-full max-w-[340px] shrink-0 flex-col border-l border-slate-300 bg-slate-50">
+    <aside data-filters-panel className="flex h-full w-full max-w-[460px] shrink-0 flex-col border-l border-slate-300 bg-slate-50">
       <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-3">
         <div className="min-w-0 flex-1">
           <div className="text-title font-semibold text-slate-800">Filters</div>
           <div className="text-meta text-slate-600">
-            Narrow the cards shown on this board{flowsHere.length > 1 ? ' — every flow' : ''}
+            Choose what stands out on this board{flowsHere.length > 1 ? ' — every flow' : ''}
           </div>
         </div>
         <button onClick={toggleFilters} className="text-slate-600 hover:text-slate-600" title="Close filters">
@@ -99,13 +101,50 @@ export function FilterPanel() {
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3 text-meta">
         <div
+          role="group"
+          aria-label="Filter mode"
+          title="What happens to cards that do not match the filter"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-meta text-slate-700"
+        >
+          <span>Filter mode</span>
+          <span className="flex overflow-hidden rounded border border-slate-200 bg-slate-50 p-0.5">
+            {(['dim', 'hide'] as const).map((display) => (
+              <button
+                key={display}
+                type="button"
+                aria-pressed={filterDisplay === display}
+                onClick={() => {
+                  setFilterDisplay(display)
+                  if (hasActiveFilters(filters)) {
+                    announce(
+                      display === 'dim'
+                        ? `${boardCards.length - matched} non-matching card${boardCards.length - matched === 1 ? '' : 's'} dimmed.`
+                        : `${boardCards.length - matched} non-matching card${boardCards.length - matched === 1 ? '' : 's'} hidden.`,
+                    )
+                  }
+                }}
+                className={cn(
+                  'rounded px-2 py-0.5 text-micro font-medium transition',
+                  filterDisplay === display ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-white',
+                )}
+              >
+                {display === 'dim' ? 'Dim' : 'Hide'}
+              </button>
+            ))}
+          </span>
+        </div>
+
+        <div
+          data-filter-summary
           className={cn(
             'rounded-md px-2.5 py-1.5 text-meta',
             hasActiveFilters(filters) ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-600',
           )}
         >
           {hasActiveFilters(filters)
-            ? `Showing ${matched} of ${boardCards.length} cards · ${active} filter${active === 1 ? '' : 's'} active`
+            ? filterDisplay === 'dim'
+              ? `${matched} of ${boardCards.length} cards match · ${boardCards.length - matched} dimmed`
+              : `Showing ${matched} of ${boardCards.length} cards`
             : `${boardCards.length} cards on this board${flowsHere.length > 1 ? `, across ${flowsHere.length} flows` : ''}`}
         </div>
 

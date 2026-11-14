@@ -14,7 +14,7 @@ import {
   kindOf,
   nextFlowName,
 } from '@/domain/flows'
-import { hasActiveFilters, NO_FILTERS, type CardFilters, type SavedFilter } from '@/domain/filters'
+import { hasActiveFilters, NO_FILTERS, type CardFilters, type FilterDisplay, type SavedFilter } from '@/domain/filters'
 import { STRESS_PREFIX, stressBoard } from '@/domain/stressBoard'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
 import { normalizeObjectiveStatus } from '@/domain/objectives'
@@ -217,6 +217,11 @@ export interface ViewState {
   /** Active card filters applied to the current board. */
   filters: CardFilters
   /**
+   * How cards that do not match the filters read: dimmed in place or hidden. A view choice, not
+   * workspace data; it starts on Dim so filtering does not erase the board's context.
+   */
+  filterDisplay: FilterDisplay
+  /**
    * Named filter sets the board can re-apply — the one deliberately persisted piece of
    * filter state. Filter *state* is view state; the collection of saved sets is data.
    */
@@ -324,6 +329,8 @@ export interface Actions {
   toggleFilters: () => void
   /** Merge a patch into the active card filters. */
   setFilters: (patch: Partial<CardFilters>) => void
+  /** Read non-matching cards dimmed or hide them. */
+  setFilterDisplay: (display: FilterDisplay) => void
   /** Save the active filters as a named set. */
   saveFilter: (name: string) => void
   /** Apply a saved filter set in full — it replaces whatever is active. */
@@ -1154,6 +1161,7 @@ const initialView: ViewState = {
   collapsedLanes: {},
   showFilters: false,
   filters: NO_FILTERS,
+  filterDisplay: 'dim',
   savedFilters: [],
   boundaryId: null,
   parentPickId: null,
@@ -1900,6 +1908,7 @@ export const useStore = create<Store>()(
         set({ savedFilters: get().savedFilters.filter((s) => s.id !== id) })
       },
       setFilters: (patch) => set({ filters: { ...get().filters, ...patch } }),
+      setFilterDisplay: (filterDisplay) => set({ filterDisplay }),
       toggleFilterType: (typeId) => {
         const f = get().filters
         const typeIds = f.typeIds.includes(typeId) ? f.typeIds.filter((t) => t !== typeId) : [...f.typeIds, typeId]

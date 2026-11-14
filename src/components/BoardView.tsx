@@ -51,6 +51,7 @@ export function BoardView({ requestMove }: Props) {
   const showFilters = useStore((s) => s.showFilters)
   const filters = useStore((s) => s.filters)
   const toggleFilters = useStore((s) => s.toggleFilters)
+  const clearFilters = useStore((s) => s.clearFilters)
 
   const edges = useStore((s) => s.edges)
   const links = useStore((s) => s.links)
@@ -184,6 +185,7 @@ export function BoardView({ requestMove }: Props) {
           </button>
           <button
             onClick={toggleFilters}
+            data-filters-toggle
             disabled={editMode}
             className={cn(
               'flex items-center gap-1 rounded-md border px-2 py-1 font-medium transition disabled:pointer-events-none disabled:opacity-40',
@@ -198,6 +200,16 @@ export function BoardView({ requestMove }: Props) {
               </span>
             )}
           </button>
+          {activeFilterCount(filters) > 0 && !editMode && (
+            <button
+              onClick={clearFilters}
+              data-filter-clear
+              className="flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-0.5 text-meta font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+              title="Clear every active filter"
+            >
+              <X size={11} /> Clear filters
+            </button>
+          )}
         </div>
       </div>
 
