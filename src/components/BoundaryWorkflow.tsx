@@ -330,7 +330,7 @@ function BoundaryCard({
         data-boundary-state={entry.state}
         onClick={select}
         className={cn(
-          'cursor-pointer rounded-lg border bg-white p-2 shadow-xs transition hover:shadow-sm',
+          'relative cursor-pointer overflow-hidden rounded-lg border bg-white px-2 pb-2 pt-3 shadow-xs transition hover:shadow-sm',
           cardBorder,
           selected
             ? 'outline-2 outline-solid outline-offset-[-2px] outline-slate-900 shadow-lg'
@@ -338,6 +338,7 @@ function BoundaryCard({
           dimCls,
         )}
       >
+        <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[3px]" style={{ backgroundColor: type.color }} />
         <div className="flex items-center gap-1.5">
           <span className="shrink-0 rounded border px-1.5 py-px text-micro font-bold uppercase tracking-wide" style={chipStyle}>
             {type.name}
@@ -395,7 +396,7 @@ function BoundaryCard({
       // card that can only be selected with a pointer is half a control.
       onClick={select}
       className={cn(
-        'cursor-pointer rounded-lg border bg-white p-2.5 shadow-sm transition hover:shadow-md',
+        'relative cursor-pointer overflow-hidden rounded-lg border bg-white px-2.5 pb-2.5 pt-3 shadow-sm transition hover:shadow-md',
         cardBorder,
         selected
           ? 'outline-2 outline-solid outline-offset-[-2px] outline-slate-900 shadow-lg'
@@ -403,6 +404,7 @@ function BoundaryCard({
         dimCls,
       )}
     >
+      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[3px]" style={{ backgroundColor: type.color }} />
       <div className="flex items-center gap-1.5">
         <span className="shrink-0 rounded border px-1.5 py-px text-micro font-bold uppercase tracking-wide" style={chipStyle}>
           {type.name}

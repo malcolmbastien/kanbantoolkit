@@ -36,6 +36,16 @@ test('a blocked card wears its state on the card, not only in the badge row', as
   expect(blockedBorder.leftWidth).toBe('4px')
   expect(normalBorder.leftWidth).toBe('1px')
   expect(blockedBorder.leftColor).not.toBe(normalBorder.leftColor)
+  // Type is the top channel; the blocked surface, badge and footer are the detail channel.
+  await expect(blocked.locator('[data-card-type-stripe]')).toBeVisible()
+  await expect(blocked).toContainText('Blocked')
+  await expect(blocked).toContainText('Blocker reason:')
+  expect(
+    await blocked.evaluate((el) => getComputedStyle(el).backgroundColor),
+  ).not.toBe(await normal.evaluate((el) => getComputedStyle(el).backgroundColor))
+  expect(
+    await blocked.locator('[data-card-footer]').evaluate((el) => getComputedStyle(el).backgroundColor),
+  ).not.toBe('rgba(0, 0, 0, 0)')
 })
 
 test('Summary keeps the title, type, due date and people, and drops the extras', async ({ page }) => {

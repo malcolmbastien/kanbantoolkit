@@ -170,8 +170,10 @@ test('a Done card wears a thin green edge and one quiet surface', async ({ page 
   await expect(card).toHaveClass(/border-emerald-200/)
   const background = (part: string) =>
     card.locator(part).evaluate((el) => getComputedStyle(el).backgroundColor)
+  // The type is the top stripe; the header and footer keep the card's white ground.
   expect(await background('[data-card-header]')).toBe('rgba(0, 0, 0, 0)')
   expect(await background('[data-card-footer]')).toBe('rgba(0, 0, 0, 0)')
+  await expect(card.locator('[data-card-type-stripe]')).toBeVisible()
 })
 
 test('the selected card outline sits inside the card, so a column edge cannot cut it', async ({ page }) => {

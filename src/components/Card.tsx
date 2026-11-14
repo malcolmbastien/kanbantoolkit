@@ -61,13 +61,13 @@ export interface CardSymbol {
  * the one thing a card's face must never do. The parent is still reachable, from the card's own
  * panel and from its menu.
  */
-function RollupLine({ parent }: { parent: CardParent }) {
+function RollupLine({ parent, blocked = false }: { parent: CardParent; blocked?: boolean }) {
   return (
     <span
-      className="flex min-w-0 items-center gap-1 text-micro font-medium text-slate-500"
+      className={cn('flex min-w-0 items-center gap-1 text-micro font-medium', blocked ? 'text-slate-700' : 'text-slate-500')}
       title={`Rolls up to ${parent.type.name}: ${parent.title}`}
     >
-      <CornerDownRight size={11} className="shrink-0 text-slate-400" aria-hidden />
+      <CornerDownRight size={11} className={cn('shrink-0', blocked ? 'text-slate-500' : 'text-slate-400')} aria-hidden />
       <span className="sr-only">Rolls up to </span>
       <span className="min-w-0 truncate">{parent.title}</span>
     </span>
@@ -350,6 +350,9 @@ function DependencyCount({
 /** The ring a focused card wears — inside, so the board's geometry does not move. */
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
 
+/** The one badge that is allowed to shout: a card's own blockage, in the header's top-right. */
+const BLOCKED_BADGE = 'shrink-0 rounded bg-rose-600 px-1.5 py-0.5 text-micro font-bold uppercase tracking-wide text-white shadow-sm'
+
 function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', draggable, onDragStateChange, locked, selected, boundary, openDependencies, hasDependencies, onOpenDependencies, showConnections = true, lateStart, multi, dimmed, filterDimmed, inert, connectRoot, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const complete = summary.done || completed
   const held = heldByOther(usePresence((state) => state.locks), item.id)
@@ -408,7 +411,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
   // rail, so the one card with a rose rail is the one that is blocked; the callout says why.
   const blocked = Boolean(item.blocked && !complete)
   const cardEdges = blocked
-    ? 'border-rose-300 border-l-4 border-l-rose-600'
+    ? 'border-slate-300/80 border-l-4 border-l-rose-600'
     : summary.done
       ? wide
         ? 'border-emerald-300'
@@ -435,13 +438,15 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
   // chip, because it is metadata about the work below rather than a statement about this card.
   const blockedAlert = item.blocked && !complete ? (
     <span
-      className="flex w-full items-start gap-1.5 rounded-md bg-rose-100 px-2 py-1.5 text-rose-800 ring-1 ring-rose-300"
+      className="flex w-full items-start gap-2 rounded-md bg-white px-2.5 py-2 text-slate-800 shadow-sm ring-1 ring-rose-200"
       title={item.blockedReason ? `Blocked: ${item.blockedReason}` : 'Blocked'}
     >
-      <Ban size={12} className="mt-0.5 shrink-0" />
-      <span className="min-w-0 text-micro font-medium leading-snug">
-        <span className="font-bold uppercase tracking-wide">Blocked</span>
-        {item.blockedReason ? <span> · {item.blockedReason}</span> : null}
+      <Ban size={14} className="mt-0.5 shrink-0 text-rose-600" />
+      <span className="min-w-0 text-micro leading-snug">
+        <span className="block font-bold uppercase tracking-wide text-rose-600">
+          {item.blockedReason ? 'Blocker reason:' : 'Blocked'}
+        </span>
+        {item.blockedReason ? <span className="mt-0.5 block text-slate-800">{item.blockedReason}</span> : null}
       </span>
     </span>
   ) : null
@@ -563,7 +568,8 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         onClick={openOnClick}
         onContextMenu={openOnContextMenu}
         className={cn(
-          'group relative flex min-h-[76px] w-full flex-col overflow-hidden rounded-lg border bg-white text-left shadow-xs transition',
+          'group relative flex min-h-[76px] w-full flex-col overflow-hidden rounded-lg border text-left shadow-xs transition',
+          blocked ? 'bg-rose-50/70' : 'bg-white',
           cardEdges,
           summary.done && 'bg-slate-50',
           FOCUS_RING,
@@ -572,7 +578,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
             ? 'cursor-default'
             : cn(
                 'cursor-pointer hover:shadow-sm',
-                blocked ? 'hover:border-rose-300 hover:border-l-rose-600' : summary.done ? 'hover:border-emerald-300' : 'hover:border-slate-400',
+                blocked ? 'hover:border-slate-400 hover:border-l-rose-600' : summary.done ? 'hover:border-emerald-300' : 'hover:border-slate-400',
               ),
           selectionCls,
           lockCls,
@@ -581,7 +587,18 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           connectRootCls,
         )}
       >
-        <div className="flex items-center gap-1.5 px-2 pt-1.5">
+        {/* Strategy A: type on the top edge, in its own colour. It is a channel, not a title
+            decoration — the header itself stays white so the type chip and the title keep their
+            clean ground. */}
+        {type.id !== NONE_TYPE_ID && (
+          <span
+            aria-hidden
+            data-card-type-stripe
+            className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[3px]"
+            style={{ backgroundColor: type.color }}
+          />
+        )}
+        <div className="flex items-center gap-1.5 px-2 pb-1 pt-2.5">
           {type.id !== NONE_TYPE_ID && (
             <span
               className="inline-flex min-h-[18px] shrink-0 items-center whitespace-nowrap rounded border px-1.5 text-micro font-bold uppercase tracking-wide"
@@ -590,7 +607,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
               {type.name}
             </span>
           )}
-          <span className="ml-auto">
+          <span className="ml-auto flex items-center gap-1">
             {showConnections && (
               <DependencyCount
                 count={complete ? 0 : openDependencies}
@@ -598,6 +615,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
                 always={wide && (summary.childCount > 0 || Boolean(hasDependencies))}
               />
             )}
+            {blocked && <span className={BLOCKED_BADGE}>Blocked</span>}
           </span>
         </div>
 
@@ -857,7 +875,8 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         className={cn(
           // `@container` lets the card shed detail as its column narrows (see the `@[Npx]:`
           // variants below) instead of overflowing a customised flow.
-          '@container group relative flex w-full flex-col overflow-hidden rounded-lg border bg-white text-left shadow-sm transition',
+          '@container group relative flex w-full flex-col overflow-hidden rounded-lg border text-left shadow-sm transition',
+          blocked ? 'bg-rose-50/70' : 'bg-white',
           cardEdges,
           summary.done && 'bg-slate-50',
           FOCUS_RING,
@@ -870,7 +889,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
             ? 'cursor-default'
             : cn(
                 'cursor-pointer hover:shadow-md',
-                blocked ? 'hover:border-rose-300 hover:border-l-rose-600' : summary.done ? 'hover:border-emerald-300' : 'hover:border-slate-400',
+                blocked ? 'hover:border-slate-400 hover:border-l-rose-600' : summary.done ? 'hover:border-emerald-300' : 'hover:border-slate-400',
               ),
           selectionCls,
           lockCls,
@@ -911,13 +930,14 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
                 />
               )}
               <PriorityBadge priority={item.priority} />
+              {blocked && <span className={BLOCKED_BADGE}>Blocked</span>}
             </span>
           </div>
 
           {/* What it rolls up to, under the title: the parent the card sits under, read as part
               of the card's own words — and as plain text, so a press on the card's face opens
               this card and no other. */}
-          {parent && <RollupLine parent={parent} />}
+          {parent && <RollupLine parent={parent} blocked={blocked} />}
 
           {/* What is below it, and how far along: the children's own stages as pips, then the
               rollup. The pips say it on their own — a count beside them only repeated what the
@@ -1082,7 +1102,8 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         // Flat and quiet: a hairline border and white surface. The type is a chip in the identity
         // row, not a rail: a coloured edge on every card competed with the one edge that matters,
         // the rose rail of a blocked card. What is loud on a card is its state, not its type.
-        'group relative flex min-h-[116px] w-full flex-col overflow-hidden rounded-lg border bg-white text-left shadow-sm transition',
+        'group relative flex min-h-[116px] w-full flex-col overflow-hidden rounded-lg border text-left shadow-sm transition',
+        blocked ? 'bg-rose-50/70' : 'bg-white',
         cardEdges,
         summary.done && 'bg-slate-50',
         FOCUS_RING,
@@ -1091,7 +1112,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           ? 'cursor-default'
           : cn(
               'cursor-pointer hover:shadow-md',
-              blocked ? 'hover:border-rose-300 hover:border-l-rose-600' : summary.done ? 'hover:border-emerald-300' : 'hover:border-slate-400',
+              blocked ? 'hover:border-slate-400 hover:border-l-rose-600' : summary.done ? 'hover:border-emerald-300' : 'hover:border-slate-400',
             ),
         selectionCls,
         lockCls,
@@ -1100,11 +1121,20 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
       )}
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {/* Strategy A: type on the top edge. The header stays white; the stripe is the channel. */}
+        {type.id !== NONE_TYPE_ID && (
+          <span
+            aria-hidden
+            data-card-type-stripe
+            className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[3px]"
+            style={{ backgroundColor: type.color }}
+          />
+        )}
         {/* Tier 1 — identity and weight. The type sits at the leading edge and the two marks a
             reader weighs it by sit at the trailing edge, on the same line at every card width. */}
         <div
           data-card-header
-          className="flex items-center justify-between gap-2 px-3 pb-0.5 pt-1.5"
+          className="flex items-center justify-between gap-2 px-3 pb-0.5 pt-3"
         >
           {type.id !== NONE_TYPE_ID && (
             <span
@@ -1120,6 +1150,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           <span className="ml-auto flex shrink-0 items-center gap-1.5">
             {showConnections && <DependencyCount count={complete ? 0 : openDependencies} onOpen={openDependenciesDoor} />}
             <PriorityBadge priority={item.priority} />
+            {blocked && <span className={BLOCKED_BADGE}>Blocked</span>}
           </span>
         </div>
 
@@ -1132,7 +1163,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           {/* Under the title, as plain text: the parent the card sits under, read as part of the
               card's own words. Nothing here is a control — pressing a card must open that card,
               never the one it rolls up to. */}
-          {parent && <RollupLine parent={parent} />}
+          {parent && <RollupLine parent={parent} blocked={blocked} />}
 
           {/* The board's own words for it — the card's vocabulary, quieter than its facts. */}
           {Boolean(tags?.length) && (
@@ -1159,7 +1190,10 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         {(hasChecklist || aged || summary.done || assignees.length > 0 || Boolean(item.dueDate) || hasExternalLink(item)) && (
           <div
             data-card-footer
-            className="mt-auto flex items-center justify-between gap-2 border-t border-slate-100 px-3 py-1.5"
+            className={cn(
+              'mt-auto flex items-center justify-between gap-2 border-t px-3 py-1.5',
+              blocked ? 'border-rose-200 bg-rose-100/70' : 'border-slate-100',
+            )}
           >
             <div className="flex min-w-0 flex-wrap items-center gap-1.5">
               {hasChecklist && (
