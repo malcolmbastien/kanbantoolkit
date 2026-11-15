@@ -7,6 +7,7 @@ const flags = (over: Partial<ViewFlags> = {}): ViewFlags => ({
   showDashboard: false,
   showMetrics: false,
   showTimeline: false,
+  showSearch: false,
   showAdmin: false,
   ...over,
 })
@@ -20,6 +21,7 @@ describe('the view a place is in', () => {
     expect(viewOf(flags({ showTimeline: true }))).toBe('timeline')
     expect(viewOf(flags({ showMetrics: true }))).toBe('flow')
     expect(viewOf(flags({ showArchive: true }))).toBe('archive')
+    expect(viewOf(flags({ showSearch: true }))).toBe('search')
     expect(viewOf(flags({ showBoards: true }))).toBe('boards')
   })
 
@@ -29,6 +31,7 @@ describe('the view a place is in', () => {
     expect(viewOf(flags({ showArchive: true, showTimeline: true }))).toBe('archive')
     expect(viewOf(flags({ showDashboard: true, showTimeline: true }))).toBe('dashboard')
     expect(viewOf(flags({ showMetrics: true, showTimeline: true }))).toBe('flow')
+    expect(viewOf(flags({ showSearch: true, showAdmin: true }))).toBe('search')
   })
 })
 
@@ -75,6 +78,16 @@ describe('the query a place writes', () => {
     // A width means nothing on another view: one place, one URL.
     expect(urlQuery(place({ zoom: 'wide' }))).toBe('?board=b-atlas')
     expect(urlQuery(place({ view: 'dashboard', zoom: 'wide' }))).toBe('?board=b-atlas&view=dashboard')
+  })
+
+  it('writes the Search view’s query, and only for the Search view', () => {
+    expect(urlQuery(place({ view: 'search', q: 'gateway' }))).toBe('?board=b-atlas&view=search&q=gateway')
+    expect(urlQuery(place({ view: 'search', q: '  gateway retry  ' }))).toBe('?board=b-atlas&view=search&q=gateway+retry')
+    // A blank query is the view's empty state, not a parameter.
+    expect(urlQuery(place({ view: 'search', q: '   ' }))).toBe('?board=b-atlas&view=search')
+    // A query means nothing on another view.
+    expect(urlQuery(place({ q: 'gateway' }))).toBe('?board=b-atlas')
+    expect(urlQuery(place({ view: 'dashboard', q: 'gateway' }))).toBe('?board=b-atlas&view=dashboard')
   })
 
   it('says nothing at all for a place with no board', () => {
@@ -186,8 +199,19 @@ describe('the place a query names', () => {
     expect(placeFromQuery('?board=b-strategy&view=objectives').view).toBe('board')
   })
 
+  it('reads the Search view’s words, and keeps ?q= an intention on every other view', () => {
+    expect(placeFromQuery('?board=b-atlas&view=search&q=gateway')).toEqual({
+      boardId: 'b-atlas',
+      view: 'search',
+      q: 'gateway',
+    })
+    expect(placeFromQuery('?view=search')).toEqual({ view: 'search' })
+    // The old deep link still asks for a narrowed board, not the Search view.
+    expect(placeFromQuery('?q=signup')).toEqual({ view: 'board' })
+  })
+
   it('reads every view the app has', () => {
-    for (const name of ['dashboard', 'timeline', 'flow', 'archive', 'boards']) {
+    for (const name of ['dashboard', 'timeline', 'flow', 'archive', 'search', 'boards']) {
       expect(placeFromQuery(`?view=${name}`).view).toBe(name)
     }
   })
@@ -203,6 +227,7 @@ describe('a place survives the round trip', () => {
       place({ view: 'flow', range: 'all' }),
       place({ view: 'flow', serviceBasis: 'lead', serviceShare: 87.5 }),
       place({ boardId: 'b-strategy', view: 'boards' }),
+      place({ view: 'search', q: 'gateway retry' }),
       place({ itemId: 'init-revenue' }),
     ]
     for (const p of places) {
@@ -213,6 +238,7 @@ describe('a place survives the round trip', () => {
       expect(back.view).toBe(p.view)
       expect(back.itemId ?? null).toBe(p.itemId)
       if (p.view === 'timeline') expect(back.zoom ?? 'normal').toBe(p.zoom ?? 'normal')
+      if (p.view === 'search') expect(back.q ?? '').toBe(p.q ?? '')
     }
   })
 

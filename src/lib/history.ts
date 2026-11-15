@@ -11,7 +11,7 @@
  * "this deployment does not serve history", and the caller reads the local copy instead.
  */
 
-import type { ItemLogEntry, Stage } from '@/domain/types'
+import type { BoardActivityEvent, ItemLogEntry, Stage } from '@/domain/types'
 import type { StageMove } from '@/domain/metrics'
 import { useAuth } from './auth'
 
@@ -81,6 +81,40 @@ export async function fetchItemLog(itemId: string, cursor?: string | null): Prom
   return getJson<LogPage>(`/api/workspace/items/${encodeURIComponent(itemId)}/log${query}`)
 }
 
+/** One page of a board's activity, newest first. */
+export interface BoardActivityPage {
+  events: BoardActivityEvent[]
+  nextCursor: string | null
+  total: number
+}
+
+export async function fetchBoardActivity(
+  boardId: string,
+  cursor?: string | null,
+): Promise<BoardActivityPage | undefined> {
+  const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''
+  return getJson<BoardActivityPage>(`/api/workspace/boards/${encodeURIComponent(boardId)}/activity${query}`)
+}
+
+/**
+ * Send one board event to the instance. `redactItemId` is used only for a deletion: the server
+ * clears the reference from earlier events before it stores the anonymous row. A static
+ * deployment has nowhere to send it and the local event is the whole record.
+ */
+export async function postBoardActivity(event: BoardActivityEvent, redactItemId?: string): Promise<boolean> {
+  if (!hosted()) return false
+  try {
+    const response = await fetch(`/api/workspace/boards/${encodeURIComponent(event.boardId)}/activity`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ event, ...(redactItemId ? { redactItemId } : {}) }),
+    })
+    return response.ok
+  } catch {
+    return false
+  }
+}
+
 /**
  * The most pages one drawer open will read. A reading calculated from one page is a shorter age
  * than the card has had, so the whole log is read; the cap keeps a pathological card from fetching
@@ -123,9 +157,10 @@ export async function fetchMovements(boardId: string): Promise<{ moves: BoardMov
   )
 }
 
-/** The notes whose words match a query. */
-export async function fetchNoteHits(query: string): Promise<NoteEntry[] | undefined> {
-  const answer = await getJson<{ notes: NoteEntry[] }>(`/api/workspace/notes?q=${encodeURIComponent(query)}`)
+/** The notes whose words match a query, optionally only on one board's work. */
+export async function fetchNoteHits(query: string, boardId?: string): Promise<NoteEntry[] | undefined> {
+  const board = boardId ? `&boardId=${encodeURIComponent(boardId)}` : ''
+  const answer = await getJson<{ notes: NoteEntry[] }>(`/api/workspace/notes?q=${encodeURIComponent(query)}${board}`)
   return answer?.notes
 }
 

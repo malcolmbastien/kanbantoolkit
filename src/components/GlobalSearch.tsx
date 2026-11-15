@@ -29,6 +29,11 @@ export function GlobalSearch() {
   const setSearch = useStore((s) => s.setSearch)
   const selectBoard = useStore((s) => s.selectBoard)
   const openItem = useStore((s) => s.openItem)
+  const openBoardSearch = useStore((s) => s.openBoardSearch)
+  const boardId = useStore((s) => s.boardId)
+  const showBoards = useStore((s) => s.showBoards)
+  const showAdmin = useStore((s) => s.showAdmin)
+  const onBoard = !showBoards && !showAdmin
 
   const [open, setOpen] = useState(true)
   const [active, setActive] = useState(0)
@@ -44,6 +49,9 @@ export function GlobalSearch() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
+      // On the board Search view that field owns the shortcut; two listeners focusing two inputs
+      // would leave the caret in whichever ran last.
+      if (useStore.getState().showSearch) return
       const el = document.activeElement as HTMLElement | null
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
       e.preventDefault()
@@ -116,6 +124,15 @@ export function GlobalSearch() {
     const boardId = placements.find((p) => p.itemId === id)?.boardId
     if (boardId && boards.some((b) => b.id === boardId)) selectBoard(boardId)
     openItem(id)
+    setSearch('')
+    setOpen(false)
+  }
+
+  /** Carry the typed words into the board's own review table. */
+  const searchThisBoard = () => {
+    const words = search.trim()
+    if (!words || !boardId) return
+    openBoardSearch(words)
     setSearch('')
     setOpen(false)
   }
@@ -194,6 +211,18 @@ export function GlobalSearch() {
               })}
             </div>
           ))}
+          {onBoard && search.trim() && (
+            <button
+              type="button"
+              data-board-search-bridge
+              onClick={searchThisBoard}
+              className="flex w-full items-center gap-1.5 border-t border-slate-200 px-3 py-2 text-left text-meta font-medium text-indigo-700 transition hover:bg-indigo-50"
+              title="Open the board's search view with these words"
+            >
+              <Search size={12} className="shrink-0" />
+              <span className="min-w-0 truncate">Search this board for “{search.trim()}”</span>
+            </button>
+          )}
         </div>
       )}
     </div>

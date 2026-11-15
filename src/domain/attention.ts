@@ -171,7 +171,7 @@ function cardRows(graph: Graph, boardId: string, flows: BoardFlow[], now: number
       status: cardStatus(graph, placement, stage),
       stage,
       ...(age !== undefined ? { ageDays: age } : {}),
-      signals: cardSignals(item, stage, age, now, graph),
+      signals: attentionSignals(item, stage, age, now, graph),
     })
   }
   return rows
@@ -187,7 +187,7 @@ function cardStatus(graph: Graph, placement: Placement, stage: Stage): string {
   return path.at(-1) ?? STAGE_LABELS[stage]
 }
 
-function cardSignals(
+export function attentionSignals(
   item: Item,
   stage: Stage,
   age: number | undefined,

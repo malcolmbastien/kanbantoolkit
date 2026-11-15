@@ -102,6 +102,39 @@ describe('generic hierarchy — parent / child', () => {
     expect(rollupOf('init', two(false)).bucket).toBe('inProgress')
   })
 
+  it('leaves discarded work out of progress, so the bar cannot count it', () => {
+    const item = (id: string, extra: Partial<Item> = {}): Item => ({ id, title: id, typeId: 't-story', createdAt: 0, ...extra })
+    const edge = (from: string, to: string): Edge => ({ id: `${from}-${to}`, kind: 'decomposition', from, to })
+    const lane = (id: string, stage: 'done' | 'inProgress' | 'backlog'): Lane => ({
+      id,
+      boardId: 'b',
+      parentId: 'root',
+      order: 0,
+      name: id,
+      stage,
+      flowId: 'f-cards',
+    })
+    const at = (itemId: string, laneId: string): Placement => ({ id: `p-${itemId}`, boardId: 'b', itemId, laneId })
+    const graph: Graph = {
+      items: [
+        item('init', { typeId: 't-initiative' }),
+        item('done', { resolvedAt: 1 }),
+        item('working'),
+        item('thrown-away', { archived: true, discarded: true, resolvedAt: 2 }),
+      ],
+      edges: [edge('init', 'done'), edge('init', 'working'), edge('init', 'thrown-away')],
+      links: [],
+      placements: [at('done', 'done'), at('working', 'ip'), at('thrown-away', 'done')],
+      lanes: [lane('done', 'done'), lane('ip', 'inProgress'), lane('backlog', 'backlog')],
+    }
+    const roll = rollupOf('init', graph)
+    expect(roll.total).toBe(2)
+    expect(roll.done).toBe(1)
+    expect(roll.percent).toBe(50)
+    expect(roll.inProgress).toBe(1)
+    expect(roll.uncommitted).toBe(0)
+  })
+
   it('depth is derived from the parent chain', () => {
     expect(depth('init-activation', g)).toBe(0)
     expect(depth('init-growth', g)).toBe(1)

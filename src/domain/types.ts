@@ -525,6 +525,30 @@ export interface KeyResult {
   title: string
 }
 
+/** A board's own activity stream: card events and design changes, never a card's detailed log. */
+export type BoardActivityKind = 'card.created' | 'card.updated' | 'card.deleted' | 'board.updated'
+
+/**
+ * One event in a board's activity stream.
+ *
+ * A card event carries only the item id; the title is resolved at read time. A deletion event
+ * carries no item id, title or snapshot: deleted work leaves the stream anonymous. A design event
+ * carries a short summary of what changed.
+ */
+export interface BoardActivityEvent {
+  id: string
+  boardId: string
+  at: number
+  actorId?: string
+  /** The token an agent or script acted with, when the event came from one. */
+  via?: string
+  kind: BoardActivityKind
+  /** The live card this event is about; never present on `card.deleted`. */
+  itemId?: string
+  /** A short, past-tense sentence for a `board.updated` event. Never card field values. */
+  summary?: string
+}
+
 export interface FlowState {
   users: User[]
   issueTypes: IssueType[]
@@ -544,4 +568,10 @@ export interface FlowState {
   keyResults: KeyResult[]
   /** Reusable board designs. Part of the workspace's data, not of any one board. */
   boardTemplates: BoardTemplate[]
+  /**
+   * The board activity stream. Optional because a workspace written before this feature has none;
+   * an absent stream reads as empty. It is a local cache on an instance and the persisted stream on
+   * a static deployment.
+   */
+  boardActivity?: BoardActivityEvent[]
 }

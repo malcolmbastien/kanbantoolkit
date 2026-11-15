@@ -194,6 +194,8 @@ export interface NoteQuery {
   q?: string
   /** Only notes that name this user. */
   mentionOf?: string
+  /** Only notes on items placed on this board. */
+  boardId?: string
   limit?: number | string
 }
 
@@ -221,6 +223,17 @@ export async function readNotes(
     // The column is a JSON array of ids; a quoted id cannot be a substring of another id.
     params.push(`"${query.mentionOf}"`)
     where.push(`instr(log.mentions, ?${params.length}) > 0`)
+  }
+  if (query.boardId) {
+    // A board's own search reads the notes on the work that board carries. Placements are scoped by
+    // workspace in the EXISTS, so a board id from another workspace cannot reach this read.
+    params.push(query.boardId)
+    where.push(
+      `EXISTS (
+         SELECT 1 FROM placements place -- scoped by workspace_id in the WHERE below
+          WHERE place.item_id = log.item_id AND place.board_id = ?${params.length} AND place.workspace_id = ?1
+       )`,
+    )
   }
   params.push(limit)
 

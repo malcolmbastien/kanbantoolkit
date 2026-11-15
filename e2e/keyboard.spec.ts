@@ -37,6 +37,47 @@ test('a dialog keeps the keyboard, and gives it back', async ({ page }) => {
   await expect(opener).toBeFocused()
 })
 
+test('the activity drawer is opened and read with the keyboard, and a card opens from it', async ({ page }) => {
+  await openBoard(page)
+  const opener = page.getByRole('button', { name: 'Activity', exact: true })
+  await opener.focus()
+  await opener.press('Enter')
+
+  const panel = page.locator('[data-board-activity]')
+  await expect(panel).toBeVisible()
+  await expect(opener).toHaveAttribute('aria-pressed', 'true')
+
+  // The stream is a list of events, each with its actor and time; a live card in it is a button.
+  const link = panel.getByRole('button', { name: 'Rebuild the signup form' })
+  await link.focus()
+  await page.keyboard.press('Enter')
+
+  // Entering the card is the same act as pressing it: the drawer becomes the card's.
+  const card = page.locator('[data-item-panel]')
+  await expect(card).toBeVisible()
+  await expect(card.getByLabel('Title')).toHaveValue('Rebuild the signup form')
+  await expect(panel).toHaveCount(0)
+})
+
+test('the board search takes the slash key and opens a result with the keyboard', async ({ page }) => {
+  await openBoard(page)
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  const view = page.locator('[data-board-search]')
+  await expect(view).toBeVisible()
+
+  await page.keyboard.press('/')
+  const input = page.getByLabel('Search Team Atlas')
+  await expect(input).toBeFocused()
+  await input.fill('signup')
+  await expect(view.locator('[data-search-row]').first()).toBeVisible()
+
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Enter')
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel).toBeVisible()
+  expect(await panel.getAttribute('aria-label')).toMatch(/Card details:/)
+})
+
 test('a card is moved to another lane with the keyboard alone, and it is announced', async ({ page }) => {
   await openBoard(page)
   const cards = await cardsIn(page, 'Backlog')

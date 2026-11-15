@@ -18,6 +18,7 @@ export function DragLayer({
   grabY,
   width,
   height,
+  count = 1,
 }: {
   html: string
   x: number
@@ -26,14 +27,46 @@ export function DragLayer({
   grabY: number
   width: number
   height: number
+  /** How many cards the gesture is carrying. More than one shows a stack and a count. */
+  count?: number
 }) {
+  const group = count > 1
   return createPortal(
     <div
       data-drag-layer
-      className="pointer-events-none fixed z-[100] origin-top-left rotate-2 rounded-md drop-shadow-2xl"
+      className="pointer-events-none fixed z-[100]"
       style={{ left: x - grabX, top: y - grabY, width, height }}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />,
+    >
+      {/* Two quiet cards behind the one in hand: the gesture is carrying a group, not a card. */}
+      {group && (
+        <>
+          <span
+            aria-hidden
+            className="absolute inset-0 rounded-md border border-indigo-200 bg-white shadow-lg"
+            style={{ transform: 'translate(8px, 8px) rotate(4deg)' }}
+          />
+          <span
+            aria-hidden
+            className="absolute inset-0 rounded-md border border-indigo-200 bg-white shadow-md"
+            style={{ transform: 'translate(4px, 4px) rotate(3deg)' }}
+          />
+        </>
+      )}
+      <div
+        className="relative origin-top-left rotate-2 rounded-md drop-shadow-2xl"
+        style={{ width, height }}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+      {group && (
+        <span
+          data-drag-count
+          aria-hidden
+          className="absolute -right-2 -top-2 grid h-6 min-w-6 place-items-center rounded-full bg-indigo-600 px-1.5 text-micro font-bold tabular-nums text-white shadow-md ring-2 ring-white"
+        >
+          {count}
+        </span>
+      )}
+    </div>,
     document.body,
   )
 }

@@ -52,6 +52,14 @@ describe('card memo', () => {
     expect(cardPropsEqual(props(), props({ summary: { ...summary, blockedBelow: 1 } }))).toBe(false)
     expect(cardPropsEqual(props(), props({ summary: { ...summary, checklist: { done: 2, total: 2 } } }))).toBe(false)
     expect(cardPropsEqual(props(), props({ summary: { ...summary, ageDays: undefined } }))).toBe(false)
+    const stages = { total: 3, backlog: 1, notStarted: 1, inProgress: 1, done: 0 }
+    expect(cardPropsEqual(props({ summary: { ...summary, rollupStages: stages } }), props({ summary: { ...summary, rollupStages: stages } }))).toBe(true)
+    expect(
+      cardPropsEqual(
+        props({ summary: { ...summary, rollupStages: stages } }),
+        props({ summary: { ...summary, rollupStages: { ...stages, inProgress: 2, backlog: 0 } } }),
+      ),
+    ).toBe(false)
     expect(cardPropsEqual(props(), props({ parent: { id: 'p', title: 'P', type } }))).toBe(false)
   })
 

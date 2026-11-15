@@ -1,6 +1,6 @@
 import { STAGES, STAGE_LABELS } from './lanes'
 import { demoWorkspace } from './demo'
-import type { Edge, FlowState, Item, ItemLink, ItemLogEntry, Lane, Objective, Period, Placement, Stage } from './types'
+import type { BoardActivityEvent, Edge, FlowState, Item, ItemLink, ItemLogEntry, Lane, Objective, Period, Placement, Stage } from './types'
 
 export { BUILT_IN_TEMPLATES } from './demo'
 
@@ -517,6 +517,15 @@ export function createSeed(): FlowState {
   edge('attribution', 'obj-activation', 'init-revenue')
   edge('attribution', 'obj-efficiency', 'init-margin')
 
+  // A representative board stream: a creation, an update, a design change and an anonymous
+  // deletion. The drawer is not empty on first visit, and the deletion carries no card at all.
+  const boardActivity: BoardActivityEvent[] = [
+    { id: 'ba-atlas-1', boardId: 'b-atlas', at: T - 3 * 60 * 60 * 1000, actorId: 'u-rk', kind: 'card.created', itemId: 'st-usage-billing' },
+    { id: 'ba-atlas-2', boardId: 'b-atlas', at: T - 2 * 60 * 60 * 1000, actorId: 'u-ds', kind: 'card.updated', itemId: 'st-signup-rebuild' },
+    { id: 'ba-atlas-3', boardId: 'b-atlas', at: T - 90 * 60 * 1000, actorId: 'u-rk', kind: 'board.updated', summary: 'added the lane Dev to In Progress' },
+    { id: 'ba-atlas-4', boardId: 'b-atlas', at: T - 30 * 60 * 1000, actorId: 'u-mb', kind: 'card.deleted' },
+  ]
+
   return {
     users,
     issueTypes,
@@ -531,5 +540,6 @@ export function createSeed(): FlowState {
     periods,
     keyResults,
     boardTemplates,
+    boardActivity,
   }
 }

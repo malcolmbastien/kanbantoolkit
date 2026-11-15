@@ -27,6 +27,12 @@ own rules decide — a full `block` column refuses the move with the same senten
 would be refused is not offered. The search field beside it searches every board by title,
 description and comment, and shows the line that matched.
 
+The top-bar field is a **jump**. **Search** in the board's view switcher is the **reading**: the same
+words, but scoped to this board's live work, with the board's filters and a reviewable table of type,
+status, people, priority, dates and tags. A row opens the card and leaves the results behind it. The
+query is in the URL, so back and a shared link restore it. [Reading a board](reading-a-board.md#search-a-jump-and-a-reading)
+explains both.
+
 ## A board
 
 Every board is a **team**, **program** or **portfolio** board; [Board types](board-types.md) explains
@@ -62,6 +68,11 @@ While a filter is active, **Clear filters** sits beside **Filters** in the secon
 board can be read whole again without opening the drawer. Opening **Filters** over an open card
 replaces the card drawer with the filter drawer; the press does not dismiss the card and move the
 control first.
+
+**Activity** in the same bar opens the board's own stream in that drawer: cards made, changed and
+deleted, and changes to the board's design and workflows, with who and when. It is not a second
+card History — a card still on the board links into its drawer, and a deleted card is never named.
+[Reading a board](reading-a-board.md#board-activity) has the reading in full.
 
 The same secondary bar has a **Connections** toggle. When it is on, every hierarchy edge (parent →
 child, solid blue) and dependency (waiting item → blocker, solid red) between items this board
@@ -124,6 +135,11 @@ another cell to move it — including into another cards flow, where the target 
 applies. A column can carry a **WIP limit**; **Settings** decides what a limit does — mark the column with
 hazard tape and the words (**visualize**), hold the move until a reason is given (**justify**), or
 refuse it (**block**) — and that policy covers every cards flow on the board.
+
+<kbd>Shift</kbd>-click cards to select several. Dragging any card in the selection moves the whole
+group to the cell it is dropped in, with the grabbed card at the drop point and the rest following
+it; the selection stays active. A group move goes through the same WIP policy as one card, and a
+group the lane cannot take is refused whole rather than half-moved.
 
 The keyboard reaches everything. Focus a card and press
 <kbd>Shift</kbd>+<kbd>F10</kbd> for its menu — **Move to lane**, **Move earlier**, **Move later**,

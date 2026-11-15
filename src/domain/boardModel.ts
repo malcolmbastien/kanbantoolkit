@@ -71,9 +71,27 @@ export function buildBoardModel(graph: Graph): BoardModel {
     )
   }
 
-  const rollup = new Map<string, Rollup>()
-  const rollupFor = (id: string): Rollup => {
-    const cached = rollup.get(id)
+  /**
+   * Whether a branch was thrown away rather than delivered. A live parent's progress skips it
+   * whole; an archived parent's own reading keeps its leaves, because that is a historical answer
+   * and must match `progressLeaves`.
+   */
+  const discarded = (id: string): boolean => {
+    const item = itemsById.get(id)
+    if (!item?.archived) return false
+    if (item.discarded !== undefined) return item.discarded
+    const value = stage.get(id)
+    return value !== undefined && value !== 'done'
+  }
+
+  // Two readings, two caches: a live root leaves discarded work out, while an archived root's
+  // own rollup is the historical leaf count that includes it. A shared cache would let one
+  // answer leak into the other.
+  const liveRollup = new Map<string, Rollup>()
+  const historicalRollup = new Map<string, Rollup>()
+  const rollupFor = (id: string, includeDiscarded = false): Rollup => {
+    const cache = includeDiscarded ? historicalRollup : liveRollup
+    const cached = cache.get(id)
     if (cached) return cached
     const kids = childrenOf.get(id) ?? []
     let total = 0
@@ -94,7 +112,8 @@ export function buildBoardModel(graph: Graph): BoardModel {
       }
     } else {
       for (const kid of kids) {
-        const child = rollupFor(kid)
+        if (!includeDiscarded && discarded(kid)) continue
+        const child = rollupFor(kid, includeDiscarded)
         total += child.total
         done += child.done
         started += child.done + child.inProgress
@@ -111,7 +130,7 @@ export function buildBoardModel(graph: Graph): BoardModel {
       percent: total === 0 ? 0 : Math.min(100, Math.round((done / total) * 100)),
       bucket: total === 0 ? 'backlog' : done === total ? 'done' : started > 0 ? 'inProgress' : committed > 0 ? 'notStarted' : 'backlog',
     }
-    rollup.set(id, value)
+    cache.set(id, value)
     return value
   }
 
@@ -153,8 +172,9 @@ export function buildBoardModel(graph: Graph): BoardModel {
     }
   }
 
+  const rollup = new Map<string, Rollup>()
   for (const item of graph.items) {
-    rollupFor(item.id)
+    rollup.set(item.id, rollupFor(item.id, item.archived === true))
     openBelow(item.id)
   }
 

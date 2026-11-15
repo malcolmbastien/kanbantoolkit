@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { ChartNoAxesGantt, Minus, Plus } from 'lucide-react'
 import { Card } from './Card'
+import { stageCountsOf } from './StageProgressBar'
 import { PersonAvatar } from './PersonAvatar'
 import { boardInitiatives, isPortfolio, portfolioInitiatives } from '@/domain/board'
 import { blockedBelow, checklistProgress, decompositionChildren, dependenciesOf, isComplete, isDiscarded, openDependenciesOf, openDescendants, rollupOf, uncommittedBelow, type Graph } from '@/domain/derive'
@@ -578,6 +579,7 @@ export function TimelineView({ boardId }: { boardId: string }) {
                     const symbols = childItems
                       .filter((ci) => !isDiscarded(ci, graph))
                       .map((ci) => ({ id: ci.id, bucket: rollupOf(ci.id, graph).bucket, title: ci.title }))
+                    const roll = rollupOf(item.id, graph)
                     return (
                       <div key={u.id} data-timeline-unscheduled={u.id} className="w-56 shrink-0">
                         <Card
@@ -596,7 +598,8 @@ export function TimelineView({ boardId }: { boardId: string }) {
                             blockedBelow: blockedBelow(item.id, graph),
                             uncommittedBelow: uncommittedBelow(item.id, graph),
                             openDescendants: openDescendants(item.id, graph).length,
-                            rollupPercent: rollupOf(item.id, graph).percent,
+                            rollupPercent: roll.percent,
+                            rollupStages: childItems.length > 0 ? stageCountsOf(roll) : undefined,
                             done: isComplete(item.id, graph),
                             checklist: checklistProgress(item),
                           }}

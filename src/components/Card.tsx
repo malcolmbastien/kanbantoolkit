@@ -12,6 +12,7 @@ import { STALE_AFTER_DAYS } from '@/domain/filters'
 import type { HealthFlagInfo } from '@/domain/health'
 import type { InitiativeType, Tag } from '@/domain/types'
 import { PersonAvatar } from './PersonAvatar'
+import { PROGRESS_STAGE_ORDER, StageProgressBar, type StageCounts } from './StageProgressBar'
 import { PriorityBadge } from './PriorityBadge'
 import { DueChip } from './DueChip'
 import { heldByOther, usePresence } from '@/lib/presence'
@@ -32,6 +33,11 @@ export interface CardSummary {
   openDescendants: number
   /** For parents: the share of leaf descendants done (derived rollup). */
   rollupPercent?: number
+  /**
+   * The leaves below, by stage. Discarded work is already excluded, so the bar's segments and the
+   * percentage are one population. Absent on a card; present on an initiative.
+   */
+  rollupStages?: StageCounts
   /** Checklist progress inside the card (sub-tasks). */
   checklist?: { done: number; total: number }
   /** Every leaf below is done — the card, or the initiative, is finished. See `DoneStamp`. */
@@ -235,8 +241,6 @@ function DoneStamp() {
   )
 }
 
-const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? STAGE_COLOR.done : pct > 0 ? STAGE_COLOR.inProgress : '#cbd5e1')
-
 /**
  * The badge a warning wears — the same shape and the same two weights the drawer's warnings
  * section uses, so the row on the card and the section in the drawer are visibly one set. The
@@ -436,17 +440,17 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
   // A card's *own* blocked state is the loudest thing that can be true of a card, so it is a
   // full-width alert rather than a chip the size of the link count. The rolled-up count stays a
   // chip, because it is metadata about the work below rather than a statement about this card.
-  const blockedAlert = item.blocked && !complete ? (
+  // A reason is the only thing this box has to say. Without one, the header's Blocked badge
+  // already carries the state, and an empty box in the middle of the card is noise.
+  const blockedAlert = item.blocked && !complete && item.blockedReason ? (
     <span
       className="flex w-full items-start gap-2 rounded-md bg-white px-2.5 py-2 text-slate-800 shadow-sm ring-1 ring-rose-200"
-      title={item.blockedReason ? `Blocked: ${item.blockedReason}` : 'Blocked'}
+      title={`Blocked: ${item.blockedReason}`}
     >
       <Ban size={14} className="mt-0.5 shrink-0 text-rose-600" />
       <span className="min-w-0 text-micro leading-snug">
-        <span className="block font-bold uppercase tracking-wide text-rose-600">
-          {item.blockedReason ? 'Blocker reason:' : 'Blocked'}
-        </span>
-        {item.blockedReason ? <span className="mt-0.5 block text-slate-800">{item.blockedReason}</span> : null}
+        <span className="block font-bold uppercase tracking-wide text-rose-600">Blocker reason:</span>
+        <span className="mt-0.5 block text-slate-800">{item.blockedReason}</span>
       </span>
     </span>
   ) : null
@@ -801,12 +805,12 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
     // has no percentage to show and no bar to fill: both would say "0%" about work that has not
     // been planned, or only about work that was discarded, which is a different fact and the
     // wrong one.
-    const pct = (symbols?.length ?? 0) > 0 ? summary.rollupPercent : undefined
-    // The children's own stages, in the columns' order — so the pips read left to right the way
-    // the board does, and "how much green" is a glance rather than a count.
-    const stageOrder: Stage[] = ['backlog', 'notStarted', 'inProgress', 'done']
-    const pips = [...(symbols ?? [])].sort((a, b) => stageOrder.indexOf(a.bucket) - stageOrder.indexOf(b.bucket))
-    const spread = stageOrder
+    const stages = summary.rollupStages && summary.rollupStages.total > 0 ? summary.rollupStages : undefined
+    const pct = stages ? summary.rollupPercent : undefined
+    // The children's own stages, in the progress bar's order — delivered, under way, not begun,
+    // backlog. The pips and the bar beside them are the same reading at two sizes.
+    const pips = [...(symbols ?? [])].sort((a, b) => PROGRESS_STAGE_ORDER.indexOf(a.bucket) - PROGRESS_STAGE_ORDER.indexOf(b.bucket))
+    const spread = PROGRESS_STAGE_ORDER
       .map((stage) => ({ stage, n: pips.filter((p) => p.bucket === stage).length }))
       .filter((s) => s.n > 0)
       .map((s) => `${s.n} ${STAGE_LABELS[s.stage].toLowerCase()}`)
@@ -974,26 +978,17 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
                 {pips.length > MAX_PIPS && <span className="font-semibold text-slate-600">+{pips.length - MAX_PIPS}</span>}
               </span>
             ) : null}
-            <span className="ml-auto flex items-center gap-1.5">
-              <ExternalLinkChip item={item} />
-              <DueChip item={item} complete={complete} />
-              {summary.done && <DoneStamp />}
-              {pct !== undefined && (
-                <span
-                  className="text-body font-bold tabular-nums"
-                  style={{ color: pct >= 100 ? '#047857' : pct > 0 ? '#4338ca' : '#475569' }}
-                  title="Share of the work below that is done"
-                >
-                  {pct}%
-                </span>
-              )}
-            </span>
+            {pct !== undefined && (
+              <span
+                className="ml-auto text-body font-bold tabular-nums"
+                style={{ color: pct >= 100 ? '#047857' : pct > 0 ? '#4338ca' : '#475569' }}
+                title="Share of the work below that is done"
+              >
+                {pct}%
+              </span>
+            )}
           </div>
-          {pct !== undefined && (
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-              <div className="h-full transition-all" style={{ width: `${pct}%`, backgroundColor: barColor(pct) }} />
-            </div>
-          )}
+          {stages && <StageProgressBar counts={stages} />}
 
           {/* The board's own words for it, above the rule. */}
           {Boolean(tags?.length) && (
@@ -1045,12 +1040,26 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
             </div>
           )}
 
-          {/* Under the rule at the foot of it: who has it. Nothing below is weighed — how far
-              along the work is, is the bar above, and it counts issues rather than adding them
-              up. */}
-          {assignees.length > 0 && (
-            <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-200 pt-1.5 text-micro text-slate-600">
-              <span className="ml-auto flex shrink-0 items-center -space-x-1.5">
+        </div>
+
+        {/* The same foot a card wears: the promise, the link and the finished stamp on one quiet
+            rule, with the people at the right. The progress bar above is the initiative's own
+            reading; this row says what a reader can act on. */}
+        {(Boolean(item.dueDate) || summary.done || hasExternalLink(item) || assignees.length > 0) && (
+          <div
+            data-card-footer
+            className={cn(
+              'mt-auto flex items-center justify-between gap-2 border-t px-3 py-1.5',
+              blocked ? 'border-rose-200 bg-rose-100/70' : 'border-slate-100',
+            )}
+          >
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <DueChip item={item} complete={complete} />
+              <ExternalLinkChip item={item} />
+              {summary.done && <DoneStamp />}
+            </div>
+            {assignees.length > 0 && (
+              <span className="flex shrink-0 items-center -space-x-1.5">
                 {assignees.slice(0, 3).map((u) => (
                   <PersonAvatar key={u.id} user={u} gone={u.gone} className="ring-2 ring-white" />
                 ))}
@@ -1063,9 +1072,9 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
                   </span>
                 )}
               </span>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     )
   }
@@ -1291,6 +1300,11 @@ const summaryEqual = (a: CardSummary, b: CardSummary) =>
   a.blockedBelow === b.blockedBelow &&
   a.openDescendants === b.openDescendants &&
   a.rollupPercent === b.rollupPercent &&
+  a.rollupStages?.total === b.rollupStages?.total &&
+  a.rollupStages?.backlog === b.rollupStages?.backlog &&
+  a.rollupStages?.notStarted === b.rollupStages?.notStarted &&
+  a.rollupStages?.inProgress === b.rollupStages?.inProgress &&
+  a.rollupStages?.done === b.rollupStages?.done &&
   a.done === b.done &&
   a.ageDays === b.ageDays &&
   a.checklist?.done === b.checklist?.done &&

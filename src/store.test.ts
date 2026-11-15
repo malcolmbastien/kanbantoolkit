@@ -863,6 +863,77 @@ describe('store actions', () => {
     expect(child.log?.at(-1)?.note).toBeUndefined()
   })
 
+  it('records card created and updated events, and leaves comments out', () => {
+    const backlog = laneByName('b-atlas', 'Backlog')
+    s().addCard({ boardId: 'b-atlas', typeId: 't-story', laneId: backlog.id, title: 'A watched change' })
+    const created = s().boardActivity?.at(-1)
+    expect(created).toMatchObject({ boardId: 'b-atlas', kind: 'card.created' })
+    expect(created?.itemId).toBeTruthy()
+    const id = created!.itemId!
+
+    s().setItemFields(id, { title: 'A changed card' })
+    const updated = s().boardActivity?.at(-1)
+    expect(updated).toMatchObject({ boardId: 'b-atlas', kind: 'card.updated', itemId: id })
+
+    const before = s().boardActivity?.length ?? 0
+    s().addLogNote(id, 'A comment is conversation, not activity')
+    expect(s().boardActivity?.length ?? 0).toBe(before)
+  })
+
+  it('coalesces typing into one card update, then records a new edit after the window', () => {
+    const backlog = laneByName('b-atlas', 'Backlog')
+    s().addCard({ boardId: 'b-atlas', typeId: 't-story', laneId: backlog.id, title: 'Typing' })
+    const id = s().boardActivity!.at(-1)!.itemId!
+    s().setItemFields(id, { title: 'Typed once' })
+    const first = s().boardActivity!.filter((e) => e.kind === 'card.updated').at(-1)!
+    s().setItemFields(id, { title: 'Typed twice' })
+    const after = s().boardActivity!.filter((e) => e.kind === 'card.updated' && e.itemId === id)
+    expect(after).toHaveLength(1)
+    expect(after[0].id).toBe(first.id)
+  })
+
+  it('records a deletion anonymously and removes the card id from earlier events', () => {
+    const backlog = laneByName('b-atlas', 'Backlog')
+    s().addCard({ boardId: 'b-atlas', typeId: 't-story', laneId: backlog.id, title: 'To delete' })
+    const id = s().boardActivity!.at(-1)!.itemId!
+    s().setItemFields(id, { title: 'Still here' })
+    s().deleteItem(id)
+
+    const activity = s().boardActivity ?? []
+    const deleted = activity.at(-1)!
+    expect(deleted.kind).toBe('card.deleted')
+    expect(deleted.itemId).toBeUndefined()
+    expect(activity.some((event) => event.itemId === id)).toBe(false)
+    // The deletion itself carries no title or snapshot, only the board and the actor/time.
+    expect(deleted).not.toHaveProperty('summary')
+  })
+
+  it('merges a read page into the local stream, newest first, without duplicating a row', () => {
+    const older = { id: 'e-old', boardId: 'b-atlas', at: 1_000, kind: 'card.updated' as const, itemId: 'st-email' }
+    const newer = { id: 'e-new', boardId: 'b-atlas', at: 2_000, kind: 'board.updated' as const, summary: 'changed the board' }
+    s().mergeBoardActivity([older, newer])
+    s().mergeBoardActivity([{ ...older, at: 3_000 }])
+    const stream = (s().boardActivity ?? []).filter((event) => event.id === 'e-old' || event.id === 'e-new')
+    expect(stream.map((event) => event.id)).toEqual(['e-old', 'e-new'])
+    expect(stream[0].at).toBe(3_000)
+  })
+
+  it('records a copied card as created, not as a move', () => {
+    s().selectBoard('b-atlas')
+    const copyId = s().duplicateCard('st-signup-form')!
+    const activity = s().boardActivity ?? []
+    expect(activity.filter((event) => event.itemId === copyId).map((event) => event.kind)).toEqual(['card.created'])
+  })
+
+  it('records a board design change as a board-level sentence', () => {
+    const lane = laneByName('b-atlas', 'Backlog')
+    s().renameLane(lane.id, 'Waiting')
+    const last = s().boardActivity?.at(-1)
+    expect(last).toMatchObject({ boardId: 'b-atlas', kind: 'board.updated' })
+    expect(last?.summary).toContain('renamed the lane')
+    expect(last).not.toHaveProperty('itemId')
+  })
+
   it('refuses to restore a child while its parent is still filed away', () => {
     s().archiveItem('init-signup')
     // The child is filed with its parent, but restoring it alone would leave a live card under an
@@ -1653,6 +1724,26 @@ describe('store actions', () => {
     expect(order.indexOf('st-email')).toBeLessThan(order.indexOf('st-sso'))
   })
 
+  it('a bulk drag lands the block at the drop position, in the order given', () => {
+    s().selectBoard('b-atlas')
+    const done = laneByName('b-atlas', 'Done')
+    expect(s().moveCardsToLane(['st-email', 'st-sso'], done.id, 0)).toBe(true)
+    const order = placementsInOrder(s().placements, done.id).map((p) => p.itemId)
+    expect(order.slice(0, 2)).toEqual(['st-email', 'st-sso'])
+  })
+
+  it('a group that would breach a block lane is refused as a whole', () => {
+    s().selectBoard('b-atlas')
+    const dev = laneByName('b-atlas', 'Dev')
+    s().setBoardWipEnforcement('b-atlas', 'block')
+    s().setLaneWip(dev.id, placementsInOrder(s().placements, dev.id).length + 1)
+    const before = s().placements.map((p) => ({ id: p.id, laneId: p.laneId, rank: p.rank }))
+
+    expect(s().moveCardsToLane(['st-email', 'st-sso'], dev.id)).toBe(false)
+    // The first card would have fitted; the group did not, and nothing was written.
+    expect(s().placements.map((p) => ({ id: p.id, laneId: p.laneId, rank: p.rank }))).toEqual(before)
+  })
+
   it('a drop that stays in its lane keeps the arrival clock', () => {
     const stamp = (id: string) => s().placements.find((p) => p.itemId === id && p.boardId === 'b-atlas')?.laneEnteredAt
     const lane = laneByName('b-atlas', 'Not Started')
@@ -2028,7 +2119,7 @@ describe('store actions', () => {
   })
 
   it('the board is the surface only when no view sits over it', () => {
-    const base = { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMetrics: false, showAdmin: false }
+    const base = { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMetrics: false, showSearch: false, showAdmin: false }
     expect(isBoardSurface(base)).toBe(true)
     // Every view counts, including the ones added later — a flag this list forgets would put the
     // board's own controls in front of a view that reports on work.
@@ -2070,7 +2161,7 @@ describe('store actions', () => {
     // The URL says which view the app is in, and `setView` is the door it comes through. A name
     // that mapped to the wrong flag — or a view with no name — would make a link land somewhere
     // else, so the two directions are checked against each other rather than each on its own.
-    const names: ViewName[] = ['board', 'dashboard', 'timeline', 'flow', 'archive', 'boards', 'admin']
+    const names: ViewName[] = ['board', 'dashboard', 'timeline', 'flow', 'archive', 'search', 'boards', 'admin']
     for (const name of names) {
       // Flow only opens on a team board; the loop visits the board it needs.
       if (name === 'flow') s().selectBoard('b-atlas')
@@ -2078,7 +2169,7 @@ describe('store actions', () => {
       expect(viewOf(s()), name).toBe(name)
       // And exactly one view at a time: two flags set would make `viewOf`'s precedence — and so
       // the URL — disagree with what is on screen.
-      const flags = [s().showDashboard, s().showTimeline, s().showMetrics, s().showArchive, s().showBoards, s().showAdmin]
+      const flags = [s().showDashboard, s().showTimeline, s().showMetrics, s().showArchive, s().showSearch, s().showBoards, s().showAdmin]
       expect(flags.filter(Boolean), name).toHaveLength(name === 'board' ? 0 : 1)
     }
     // The workspace is organisation-level: a board's side panel has no place in it.
@@ -2089,6 +2180,23 @@ describe('store actions', () => {
     s().setView('boards')
     s().setView('board')
     expect(isBoardSurface(s())).toBe(true)
+  })
+
+  it('the board search is a view with words, and opening a card does not end it', () => {
+    s().openBoardSearch('signup')
+    expect(s().showSearch).toBe(true)
+    expect(s().boardSearch).toBe('signup')
+    expect(isBoardSurface(s())).toBe(false)
+
+    // A result opens the card over the search; the set stays where it was.
+    s().openItem('st-signup-rebuild')
+    expect(s().showSearch).toBe(true)
+    expect(s().selectedItemId).toBe('st-signup-rebuild')
+
+    // The Board tab is the way out, and it leaves the last words for the next visit.
+    s().setView('board')
+    expect(s().showSearch).toBe(false)
+    expect(s().boardSearch).toBe('signup')
   })
 
   it('a coordination board offers no Flow view, and a Flow link stays on the board', () => {
@@ -2976,13 +3084,14 @@ describe("an item's revision", () => {
 
   it('has no content write outside the seam', () => {
     // The seam is a convention, not a type, so this is what keeps it honest: a raw item map is a
-    // write that skipped the revision. The number is the six placement actions, the Done stamp in
-    // `placeCard`, and the seam's own map — it is here so that adding a ninth is a decision someone
-    // takes rather than something that slips past. The two maps that left this file are the move's:
+    // write that skipped the revision. The number is the placement actions, the Done stamp in
+    // `placeCard`, and the seam's own map — it is here so that adding another is a decision someone
+    // takes rather than something that slips past. The maps that left this file are the moves':
     // they live in `src/domain/move.ts` now, and a move is arrangement, so it never bumps a
-    // revision — the rule those maps were an exception to.
+    // revision — the rule those maps were an exception to. A bulk move uses that same domain rule,
+    // so it no longer has a map here either.
     const raw = [...storeSource.matchAll(/state\.items\.map\(/g)].length
-    expect(raw).toBe(8)
+    expect(raw).toBe(7)
   })
 
   it('is not moved by a placement: a dragged card keeps its revision', () => {

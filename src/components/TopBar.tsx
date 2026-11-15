@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Archive, ChartNoAxesGantt, Check, ChevronDown, Kanban, Keyboard, LayoutDashboard, LayoutGrid, Pencil, Plus, Settings, TrendingUp, X } from 'lucide-react'
+import { Archive, ChartNoAxesGantt, Check, ChevronDown, Kanban, Keyboard, LayoutDashboard, LayoutGrid, Pencil, Plus, Search, Settings, TrendingUp, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { InboxBell } from './InboxBell'
 import { AccountMenu } from './AccountMenu'
@@ -20,6 +20,8 @@ interface Props {
   showDashboard: boolean
   showTimeline: boolean
   showArchive: boolean
+  /** The board's own search view. */
+  showSearch: boolean
   /** Flow metrics are the board's own view — derived from its cards' history. */
   showMetrics: boolean
   showBoards: boolean
@@ -30,6 +32,7 @@ interface Props {
   onShowDashboard: () => void
   onShowTimeline: () => void
   onShowArchive: () => void
+  onShowSearch: () => void
   onShowMetrics: () => void
   /** The logo: leave the board section for the board workspace. */
   onGoToBoards: () => void
@@ -51,7 +54,7 @@ export function TopBar(props: Props) {
   const mayWrite = may('item.write')
   const mayDesign = may('board.design')
   const maySettings = may('board.settings')
-  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showMetrics, showBoards, showAdmin, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowMetrics, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, cardFlows, onAddCard, onAddInitiative } = props
+  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showSearch, showMetrics, showBoards, showAdmin, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowSearch, onShowMetrics, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, cardFlows, onAddCard, onAddInitiative } = props
 
   // The flow the main button adds to. Choosing a flow from the arrow both remembers it for the
   // next press and makes the card now, so a second flow is one gesture, not a setting to hunt for.
@@ -84,7 +87,7 @@ export function TopBar(props: Props) {
   // The Board tab is the board itself, so it is lit when no view sits over it — and not while
   // the organisation workspace is open, because that is not a board either. One definition of
   // "the board is the surface", shared with the panels that read it.
-  const boardActive = isBoardSurface({ showDashboard, showTimeline, showArchive, showBoards, showMetrics, showAdmin })
+  const boardActive = isBoardSurface({ showDashboard, showTimeline, showArchive, showBoards, showMetrics, showSearch, showAdmin })
   // A card belongs to a board that renders a cards workflow. A coordination board — a programme or
   // a portfolio — shows bands or objective-grouped flows and no cards workflow at all, so a card
   // made here would be one nobody could see on the board that made it. An initiative is different:
@@ -211,6 +214,20 @@ export function TopBar(props: Props) {
             </button>
           )}
 
+          {/* Search reads the board's own live work, whatever kind of board it is: a programme and
+              a portfolio read initiatives too, and both need the review table. */}
+          <button
+            onClick={onShowSearch}
+            aria-pressed={showSearch}
+            disabled={editMode}
+            className={cn(
+              'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
+              showSearch ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
+            )}
+            title="Search this board's live work"
+          >
+            <Search size={12} /> Search
+          </button>
 
           </div>
 

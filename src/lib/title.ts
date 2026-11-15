@@ -16,6 +16,7 @@ const VIEW_LABEL: Record<ViewName, string | null> = {
   timeline: 'Timeline',
   flow: 'Flow',
   archive: 'Archive',
+  search: 'Search',
   boards: 'Workspace Home',
   admin: 'Admin',
 }

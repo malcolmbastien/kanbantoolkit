@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Archive, ChevronDown, ChevronUp, Download, Plus, SlidersHorizontal, Trash2, X } from 'lucide-react'
+import { Activity, Archive, ChevronDown, ChevronUp, Download, Plus, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BoardCanvas } from './BoardCanvas'
 import { DetailDial } from './DetailDial'
@@ -49,6 +49,8 @@ export function BoardView({ requestMove }: Props) {
   const archiveDoneOnBoard = useStore((s) => s.archiveDoneOnBoard)
   const askConfirm = useStore((s) => s.askConfirm)
   const showFilters = useStore((s) => s.showFilters)
+  const showBoardActivity = useStore((s) => s.showBoardActivity)
+  const toggleBoardActivity = useStore((s) => s.toggleBoardActivity)
   const filters = useStore((s) => s.filters)
   const toggleFilters = useStore((s) => s.toggleFilters)
   const clearFilters = useStore((s) => s.clearFilters)
@@ -182,6 +184,20 @@ export function BoardView({ requestMove }: Props) {
             title="This board's cards as CSV: title, type, column, people, dates, parent"
           >
             <Download size={11} /> Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={toggleBoardActivity}
+            data-board-activity-toggle
+            disabled={editMode}
+            aria-pressed={showBoardActivity}
+            className={cn(
+              'flex items-center gap-1 rounded-md border px-2 py-1 font-medium transition disabled:pointer-events-none disabled:opacity-40',
+              showBoardActivity ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
+            )}
+            title="Read what has changed on this board"
+          >
+            <Activity size={12} /> Activity
           </button>
           <button
             onClick={toggleFilters}

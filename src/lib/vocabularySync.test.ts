@@ -88,8 +88,12 @@ describe('keeping the workspace’s words on the server', () => {
     scheduleVocabularyWrite()
     await vi.advanceTimersByTimeAsync(700)
 
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    const [path, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    // A type made from a board also leaves a board-activity row, which is its own request; the
+    // question here is how many times the workspace's *words* were written.
+    const calls = fetchMock.mock.calls as unknown as Array<[string, RequestInit]>
+    const writes = calls.filter(([input]) => String(input) === '/api/workspace/vocabulary')
+    expect(writes).toHaveLength(1)
+    const [path, init] = writes[0]
     expect(path).toBe('/api/workspace/vocabulary')
     const body = JSON.parse(String(init.body)) as Record<string, unknown>
     expect(body.rev).toBe(4)
@@ -148,14 +152,15 @@ describe('keeping the workspace’s words on the server', () => {
     await vi.advanceTimersByTimeAsync(700)
 
     // One write, one re-read — and no retry of the edit that lost.
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const calls = () => fetchMock.mock.calls.filter(([input]) => !String(input).includes('/activity'))
+    expect(calls()).toHaveLength(2)
     expect(useVocabulary.getState().rev).toBe(9)
     expect(useStore.getState().issueTypes.map((t) => t.id)).toContain('t-server')
     expect(useStore.getState().issueTypes.some((t) => t.name === 'Mine')).toBe(false)
 
     // And the synced revision is now the one the next edit starts from.
     await vi.advanceTimersByTimeAsync(5_000)
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(calls()).toHaveLength(2)
   })
 
   it('says why a write was refused, and keeps the edit in this browser', async () => {

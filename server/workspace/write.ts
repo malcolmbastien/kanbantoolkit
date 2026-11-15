@@ -19,6 +19,7 @@ import { WORKSPACE_ROW } from './types'
 /** Children before parents, so a delete never trips a foreign key. */
 const TABLES = [
   'workspace_structure',
+  'board_activity',
   'item_log',
   'item_checklist',
   'placements',
@@ -55,6 +56,7 @@ type Row = Record<string, unknown>
  */
 const SCOPED = new Set([
   'workspace_structure',
+  'board_activity',
   'people',
   'issue_types',
   'boards',

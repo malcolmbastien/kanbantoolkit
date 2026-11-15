@@ -5,6 +5,7 @@ import { softChipColors } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { PersonAvatar } from './PersonAvatar'
+import { StageProgressBar, stageCountsOf } from './StageProgressBar'
 import type { Item } from '@/domain/types'
 
 /**
@@ -89,9 +90,7 @@ export function MappedInitiativeDetails({ objectiveId }: { objectiveId: string }
                   <X size={12} />
                 </button>
               </div>
-              <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-slate-200">
-                <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${roll.percent}%` }} />
-              </div>
+              <StageProgressBar counts={stageCountsOf(roll)} className="mt-1.5" height="h-1.5" />
               <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-slate-600">
                 <span className="flex min-w-0 items-center gap-1" title={board ? board.name : 'No board carries this initiative'}>
                   <Layers size={11} className="shrink-0 text-slate-400" />

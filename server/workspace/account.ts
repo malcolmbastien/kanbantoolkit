@@ -135,6 +135,7 @@ export async function deleteWorkspace(db: Database, workspaceId: string, audit: 
     },
     // The workspace's own rows.
     { sql: 'DELETE FROM workspace_structure WHERE workspace_id = ?1', params: [workspaceId] },
+    { sql: 'DELETE FROM board_activity WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM placements WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM edges WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM links WHERE workspace_id = ?1', params: [workspaceId] },

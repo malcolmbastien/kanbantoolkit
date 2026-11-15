@@ -123,5 +123,9 @@ export const WORKSPACE_SCHEMA = 1
  *
  * 49 adds `objectives.position`: the reader's order inside a period. A database without it cannot
  * keep the order the page shows, and the strategy map would fall back to sorting by title.
+ *
+ * 50 adds `board_activity`: a board's own event stream. A database without it cannot record what
+ * happened to a board, so the activity drawer would answer with an empty history rather than the
+ * truth; refused at the door like every shape before it.
  */
-export const REQUIRED_SCHEMA = 49
+export const REQUIRED_SCHEMA = 50

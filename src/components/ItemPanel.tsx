@@ -16,7 +16,11 @@ import {
 import { boardInitiativeTypes, boardTags, canServeObjective, canSetParent, cardTypes, initiativeTypeById, isPortfolio, NONE_TYPE_ID, placementOn, tagsOf } from '@/domain/board'
 import { periodNameOf } from '@/domain/periods'
 import { effectiveStage, lanePath, STAGE_LABELS } from '@/domain/lanes'
+import { ageDays } from '@/domain/filters'
+import { dueDay } from '@/domain/due'
 import { initiativeHealth } from '@/domain/health'
+import { attentionSignals } from '@/domain/attention'
+import { initiativeHierarchyReading, type HierarchyProgress } from '@/domain/initiativeHierarchy'
 import { initiativeFlowReading } from '@/domain/initiativeFlow'
 import { cardFlowReading, cycleTimes, deliveredSince, flowRecordFromMoves, MIN_SAMPLE, percentile, windowStart, type StageMove } from '@/domain/metrics'
 import { insertMention, mentionQueryAt, mentionedIds } from '@/domain/mentions'
@@ -68,6 +72,17 @@ const CHIP = 'flex items-center gap-1 rounded-full py-0.5 pl-0.5 pr-1.5 text-met
 
 /** The stages in the order a board reads them, which is the order the work below is listed in. */
 const STAGE_ORDER: Stage[] = ['backlog', 'notStarted', 'inProgress', 'done']
+
+/** The compact words a hierarchy child row uses for the attention signals. */
+const ROW_SIGNAL_LABEL: Record<string, string> = {
+  blocked: 'Blocked',
+  waiting: 'Waiting',
+  overdue: 'Overdue',
+  dueSoon: 'Due soon',
+  lateStart: 'Late start',
+  stale: 'Stale',
+  unassigned: 'Unowned',
+}
 
 const MINUTE_MS = 60_000
 const HOUR_MS = 3_600_000
@@ -167,6 +182,9 @@ export function ItemPanel({ itemId }: Props) {
   // Which warning's affected work is open. Closed by default: the chip row is the summary, and
   // the cards behind a chip are what you ask for, not what you are given.
   const [openWarning, setOpenWarning] = useState<string | null>(null)
+  // Which hierarchy flag the child list is narrowed to. View state in this drawer, like the open
+  // warning; never written to the board's filters or the workspace.
+  const [hierarchyFlag, setHierarchyFlag] = useState<string | null>(null)
   const [blockReason, setBlockReason] = useState('')
   const [note, setNote] = useState('')
   const [noteCaret, setNoteCaret] = useState(0)
@@ -199,6 +217,7 @@ export function ItemPanel({ itemId }: Props) {
     setLinkDraft(null)
     setLinkError(undefined)
     setTypeOpen(false)
+    setHierarchyFlag(null)
   }, [itemId])
   // A menu that covers the fields below gets out of the way when the person goes elsewhere. The
   // trigger is inside the wrapper, so its own click still toggles rather than closing twice.
@@ -612,6 +631,49 @@ export function ItemPanel({ itemId }: Props) {
   const openWarningRow = warnings.find((w) => w.key === openWarning)
 
   /**
+   * The hierarchy reading above the children: the rollup, the risks the health rules and the card
+   * rules find, and the planned and actual dates the leaves support. Memoised on the work, not on
+   * a keystroke in the description.
+   */
+  const hierarchy = useMemo(() => {
+    if (!isInitiative || !item) return undefined
+    const g: Graph = { items, edges, links, placements, lanes }
+    return initiativeHierarchyReading(item, g, now, movesByItem)
+  }, [isInitiative, item, items, edges, links, placements, lanes, now, movesByItem])
+
+  const activeHierarchyFlag = hierarchy?.flags.find((flag) => flag.key === hierarchyFlag)
+  // A flag's items may sit inside a nested initiative; the direct child that contains one is the
+  // row a reader has to see, so the filter keeps the branch rather than only a matching leaf.
+  const visibleChildren =
+    activeHierarchyFlag && activeHierarchyFlag.items.length > 0
+      ? children.filter((child) => {
+          const branch = new Set([child.id, ...descendants(child.id, graph)])
+          return activeHierarchyFlag.items.some((id) => branch.has(id))
+        })
+      : children
+
+  /** A date a reader reads, or a dash — target dates are days, never inferred from anything else. */
+  const planDate = (date: string | undefined) => (date ? dueDay(date) : '—')
+  const actualStart =
+    !hierarchy || hierarchy.actual.startStatus === 'noLeaves'
+      ? '—'
+      : hierarchy.actual.startStatus === 'known' && hierarchy.actual.start !== undefined
+        ? dayLabel(hierarchy.actual.start)
+        : hierarchy.actual.startStatus === 'notLoaded'
+          ? 'Not loaded'
+          : hierarchy.actual.startStatus === 'notRecorded'
+            ? 'Not recorded'
+            : 'Not started'
+  const actualFinish =
+    !hierarchy || hierarchy.actual.finishStatus === 'noLeaves'
+      ? '—'
+      : hierarchy.actual.finishStatus === 'known' && hierarchy.actual.finish !== undefined
+        ? dayLabel(hierarchy.actual.finish)
+        : hierarchy.actual.finishStatus === 'notRecorded'
+          ? 'Not recorded'
+          : 'Not finished'
+
+  /**
    * Edit intent, not opening.
    *
    * A focus into something a person could type in, and the pointer press that leads there: a
@@ -732,38 +794,95 @@ export function ItemPanel({ itemId }: Props) {
    * things a reader needs before deciding to go there. The name is the way in; a row that carries
    * an action of its own keeps that action beside the name rather than making the row a button.
    */
-  const itemRow = (c: Item, onOpen: () => void, opts: { onRemove?: () => void; stage?: boolean } = {}) => {
-    const bucket = model.rollup.get(c.id)!.bucket
+  const itemRow = (c: Item, onOpen: () => void, opts: { onRemove?: () => void } = {}) => {
+    const bucket = model.rollup.get(c.id)?.bucket ?? 'backlog'
+    const type = issueTypes.find((entry) => entry.id === c.typeId) ?? { id: c.typeId, name: 'Item', color: '#64748b' }
+    const colors = chipColors(type.color)
+    const there = boardOf(c.id)
+    const away = there && there.id !== boardId
+    const placement = placements.find((entry) => entry.itemId === c.id)
+    const age = ageDays(placement, now)
+    const stage = bucket
+    const signals = c.archived ? [] : attentionSignals(c, stage, age, now, graph)
+    const assignees = (c.assignees ?? []).map((id) => userById(id))
+    const dated = c.targetStartDate || c.targetEndDate
     return (
       <div
         key={c.id}
-        className="flex items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-2 transition hover:border-slate-300 hover:bg-slate-50"
+        data-hierarchy-child={c.id}
+        className="rounded-lg border border-slate-200 px-2.5 py-2 transition hover:border-slate-300 hover:bg-slate-50"
       >
-        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', STAGE_DOT[bucket])} />
-        <button onClick={onOpen} title={`Open ${c.title}`} className="min-w-0 flex-1 truncate text-left text-slate-700 transition hover:text-indigo-600">
-          {c.title}
-        </button>
-        {c.archived && (
-          <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800">
-            {archiveOutcome(c, graph) === 'discarded' ? 'discarded' : 'archived'}
-          </span>
-        )}
-        <span className="shrink-0 text-micro text-slate-600">{boardOf(c.id)?.name ?? '—'}</span>
-        {/* Where a heading already says the stage — the groups under "Breaks down into" — the row does
-            not say it again. */}
-        {opts.stage !== false && (
-          <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-micro font-semibold', stageChip(bucket))}>{STAGE_LABELS[bucket]}</span>
-        )}
-        {opts.onRemove && (
-          <button
-            onClick={opts.onRemove}
-            className="shrink-0 text-slate-500 transition hover:text-rose-600"
-            title="Remove this link"
-            aria-label={`Remove the link to ${c.title}`}
-          >
-            <X size={12} />
-          </button>
-        )}
+        <div className="flex items-start gap-2">
+          <span className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', STAGE_DOT[bucket])} />
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span
+                className="shrink-0 rounded px-1 py-px text-micro font-semibold uppercase tracking-wide"
+                style={{ backgroundColor: colors.background, color: colors.color }}
+              >
+                {type.name}
+              </span>
+              <button onClick={onOpen} title={`Open ${c.title}`} className="min-w-0 flex-1 truncate text-left text-slate-700 transition hover:text-indigo-600">
+                {c.title}
+              </button>
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-micro text-slate-600">
+              {away && (
+                <span className="inline-flex min-w-0 items-center gap-1" title={`On ${there.name}`}>
+                  <span className="max-w-[9rem] truncate">{there.name}</span>
+                </span>
+              )}
+              {assignees.length > 0 && (
+                <span className="flex items-center -space-x-1" title={assignees.map((user) => user?.name ?? FORMER_MEMBER).join(', ')}>
+                  {assignees.slice(0, 3).map((user, index) =>
+                    user ? (
+                      <PersonAvatar key={user.id} user={user} small />
+                    ) : (
+                      <span key={`gone-${index}`} className="grid h-4 w-4 place-items-center rounded-full bg-slate-200 text-micro font-bold text-slate-600">
+                        ?
+                      </span>
+                    ),
+                  )}
+                  {assignees.length > 3 && <span className="ml-1 text-slate-500">+{assignees.length - 3}</span>}
+                </span>
+              )}
+              <DueChip item={c} complete={bucket === 'done'} />
+              {!c.dueDate && bucket !== 'done' && age !== undefined && <span>{age}d in lane</span>}
+              {dated && (
+                <span className="inline-flex min-w-0 items-center gap-1" title="Planned dates">
+                  <CalendarDays size={10} className="shrink-0 text-slate-400" />
+                  <span className="truncate">
+                    {c.targetStartDate ? dueDay(c.targetStartDate) : '—'} → {c.targetEndDate ? dueDay(c.targetEndDate) : '—'}
+                  </span>
+                </span>
+              )}
+            </div>
+            {signals.length > 0 && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {signals.map((signal) => (
+                  <span key={signal.key} className={cn(FLAG_BADGE_SHAPE, FLAG_BADGE[signal.tone])} title={signal.why}>
+                    {ROW_SIGNAL_LABEL[signal.key] ?? signal.label}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          {c.archived && (
+            <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800">
+              {archiveOutcome(c, graph) === 'discarded' ? 'discarded' : 'archived'}
+            </span>
+          )}
+          {opts.onRemove && (
+            <button
+              onClick={opts.onRemove}
+              className="shrink-0 text-slate-500 transition hover:text-rose-600"
+              title="Remove this link"
+              aria-label={`Remove the link to ${c.title}`}
+            >
+              <X size={12} />
+            </button>
+          )}
+        </div>
       </div>
     )
   }
@@ -2202,12 +2321,145 @@ export function ItemPanel({ itemId }: Props) {
               </div>
             </Section>
 
+            {/* The reading of the work below, before the list of direct children. It answers
+                "how is this going" with the same rollup, health and attention rules every other
+                surface reads, and then says when the plan and the actual work began or finished. */}
+            {hierarchy && (
+              <>
+                <Section label="Progress below">
+                  {hierarchy.progress.total === 0 ? (
+                    <p data-hierarchy-empty className="text-meta text-slate-600">
+                      Nothing below it yet. Progress appears when work is added.
+                    </p>
+                  ) : (
+                    <div data-hierarchy-progress className="rounded-xl bg-white p-3 ring-1 ring-slate-200">
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        <span data-hierarchy-percent className="text-title font-semibold tabular-nums text-slate-900">
+                          {hierarchy.progress.percent}%
+                        </span>
+                        <span className="text-meta text-slate-600">
+                          {hierarchy.progress.done} of {hierarchy.progress.total} done
+                        </span>
+                        <span className="ml-auto text-micro text-slate-600">
+                          {hierarchy.progress.total} {hierarchy.progress.total === 1 ? 'leaf' : 'leaves'} below it
+                        </span>
+                      </div>
+                      <div aria-hidden className="mt-2 flex h-2 overflow-hidden rounded-full bg-slate-100">
+                        {STAGE_ORDER.map((stage) => {
+                          const count = stageCount(hierarchy.progress, stage)
+                          if (count === 0) return null
+                          return (
+                            <span
+                              key={stage}
+                              style={{ width: `${(count / hierarchy.progress.total) * 100}%`, backgroundColor: STAGE_STACK[stage] }}
+                            />
+                          )
+                        })}
+                      </div>
+                      <div className="mt-2 grid grid-cols-4 gap-1">
+                        {STAGE_ORDER.map((stage) => (
+                          <div key={stage} data-hierarchy-stage={stage} className="min-w-0 text-center" title={`${STAGE_LABELS[stage]}: ${stageCount(hierarchy.progress, stage)}`}>
+                            <div className="text-body font-semibold tabular-nums text-slate-800">{stageCount(hierarchy.progress, stage)}</div>
+                            <div className="truncate text-micro text-slate-600">{STAGE_LABELS[stage]}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <p data-hierarchy-split className="mt-2 text-micro text-slate-600">
+                        Waiting {hierarchy.progress.waiting} · Working {hierarchy.progress.working} · Finished {hierarchy.progress.finished}
+                      </p>
+                    </div>
+                  )}
+
+                  {hierarchy.flags.length > 0 && (
+                    <div role="group" aria-label="Work below needing attention" className="mt-2 flex flex-wrap items-center gap-1">
+                      <span className="mr-1 text-micro font-semibold uppercase tracking-wide text-slate-600">Needs attention</span>
+                      {hierarchy.flags.map((flag) => {
+                        const active = hierarchyFlag === flag.key
+                        const canFilter = flag.items.length > 0
+                        return (
+                          <button
+                            key={flag.key}
+                            type="button"
+                            data-hierarchy-flag={flag.key}
+                            aria-pressed={active}
+                            disabled={!canFilter}
+                            title={canFilter ? `${flag.why} Click to show the children that carry it.` : flag.why}
+                            onClick={() => setHierarchyFlag(active ? null : flag.key)}
+                            className={cn(
+                              'rounded-full border px-2 py-0.5 text-micro font-medium transition disabled:cursor-default disabled:opacity-75',
+                              flag.tone === 'risk'
+                                ? 'border-rose-200 bg-rose-50 text-rose-700'
+                                : 'border-amber-200 bg-amber-50 text-amber-800',
+                              active && 'ring-2 ring-indigo-400',
+                            )}
+                          >
+                            {flag.label}
+                          </button>
+                        )
+                      })}
+                      {activeHierarchyFlag && activeHierarchyFlag.items.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setHierarchyFlag(null)}
+                          className="rounded-full border border-slate-300 bg-white px-2 py-0.5 text-micro font-medium text-slate-600 transition hover:bg-slate-50"
+                        >
+                          All children
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </Section>
+
+                <Section
+                  label="Planned dates"
+                  aside={
+                    hierarchy.plan.total > 0 ? (
+                      <span className="text-micro tabular-nums text-slate-600" title="Leaves carrying a target start or target end">
+                        {hierarchy.plan.dated} of {hierarchy.plan.total} dated
+                      </span>
+                    ) : undefined
+                  }
+                >
+                  {hierarchy.plan.total === 0 ? (
+                    <p className="text-meta text-slate-600">Nothing below it yet.</p>
+                  ) : (
+                    <div data-hierarchy-plan className="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200">
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-3 gap-y-1 px-2.5 py-2 text-micro">
+                        <span />
+                        <span className="text-right font-semibold uppercase tracking-wide text-slate-600">This initiative</span>
+                        <span className="text-right font-semibold uppercase tracking-wide text-slate-600">Children</span>
+                        <PlanRow label="Planned start" own={planDate(hierarchy.plan.ownStart)} children={planDate(hierarchy.plan.earliestStart)} />
+                        <PlanRow label="Planned finish" own={planDate(hierarchy.plan.ownEnd)} children={planDate(hierarchy.plan.latestFinish)} />
+                        <PlanRow label="Actual start" own="—" children={actualStart} />
+                        <PlanRow label="Actual finish" own="—" children={actualFinish} />
+                      </div>
+                      <p className="border-t border-slate-100 px-2.5 py-1.5 text-micro text-slate-600">
+                        Planned dates are the leaves&apos; target windows; a due date is a promise and is not used here. Actual dates appear only when the move history can support them.
+                      </p>
+                    </div>
+                  )}
+                </Section>
+              </>
+            )}
+
             {/* Children — the items below this one. Real work, with its own status and its
                 own home on a board; a card's own sub-tasks are a checklist, not children. */}
-            <Section label="Breaks down into" count={children.length} aside={doneBelow && <span className="text-micro text-slate-600">{doneBelow}</span>}>
-              {children.length === 0 ? (
+            <Section
+              label="Breaks down into"
+              count={visibleChildren.length}
+              aside={
+                activeHierarchyFlag ? (
+                  <span className="text-micro text-slate-600">Showing {activeHierarchyFlag.label}</span>
+                ) : (
+                  doneBelow && <span className="text-micro text-slate-600">{doneBelow}</span>
+                )
+              }
+            >
+              {visibleChildren.length === 0 ? (
                 <p className="text-meta text-slate-600">
-                  Nothing under this yet. Add one with <span className="font-medium">+ Initiative</span> on the board.
+                  {activeHierarchyFlag
+                    ? 'No child carries that flag.'
+                    : <>Nothing under this yet. Add one with <span className="font-medium">+ Initiative</span> on the board.</>}
                 </p>
               ) : (
                 /* Grouped by stage, in the order a board reads them: the list and the board can be
@@ -2215,7 +2467,7 @@ export function ItemPanel({ itemId }: Props) {
                    hunting through what is done. */
                 <div className="space-y-3">
                   {STAGE_ORDER.map((stage) => {
-                    const group = children.filter((c) => model.rollup.get(c.id)?.bucket === stage)
+                    const group = visibleChildren.filter((c) => model.rollup.get(c.id)?.bucket === stage)
                     if (group.length === 0) return null
                     return (
                       <div key={stage} className="space-y-1">
@@ -2224,7 +2476,7 @@ export function ItemPanel({ itemId }: Props) {
                           <span className="text-micro font-semibold uppercase tracking-wide text-slate-600">{STAGE_LABELS[stage]}</span>
                           <span className="text-micro tabular-nums text-slate-600">{group.length}</span>
                         </div>
-                        {group.map((c) => itemRow(c, () => close(c.id), { stage: false }))}
+                        {group.map((c) => itemRow(c, () => close(c.id)))}
                       </div>
                     )
                   })}
@@ -2583,6 +2835,25 @@ function BoardTarget({ name, away }: { name?: string; away: boolean }) {
  * one — the action or the summary that belongs at the heading's right edge. One shape for every
  * section, so the eye can find the next one without reading.
  */
+/** One stage's count, from the reading the progress bar and the stage row share. */
+function stageCount(progress: HierarchyProgress, stage: Stage): number {
+  if (stage === 'backlog') return progress.backlog
+  if (stage === 'notStarted') return progress.notStarted
+  if (stage === 'inProgress') return progress.inProgress
+  return progress.finished
+}
+
+/** One row of the planned-date table: the label, this initiative's date and the children's. */
+function PlanRow({ label, own, children: below }: { label: string; own: string; children: string }) {
+  return (
+    <>
+      <span className="min-w-0 truncate text-slate-600">{label}</span>
+      <span className="text-right tabular-nums text-slate-700">{own}</span>
+      <span className="text-right tabular-nums text-slate-700">{below}</span>
+    </>
+  )
+}
+
 function Section({
   label,
   count,

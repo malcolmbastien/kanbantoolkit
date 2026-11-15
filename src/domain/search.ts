@@ -105,7 +105,7 @@ export function matchOf(item: Item, query: string): SearchMatch | undefined {
 }
 
 /** The field order a result list is read in: the title first, then the body, then the notes. */
-const FIELD_ORDER: Record<SearchField, number> = { title: 0, description: 1, link: 2, note: 3 }
+export const SEARCH_FIELD_ORDER: Record<SearchField, number> = { title: 0, description: 1, link: 2, note: 3 }
 
 /**
  * Global search: the items whose title, description, link label or a note contains the query
@@ -124,7 +124,7 @@ export function searchHits(items: Item[], query: string): SearchHit[] {
   }
   return hits
     .map((hit, index) => ({ hit, index }))
-    .sort((a, b) => FIELD_ORDER[a.hit.match.field] - FIELD_ORDER[b.hit.match.field] || a.index - b.index)
+    .sort((a, b) => SEARCH_FIELD_ORDER[a.hit.match.field] - SEARCH_FIELD_ORDER[b.hit.match.field] || a.index - b.index)
     .map(({ hit }) => hit)
 }
 

@@ -165,7 +165,34 @@ async function main(): Promise<void> {
     await page.waitForTimeout(300)
     await save(page, 'mention-comments', panel, 760, 500)
 
-    // 9. The import mapping step: a file read, but nothing written.
+    // 9. The board's own activity stream: card events and design changes, with a deleted card
+    // leaving no name behind. The drawer is the picture, like the card panel above it.
+    await page.goto(`${ORIGIN}/app?board=b-atlas`)
+    await waitForApp(page, true)
+    await page.getByRole('button', { name: 'Activity', exact: true }).click()
+    const activity = page.locator('[data-board-activity]')
+    await activity.waitFor()
+    await page.waitForTimeout(300)
+    await save(page, 'board-activity', activity, 760)
+
+    // 10. The board's own search view: the review table the top-bar finder hands to.
+    await page.goto(`${ORIGIN}/app?board=b-atlas&view=search&q=signup`)
+    await waitForApp(page, false)
+    const searchView = page.locator('[data-board-search]')
+    await searchView.waitFor()
+    await page.waitForTimeout(300)
+    await save(page, 'board-search')
+
+    // 11. An initiative's Hierarchy reading: progress, risks and the planned window.
+    await page.goto(`${ORIGIN}/app?board=b-atlas&item=init-billing`)
+    await waitForApp(page, true)
+    const initiativePanel = page.locator('[data-item-panel]')
+    await initiativePanel.waitFor()
+    await initiativePanel.getByRole('button', { name: 'Hierarchy', exact: true }).click()
+    await page.waitForTimeout(300)
+    await save(page, 'hierarchy-reading', initiativePanel, 760)
+
+    // 12. The import mapping step: a file read, but nothing written.
     await page.goto(`${ORIGIN}/app?view=boards`)
     await waitForApp(page, false)
     await page.getByRole('button', { name: /Import board/ }).click()
@@ -179,7 +206,7 @@ async function main(): Promise<void> {
     await page.waitForTimeout(300)
     await save(page, 'import-mapping', dialog, 1000)
 
-    // 10–11. The two administration surfaces need an account, so they are captured on a second,
+    // 13–14. The two administration surfaces need an account, so they are captured on a second,
     // throwaway instance with the development door open. The endpoint and copy are real to this
     // process and disappear with its temporary database.
     const accountDir = mkdtempSync(join(tmpdir(), 'kanbantoolkit-docs-'))
@@ -247,7 +274,7 @@ async function main(): Promise<void> {
     server.kill()
   }
 
-  console.log(`docs shots: 13 written to docs/img/guide/`)
+  console.log(`docs shots: 16 written to docs/img/guide/`)
 }
 
 void main()

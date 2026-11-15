@@ -149,6 +149,13 @@ export async function writeDesign(
   )
   const placements = design.placements.filter((placement) => known.has(placement.itemId))
 
+  // A board the design no longer carries is gone, and its activity goes with it. This is done here
+  // rather than by a foreign key because the design write replaces every board row on every save:
+  // a cascade would erase the stream each time the board was saved, not when it was removed.
+  const before = await db.all<{ id: string }>('SELECT id FROM boards WHERE workspace_id = ?1', [workspaceId])
+  const kept = new Set(design.boards.map((board) => board.id))
+  const removed = before.filter((board) => !kept.has(board.id))
+
   const statements: { sql: string; params: Value[] }[] = [
     { sql: 'DELETE FROM placements WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM lanes WHERE workspace_id = ?1', params: [workspaceId] },
@@ -156,6 +163,10 @@ export async function writeDesign(
     // A board's own vocabularies — its kinds and its tags — belong to it through a foreign key, so
     // replacing the board takes them with it and they are written back below.
     { sql: 'DELETE FROM boards WHERE workspace_id = ?1', params: [workspaceId] },
+    ...removed.map((board) => ({
+      sql: 'DELETE FROM board_activity WHERE workspace_id = ?1 AND board_id = ?2',
+      params: [workspaceId, board.id] as Value[],
+    })),
   ]
 
   for (const [index, board] of design.boards.entries()) {

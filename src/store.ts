@@ -22,7 +22,7 @@ import { workspaceVocabulary } from '@/domain/demo'
 import { quarantineUnreadable } from '@/lib/quarantine'
 import { announce } from '@/lib/announce'
 import { chooseRepository } from '@/lib/repository'
-import { appendHistory, mergeLog } from '@/lib/history'
+import { appendHistory, mergeLog, postBoardActivity } from '@/lib/history'
 import { queue, newKey, type QueuedWrite } from '@/lib/queue'
 import type { CommitAnswer } from '@/lib/repository'
 import { useAuth } from '@/lib/auth'
@@ -41,7 +41,7 @@ import { isBoardDetail, type BoardDetail } from '@/domain/boardDetail'
 import { readBoardConnections, writeBoardConnections } from '@/lib/connections'
 import { isDemoWorkspace } from '@/lib/demo'
 import { noteVisit, pruneFavourites, pruneVisits, toggleFavourite, type BoardVisit } from '@/domain/boardShortcuts'
-import type { Board, BoardBand, BoardFlow, BoardTemplate, Edge, FlowState, FlowKind, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Period, Placement, SplitOrientation, Tag, TemplateFlow, TemplateLane, User } from '@/domain/types'
+import type { Board, BoardActivityEvent, BoardBand, BoardFlow, BoardTemplate, Edge, FlowState, FlowKind, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Period, Placement, SplitOrientation, Tag, TemplateFlow, TemplateLane, User } from '@/domain/types'
 import { demoInboxRows, type InboxRow } from '@/domain/inbox'
 
 export interface Draft {
@@ -146,6 +146,10 @@ export interface ViewState {
   showDashboard: boolean
   /** Show the timeline view — the board's initiatives laid out over time. */
   showTimeline: boolean
+  /** Show the board's own search view — a reading of this board's live work. */
+  showSearch: boolean
+  /** The board search's query. The URL carries it (`?view=search&q=…`), so a result view is shareable. */
+  boardSearch: string
   /** Show the Archive view (filed-away items) instead of a board. */
   showArchive: boolean
   /** Show the board workspace — every board in the organisation — instead of a board. */
@@ -219,6 +223,8 @@ export interface ViewState {
   collapsedLanes: Record<string, boolean>
   /** Card filters panel open (a right-side panel, like the item panel). */
   showFilters: boolean
+  /** The board activity drawer open. One side panel at a time, like the card and filter drawers. */
+  showBoardActivity: boolean
   /** Active card filters applied to the current board. */
   filters: CardFilters
   /**
@@ -294,6 +300,10 @@ export interface Actions {
   /** Consume the one-shot title focus requested by a newly made card. */
   clearTitleFocus: () => void
   setSearch: (q: string) => void
+  /** Set the board search's query, the reading the Search view shows. */
+  setBoardSearch: (q: string) => void
+  /** Open the board search view with a query — the bridge from the global finder. */
+  openBoardSearch: (q: string) => void
   beginEdit: () => void
   saveEdit: () => void
   cancelEdit: () => void
@@ -332,6 +342,15 @@ export interface Actions {
   setAdmin: (v: boolean) => void
   /** Toggle the filters side panel (closes the item panel when opening). */
   toggleFilters: () => void
+  /** Open/close the board activity drawer. One side panel at a time. */
+  toggleBoardActivity: () => void
+  setShowBoardActivity: (v: boolean) => void
+  /** Add one local board activity event and send it when an instance is there to receive it. */
+  appendBoardActivity: (event: BoardActivityEvent, redactItemId?: string) => void
+  /** Merge events read from the server, with the server's copy winning a shared id. */
+  mergeBoardActivity: (events: BoardActivityEvent[]) => void
+  /** Remove a card id from every local event: a deleted card leaves no reference behind. */
+  redactBoardActivity: (itemId: string) => void
   /** Merge a patch into the active card filters. */
   setFilters: (patch: Partial<CardFilters>) => void
   /** Read non-matching cards dimmed or hide them. */
@@ -352,7 +371,14 @@ export interface Actions {
   toggleMultiSelect: (id: string) => void
   clearMultiSelect: () => void
   /** Bulk actions over the multi-select group. */
-  moveCardsToLane: (itemIds: string[], laneId: string) => void
+  /**
+   * Move a selection of cards into one lane, as a block, in the order given.
+   *
+   * The moves go through `moveCard`'s rule — WIP included — before anything is written, so a
+   * group that would breach a lane is refused as a whole rather than half-applied. `index` is
+   * where the block starts among the cards that stay; absent means the end of the lane.
+   */
+  moveCardsToLane: (itemIds: string[], laneId: string, index?: number) => boolean
   setItemsType: (itemIds: string[], typeId: string) => void
   /**
    * Add an **existing** person to an item. A person is named by id, and an id the directory does
@@ -709,13 +735,14 @@ export type Store = FlowState & WorkspaceIdentity & ViewState & InboxState & Act
  * act on there. One definition, read by the surfaces that ask.
  */
 export const isBoardSurface = (
-  s: Pick<ViewState, 'showDashboard' | 'showTimeline' | 'showArchive' | 'showBoards' | 'showMetrics' | 'showAdmin'>,
+  s: Pick<ViewState, 'showDashboard' | 'showTimeline' | 'showArchive' | 'showBoards' | 'showMetrics' | 'showSearch' | 'showAdmin'>,
 ): boolean =>
   !s.showDashboard &&
   !s.showTimeline &&
   !s.showArchive &&
   !s.showBoards &&
   !s.showMetrics &&
+  !s.showSearch &&
   !s.showAdmin
 
 const uid = makeUid
@@ -746,7 +773,7 @@ function placeCard(
   moving: Placement,
   laneId: string,
   atOf: (ordered: Placement[]) => number,
-  { stampDone = true }: { stampDone?: boolean } = {},
+  { stampDone = true, record = true }: { stampDone?: boolean; record?: boolean } = {},
 ) {
   // The cards already in the lane, without the one in the air: the position is in *that*
   // list, because that is the list the card lands in.
@@ -777,6 +804,7 @@ function placeCard(
         })
       : state.items,
   })
+  if (record) useStore.getState().appendBoardActivity(activityEvent(moving.boardId, 'card.updated', moving.itemId))
 }
 
 /**
@@ -803,7 +831,10 @@ const toLane = (placements: Placement[], p: Placement, laneId: string): Placemen
  * dragged would tell a lock nothing useful, and would make a card someone is editing impossible
  * to rearrange.
  */
-function writeItems(state: Pick<Store, 'items'>, change: (item: Item) => Item): Item[] {
+function writeItems(
+  state: Pick<Store, 'items' | 'placements'>,
+  change: (item: Item) => Item,
+): Item[] {
   const base = state.items
   const next = base.map(change)
   const sent: Array<{ item: Item; baseRev: number }> = []
@@ -817,10 +848,74 @@ function writeItems(state: Pick<Store, 'items'>, change: (item: Item) => Item): 
     return updated
   })
 
+  // One **updated** row for each card the change touched, per board it is on. A note-only append is
+  // conversation, not board activity, and is left to the card's Comments.
+  for (const [index, after] of result.entries()) {
+    const before = base[index]
+    if (after === before || !changedForActivity(before, after)) continue
+    for (const boardId of new Set(state.placements.filter((p) => p.itemId === after.id).map((p) => p.boardId))) {
+      useStore.getState().appendBoardActivity(activityEvent(boardId, 'card.updated', after.id))
+    }
+  }
+
   // Optimistic by construction: the change is in the store before anything is sent, so typing never
   // waits on a network. The answer arrives later, and it is the version that is kept.
   if (sent.length) enqueue(sent)
   return result
+}
+
+/** Whether a changed card is a board event, rather than a comment or a revision alone. */
+function changedForActivity(before: Item, after: Item): boolean {
+  const { rev: _beforeRev, log: beforeLog, ...beforeRest } = before
+  const { rev: _afterRev, log: afterLog, ...afterRest } = after
+  if (JSON.stringify(beforeRest) !== JSON.stringify(afterRest)) return true
+  const seen = new Set((beforeLog ?? []).map((entry) => entry.id))
+  return (afterLog ?? []).some((entry) => !seen.has(entry.id) && entry.kind !== 'noted')
+}
+
+/** A local event before it is sent: the actor is this browser's person, when it has one. */
+function activityEvent(
+  boardId: string,
+  kind: BoardActivityEvent['kind'],
+  itemId?: string,
+  summary?: string,
+): BoardActivityEvent {
+  return {
+    id: uid(),
+    boardId,
+    at: Date.now(),
+    ...(currentAuthor ? { actorId: currentAuthor } : {}),
+    kind,
+    ...(itemId ? { itemId } : {}),
+    ...(summary ? { summary } : {}),
+  }
+}
+
+/** A design change, as one board-level summary. */
+function recordBoardChange(boardId: string, summary: string): void {
+  useStore.getState().appendBoardActivity(activityEvent(boardId, 'board.updated', undefined, summary))
+}
+
+/**
+ * The board a workspace-level vocabulary change belongs to: the one on screen, when a board is.
+ * A type is the workspace's, but a change made from a board's settings happened on that board;
+ * the same change made in the template editor belongs to no board's stream.
+ */
+function boardOnScreen(): string | undefined {
+  const state = useStore.getState()
+  return isBoardSurface(state) ? state.boardId : undefined
+}
+
+/** A deletion leaves only an anonymous event, one per board the card was on. */
+function recordDeletedItems(state: Pick<Store, 'placements'>, ids: Set<string>): void {
+  for (const itemId of ids) {
+    const boards = new Set(state.placements.filter((p) => p.itemId === itemId).map((p) => p.boardId))
+    if (boards.size === 0) continue
+    useStore.getState().redactBoardActivity(itemId)
+    for (const boardId of boards) {
+      useStore.getState().appendBoardActivity(activityEvent(boardId, 'card.deleted'), itemId)
+    }
+  }
 }
 
 /**
@@ -1168,6 +1263,9 @@ const initialView: ViewState = {
   recentBoards: [],
   collapsedLanes: {},
   showFilters: false,
+  showBoardActivity: false,
+  showSearch: false,
+  boardSearch: '',
   filters: NO_FILTERS,
   filterDisplay: 'dim',
   savedFilters: [],
@@ -1685,6 +1783,7 @@ export function persistedSlice(s: Store): Partial<Store> {
     periods: s.periods,
     keyResults: s.keyResults,
     boardTemplates: s.boardTemplates,
+    boardActivity: s.boardActivity,
     savedFilters: s.savedFilters,
     // The board's own density: this browser's choice, per board, not a fact about the workspace.
     boardDetail: s.boardDetail,
@@ -1722,6 +1821,7 @@ export const WORKSPACE_KEYS = [
   'periods',
   'keyResults',
   'boardTemplates',
+  'boardActivity',
   'savedFilters',
   'boardDetail',
   'watchedItemIds',
@@ -1816,6 +1916,8 @@ export const useStore = create<Store>()(
           showBoards: false,
           showAdmin: false,
           showMetrics: false,
+          showBoardActivity: false,
+          showSearch: false,
           metricsFlowId: null,
           metricsTypeId: null,
           metricsServiceBasis: DEFAULT_SERVICE_BASIS,
@@ -1859,7 +1961,8 @@ export const useStore = create<Store>()(
             ? {
                 showFilters: false,
                 showMyWork: false,
-                              // Opening a card is what "recently" means: the list is the order cards were
+                showBoardActivity: false,
+                // Opening a card is what "recently" means: the list is the order cards were
                 // opened in, and re-opening one moves it back to the front rather than doubling it.
                 recentItemIds: [selectedItemId, ...s.recentItemIds.filter((id) => id !== selectedItemId)].slice(0, 8),
               }
@@ -1875,10 +1978,69 @@ export const useStore = create<Store>()(
         set({ panelTab: 'hierarchy', connectionScopeId: itemId })
       },
       setSearch: (search) => set({ search }),
+      setBoardSearch: (boardSearch) => set({ boardSearch }),
+      openBoardSearch: (q) =>
+        set({
+          showSearch: true,
+          boardSearch: q,
+          showDashboard: false,
+          showTimeline: false,
+          showArchive: false,
+          showBoards: false,
+          showAdmin: false,
+          showMetrics: false,
+          showBoardActivity: false,
+          selectedItemId: null,
+        }),
       toggleFilters: () => {
         const show = !get().showFilters
-        // One side panel at a time: opening filters dismisses an open card or My work.
-        set({ showFilters: show, ...(show ? { selectedItemId: null, showMyWork: false } : {}) })
+        // One side panel at a time: opening filters dismisses an open card, My work or activity.
+        set({ showFilters: show, ...(show ? { selectedItemId: null, showMyWork: false, showBoardActivity: false } : {}) })
+      },
+      toggleBoardActivity: () => {
+        const show = !get().showBoardActivity
+        // One side panel at a time, the same rule the card and filter drawers follow.
+        set({ showBoardActivity: show, ...(show ? { selectedItemId: null, showFilters: false, showMyWork: false } : {}) })
+      },
+      setShowBoardActivity: (v) =>
+        set({ showBoardActivity: v, ...(v ? { selectedItemId: null, showFilters: false, showMyWork: false } : {}) }),
+      appendBoardActivity: (event, redactItemId) => {
+        const current = get().boardActivity ?? []
+        // Typing is many accepted writes; one card edit should be one row. Coalesce a card update
+        // with the previous update for the same card, board and actor inside a short window, keeping
+        // the event's id so a server retry updates the same row.
+        const previous =
+          event.kind === 'card.updated'
+            ? [...current].reverse().find(
+                (entry) =>
+                  entry.kind === 'card.updated' &&
+                  entry.boardId === event.boardId &&
+                  entry.itemId === event.itemId &&
+                  entry.actorId === event.actorId &&
+                  event.at - entry.at < 30_000,
+              )
+            : undefined
+        const written = previous ? { ...event, id: previous.id } : event
+        const next = previous
+          ? current.map((entry) => (entry.id === previous.id ? written : entry))
+          : [...current, written]
+        set({ boardActivity: next })
+        void postBoardActivity(written, redactItemId)
+      },
+      mergeBoardActivity: (events) => {
+        if (events.length === 0) return
+        const byId = new Map((get().boardActivity ?? []).map((entry) => [entry.id, entry]))
+        for (const event of events) byId.set(event.id, event)
+        set({ boardActivity: [...byId.values()].sort((a, b) => b.at - a.at || b.id.localeCompare(a.id)) })
+      },
+      redactBoardActivity: (itemId) => {
+        set({
+          boardActivity: (get().boardActivity ?? []).map((entry) => {
+            if (entry.itemId !== itemId) return entry
+            const { itemId: _gone, ...rest } = entry
+            return rest
+          }),
+        })
       },
       saveFilter: (name) => {
         const trimmed = name.trim()
@@ -2014,45 +2176,54 @@ export const useStore = create<Store>()(
         })
       },
 
-      moveCardsToLane: (itemIds, laneId) => {
+      moveCardsToLane: (itemIds, laneId, index) => {
         const state = get()
-        const ids = new Set(itemIds)
-        const stage = effectiveStage(state.lanes, laneId)
-        set({
-          // Only this board's placements move.
-          placements: (() => {
-            // The selection keeps its relative order and lands as a block at the end.
-            const moving = placementsInOrder(state.placements.filter((p) => p.boardId === state.boardId), laneId)
-            const ordered = state.placements
-              .filter((p) => p.boardId === state.boardId && ids.has(p.itemId))
-              .sort((a, b) => moving.indexOf(a) - moving.indexOf(b))
-            const base = nextRank(state.placements, laneId)
-            const rankOf = new Map(ordered.map((p, i) => [p.id, base + i]))
-            return state.placements.map((p) => {
-              if (p.boardId !== state.boardId || !ids.has(p.itemId)) return p
-              // A card already in the target lane keeps the clock it has: a bulk reorder is not an
-              // arrival.
-              return { ...p, laneId, ...(p.laneId === laneId ? {} : { laneEnteredAt: Date.now() }), rank: rankOf.get(p.id) ?? base }
-            })
-          })(),
-          // Keep the auto-archive clock in step with the target stage.
-          items: state.items.map((i) => {
-            if (!ids.has(i.id)) return i
-            // Each card in the group records its own move, from the cell it was in. An item
-            // with no placement here is not moved by this, so it records nothing.
-            const from = state.placements.find((p) => p.itemId === i.id && p.boardId === state.boardId)?.laneId
-            const entry = from && from !== laneId ? { log: [...(i.log ?? []), moved(state.lanes, state.boardId, from, laneId)] } : {}
-            const next = { ...i, ...entry }
-            if (stage === 'done' && !next.resolvedAt) return { ...next, resolvedAt: Date.now() }
-            if (stage !== 'done' && next.resolvedAt) return { ...next, resolvedAt: null }
-            return next
-          }),
-        })
-        // Each card in the group records its own move; send those entries, once each.
+        const ids = itemIds.filter((id, position) => itemIds.indexOf(id) === position)
+        if (ids.length === 0) return false
+        // One snapshot, advanced by each accepted move, is the whole transaction. Nothing is
+        // written to the store until every card has passed the same rule a single drag reads.
+        let slice = {
+          items: state.items,
+          placements: state.placements,
+          lanes: state.lanes,
+          boards: state.boards,
+          flows: state.flows,
+          edges: state.edges,
+          links: state.links,
+        }
+        const at = Date.now()
+        let atIndex = index
+        const movedIds: string[] = []
+        for (const id of ids) {
+          if (!slice.placements.some((p) => p.boardId === state.boardId && p.itemId === id)) continue
+          const outcome = moveCardOperation(
+            slice,
+            { itemId: id, boardId: state.boardId, laneId, ...(atIndex === undefined ? {} : { index: atIndex }) },
+            { at, by: currentAuthor, id: uid },
+          )
+          if (outcome.kind === 'refused') {
+            const count = ids.length
+            announce(`${count} card${count === 1 ? '' : 's'} ${count === 1 ? 'was' : 'were'} not moved: ${outcome.refusal.message}`)
+            return false
+          }
+          if (outcome.kind === 'held') {
+            announce(`Move held: ${outcome.laneName} is at its limit of ${outcome.limit}. Move the cards one at a time to record a reason.`)
+            return false
+          }
+          slice = { ...slice, items: outcome.items, placements: outcome.placements }
+          movedIds.push(id)
+          if (atIndex !== undefined) atIndex += 1
+        }
+        if (movedIds.length === 0) return false
+        set({ items: slice.items, placements: slice.placements })
         const after = get()
-        for (const id of ids) void appendHistory(id, addedLog(state, after, id))
-        const count = itemIds.length
+        for (const id of movedIds) {
+          void appendHistory(id, addedLog(state, after, id))
+          get().appendBoardActivity(activityEvent(state.boardId, 'card.updated', id))
+        }
+        const count = movedIds.length
         announce(`${count} card${count === 1 ? '' : 's'} moved to ${lanePath(state.lanes, laneId).join(' / ') || 'another lane'}.`)
+        return true
       },
 
       setItemsType: (itemIds, typeId) => {
@@ -2211,6 +2382,7 @@ export const useStore = create<Store>()(
           selectedItemId: state.selectedItemId && ids.has(state.selectedItemId) ? null : state.selectedItemId,
           multiSelect: [],
         })
+        recordDeletedItems(state, ids)
       },
 
       beginEdit: () => {
@@ -2236,14 +2408,14 @@ export const useStore = create<Store>()(
       setMyWork: (v) =>
         set({
           showMyWork: v,
-          // The right side holds one drawer: My work takes the place of an open card or filter panel.
-          ...(v ? { selectedItemId: null, showFilters: false } : {}),
+          // The right side holds one drawer: My work takes the place of an open card, filter or activity panel.
+          ...(v ? { selectedItemId: null, showFilters: false, showBoardActivity: false } : {}),
         }),
       /** Whose work the My work view shows — no default: the person picks themselves. */
       setUser: (id: string | undefined) => set({ meUserId: id }),
       // The nav is tabs, not toggles: a tab selects its view and never switches off, and the
       // Board tab is the board itself — every view flag clears, the workspace with it.
-      setBoard: () => set({ showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMetrics: false }),
+      setBoard: () => set({ showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMetrics: false, showSearch: false }),
       /**
        * Go to a view by name — what a URL says, and the one door for all seven.
        *
@@ -2254,17 +2426,19 @@ export const useStore = create<Store>()(
        */
       setView: (view) => {
         const s = get()
+        set({ showBoardActivity: false })
         if (view === 'dashboard') s.setDashboard(true)
         else if (view === 'timeline') s.setTimeline(true)
         else if (view === 'flow') s.setMetrics(true)
         else if (view === 'archive') s.setArchive(true)
         else if (view === 'boards') s.setBoards(true)
         else if (view === 'admin') s.setAdmin(true)
+        else if (view === 'search') s.openBoardSearch(get().boardSearch)
         else s.setBoard()
       },
-      setDashboard: (v) => set({ showDashboard: v, ...(v ? { showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMetrics: false } : {}) }),
-      setTimeline: (v) => set({ showTimeline: v, ...(v ? { showDashboard: false, showArchive: false, showBoards: false, showAdmin: false, showMetrics: false } : {}) }),
-      setArchive: (v) => set({ showArchive: v, ...(v ? { showDashboard: false, showTimeline: false, showBoards: false, showAdmin: false, showMetrics: false } : {}) }),
+      setDashboard: (v) => set({ showDashboard: v, ...(v ? { showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMetrics: false, showSearch: false } : {}) }),
+      setTimeline: (v) => set({ showTimeline: v, ...(v ? { showDashboard: false, showArchive: false, showBoards: false, showAdmin: false, showMetrics: false, showSearch: false } : {}) }),
+      setArchive: (v) => set({ showArchive: v, ...(v ? { showDashboard: false, showTimeline: false, showBoards: false, showAdmin: false, showMetrics: false, showSearch: false } : {}) }),
       // Flow is a board's own view: derived from its cards, so it sits with the board tabs and
       // clears them like every other view does.
       setMetrics: (v) => {
@@ -2274,7 +2448,7 @@ export const useStore = create<Store>()(
         if (v && isAggregating(get().boards.find((board) => board.id === get().boardId))) return
         set({
           showMetrics: v,
-          ...(v ? { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false } : {}),
+          ...(v ? { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showSearch: false } : {}),
         })
       },
       setFlowWindow: (flowWindow) => set({ flowWindow }),
@@ -2320,7 +2494,7 @@ export const useStore = create<Store>()(
         set({
           showBoards: v,
           ...(v
-            ? { showDashboard: false, showTimeline: false, showArchive: false, showAdmin: false, showFilters: false, selectedItemId: null }
+            ? { showDashboard: false, showTimeline: false, showArchive: false, showAdmin: false, showFilters: false, selectedItemId: null, showSearch: false }
             : {}),
         }),
 
@@ -2329,7 +2503,7 @@ export const useStore = create<Store>()(
         set({
           showAdmin: v,
           ...(v
-            ? { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMetrics: false, showFilters: false, selectedItemId: null }
+            ? { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMetrics: false, showFilters: false, selectedItemId: null, showSearch: false }
             : {}),
         }),
 
@@ -2408,13 +2582,16 @@ export const useStore = create<Store>()(
               : b,
           ),
         })
+        recordBoardChange(parentId, `linked ${state.boards.find((b) => b.id === childId)?.name ?? 'a board'}`)
       },
-      removeLinkedBoard: (parentId, childId) =>
+      removeLinkedBoard: (parentId, childId) => {
         set({
           boards: get().boards.map((b) =>
             b.id === parentId ? { ...b, linkedBoardIds: (b.linkedBoardIds ?? []).filter((t) => t !== childId) } : b,
           ),
-        }),
+        })
+        recordBoardChange(parentId, 'unlinked a board')
+      },
       cancelEdit: () => {
         const d = get().draft
         if (!d) {
@@ -2443,6 +2620,7 @@ export const useStore = create<Store>()(
           periods: [],
           keyResults: [],
           boardTemplates: [],
+          boardActivity: [],
           savedFilters: [],
           collapsedLanes: {},
           favouriteBoardIds: [],
@@ -2551,6 +2729,8 @@ export const useStore = create<Store>()(
         if (!label || label.toLowerCase() === 'none') return NONE_TYPE_ID
         const id = uid()
         set({ issueTypes: [...get().issueTypes, { id, name: label, color }] })
+        const boardId = boardOnScreen()
+        if (boardId) recordBoardChange(boardId, `added the card type “${label}”`)
         return id
       },
       updateIssueType: (id, patch) => {
@@ -2558,11 +2738,25 @@ export const useStore = create<Store>()(
         // type may take its name.
         if (id === NONE_TYPE_ID) return
         if (patch.name && patch.name.trim().toLowerCase() === 'none') return
+        const before = get().issueTypes.find((t) => t.id === id)
         set({ issueTypes: get().issueTypes.map((t) => (t.id === id ? { ...t, ...patch } : t)) })
+        const boardId = boardOnScreen()
+        if (before && boardId) {
+          const renamed = patch.name?.trim()
+          recordBoardChange(
+            boardId,
+            renamed && renamed !== before.name
+              ? `renamed the card type “${before.name}” to “${renamed}”`
+              : `changed the card type “${before.name}”`,
+          )
+        }
       },
       removeIssueType: (id) => {
         if (id === NONE_TYPE_ID) return
+        const before = get().issueTypes.find((t) => t.id === id)
         set({ issueTypes: get().issueTypes.filter((t) => t.id !== id) })
+        const boardId = boardOnScreen()
+        if (before && boardId) recordBoardChange(boardId, `removed the card type “${before.name}”`)
       },
 
       addBoard: (name, band, open = true, templateId) => {
@@ -2676,14 +2870,18 @@ export const useStore = create<Store>()(
           // render to filter, so a re-created id is never resurrected by an old entry.
           favouriteBoardIds: state.favouriteBoardIds.filter((favourite) => favourite !== id),
           recentBoards: state.recentBoards.filter((visit) => visit.boardId !== id),
+          // A removed board takes its stream with it: the events are the board's own record.
+          boardActivity: (state.boardActivity ?? []).filter((event) => event.boardId !== id),
         })
       },
 
-      archiveBoard: (id) =>
+      archiveBoard: (id) => {
         set({
           boards: get().boards.map((b) => (b.id === id ? { ...b, archived: true, archivedAt: Date.now() } : b)),
-        }),
-      unarchiveBoard: (id) =>
+        })
+        recordBoardChange(id, 'archived the board')
+      },
+      unarchiveBoard: (id) => {
         set({
           // Drop the flags rather than setting false, so persisted state stays clean.
           boards: get().boards.map((b) => {
@@ -2691,7 +2889,9 @@ export const useStore = create<Store>()(
             const { archived: _a, archivedAt: _at, ...rest } = b
             return rest
           }),
-        }),
+        })
+        recordBoardChange(id, 'restored the board from the archive')
+      },
 
       duplicateBoard: (boardId, name) => {
         const state = get()
@@ -2800,21 +3000,36 @@ export const useStore = create<Store>()(
           placements: [...state.placements, ...placements],
           edges: [...state.edges, ...edges],
         })
+        // Every imported card is a card made on this board. The source's own history stays on the
+        // card; the board stream says one sentence per card, as it would for any other creation.
+        for (const item of items) get().appendBoardActivity(activityEvent(boardId, 'card.created', item.id))
         return boardId
       },
 
-      renameBoard: (id, name) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, name } : b)) }),
-      setBoardDescription: (id, description) =>
-        set({ boards: get().boards.map((b) => (b.id === id ? { ...b, description } : b)) }),
+      renameBoard: (id, name) => {
+        const board = get().boards.find((b) => b.id === id)
+        set({ boards: get().boards.map((b) => (b.id === id ? { ...b, name } : b)) })
+        if (board && board.name !== name) recordBoardChange(id, `renamed the board to “${name}”`)
+      },
+      setBoardDescription: (id, description) => {
+        set({ boards: get().boards.map((b) => (b.id === id ? { ...b, description } : b)) })
+        recordBoardChange(id, 'changed the board description')
+      },
       setBoardBand: () => false,
-      setBoardDefaultCardType: (id, defaultCardTypeId) =>
-        set({ boards: get().boards.map((b) => (b.id === id ? { ...b, defaultCardTypeId } : b)) }),
+      setBoardDefaultCardType: (id, defaultCardTypeId) => {
+        set({ boards: get().boards.map((b) => (b.id === id ? { ...b, defaultCardTypeId } : b)) })
+        recordBoardChange(id, 'changed the default card type')
+      },
 
-      setBoardDefaultDropLane: (id, defaultDropLaneId) =>
-        set({ boards: get().boards.map((b) => (b.id === id ? { ...b, defaultDropLaneId } : b)) }),
+      setBoardDefaultDropLane: (id, defaultDropLaneId) => {
+        set({ boards: get().boards.map((b) => (b.id === id ? { ...b, defaultDropLaneId } : b)) })
+        recordBoardChange(id, 'changed the default drop column')
+      },
 
-      setBoardWipEnforcement: (id, wipEnforcement) =>
-        set({ boards: get().boards.map((b) => (b.id === id ? { ...b, wipEnforcement } : b)) }),
+      setBoardWipEnforcement: (id, wipEnforcement) => {
+        set({ boards: get().boards.map((b) => (b.id === id ? { ...b, wipEnforcement } : b)) })
+        recordBoardChange(id, `changed the WIP policy to ${wipEnforcement}`)
+      },
 
       addCardsFlow: (name) => {
         const state = get()
@@ -2834,6 +3049,7 @@ export const useStore = create<Store>()(
           ],
           lanes: [...state.lanes, root, ...columns],
         })
+        recordBoardChange(board.id, `added the workflow “${label}”`)
         return flowId
       },
 
@@ -2843,6 +3059,8 @@ export const useStore = create<Store>()(
         // The rule is the domain's, so the control that shows and the action that runs agree.
         if (!label || !canRenameFlow(state.flows, flowId)) return false
         set({ flows: state.flows.map((f) => (f.id === flowId ? { ...f, name: label } : f)) })
+        const boardId = state.flows.find((f) => f.id === flowId)?.boardId
+        if (boardId) recordBoardChange(boardId, `renamed a workflow to “${label}”`)
         return true
       },
 
@@ -2861,6 +3079,7 @@ export const useStore = create<Store>()(
             return text ? { ...rest, description: text } : rest
           }),
         })
+        recordBoardChange(flow.boardId, `changed the description of the workflow “${flow.name}”`)
       },
 
       moveFlow: (flowId, delta) => {
@@ -2877,6 +3096,7 @@ export const useStore = create<Store>()(
         // The order is a clean 0..n-1 among the cards flows: two swaps must not drift it.
         const orderOf = new Map(reordered.map((f, i) => [f.id, i] as const))
         set({ flows: state.flows.map((f) => (orderOf.has(f.id) ? { ...f, order: orderOf.get(f.id)! } : f)) })
+        recordBoardChange(flow.boardId, 'reordered the workflows')
         return true
       },
 
@@ -2895,6 +3115,7 @@ export const useStore = create<Store>()(
               : b,
           ),
         })
+        recordBoardChange(flow.boardId, `removed the workflow “${flow.name}”`)
         return true
       },
 
@@ -2909,6 +3130,7 @@ export const useStore = create<Store>()(
           rank: nextRank(get().placements, laneId),
         }
         set({ items: [...get().items, item], placements: [...get().placements, placement] })
+        get().appendBoardActivity(activityEvent(boardId, 'card.created', item.id))
         // A card just made is the card in front: open it and ask its title field for the caret, so
         // the placeholder name can be replaced in one gesture.
         get().openItem(item.id)
@@ -2947,6 +3169,7 @@ export const useStore = create<Store>()(
               : b,
           ),
         })
+        recordBoardChange(boardId, `added the initiative kind “${trimmed}”`)
       },
 
       updateInitiativeType: (boardId, id, patch) => {
@@ -2960,6 +3183,7 @@ export const useStore = create<Store>()(
               : b,
           ),
         })
+        recordBoardChange(boardId, 'changed an initiative kind')
       },
 
       removeInitiativeType: (boardId, id) => {
@@ -2972,6 +3196,7 @@ export const useStore = create<Store>()(
             b.id === boardId ? { ...b, initiativeTypes: (b.initiativeTypes ?? []).filter((t) => t.id !== id) } : b,
           ),
         })
+        recordBoardChange(boardId, 'removed an initiative kind')
       },
 
       toggleItemTag: (boardId, itemId, tagId) => {
@@ -2999,6 +3224,7 @@ export const useStore = create<Store>()(
         set({
           boards: get().boards.map((b) => (b.id === boardId ? { ...b, tags: [...(b.tags ?? []), tag] } : b)),
         })
+        recordBoardChange(boardId, `added the tag “${trimmed}”`)
         return tag.id
       },
 
@@ -3010,6 +3236,7 @@ export const useStore = create<Store>()(
             b.id === boardId ? { ...b, tags: (b.tags ?? []).map((t) => (t.id === id ? { ...t, ...next } : t)) } : b,
           ),
         })
+        recordBoardChange(boardId, 'changed a tag')
       },
 
       removeTag: (boardId, id) => {
@@ -3019,6 +3246,7 @@ export const useStore = create<Store>()(
         set({
           boards: state.boards.map((b) => (b.id === boardId ? { ...b, tags: (b.tags ?? []).filter((t) => t.id !== id) } : b)),
         })
+        recordBoardChange(boardId, 'removed a tag')
       },
 
       addStressBoard: (cards) => {
@@ -3100,8 +3328,10 @@ export const useStore = create<Store>()(
           placement,
           at.laneId,
           (ordered) => ordered.findIndex((p) => p.id === at.id) + 1,
-          { stampDone: false },
+          { stampDone: false, record: false },
         )
+        // A copy is made, not moved: the stream says created, once.
+        get().appendBoardActivity(activityEvent(state.boardId, 'card.created', item.id))
         return item.id
       },
 
@@ -3168,6 +3398,7 @@ export const useStore = create<Store>()(
         )
 
         set({ placements: outcome.placements, items: outcome.items })
+        get().appendBoardActivity(activityEvent(boardId, 'card.updated', itemId))
         // The entry the move left is a fact about the card, and the design sync does not carry it.
         // It goes to the server without a revision: a drag is arrangement.
         void appendHistory(itemId, addedLog(state, outcome, itemId))
@@ -3369,11 +3600,20 @@ export const useStore = create<Store>()(
             : i,
         )
         set({ lanes, placements, items })
+        recordBoardChange(lane.boardId, `split the lane “${lane.name || 'column'}”`)
       },
 
-      setLaneOrientation: (laneId, orientation) => set({ lanes: setLaneOrientationNode(get().lanes, laneId, orientation) }),
+      setLaneOrientation: (laneId, orientation) => {
+        const lane = get().lanes.find((l) => l.id === laneId)
+        set({ lanes: setLaneOrientationNode(get().lanes, laneId, orientation) })
+        if (lane) recordBoardChange(lane.boardId, `changed “${lane.name || 'the lane'}” to ${orientation}`)
+      },
 
-      moveLane: (laneId, delta) => set({ lanes: moveLaneNode(get().lanes, laneId, delta) }),
+      moveLane: (laneId, delta) => {
+        const lane = get().lanes.find((l) => l.id === laneId)
+        set({ lanes: moveLaneNode(get().lanes, laneId, delta) })
+        if (lane) recordBoardChange(lane.boardId, `moved the lane “${lane.name || 'lane'}”`)
+      },
 
       addLane: (parentId) => {
         const state = get()
@@ -3384,6 +3624,7 @@ export const useStore = create<Store>()(
         set({
           lanes: nodes.map((n) => (n.id === created.id ? { ...n, boardId: parent.boardId, flowId: parent.flowId } : n)),
         })
+        recordBoardChange(parent.boardId, `added the lane “${created.name}” to “${parent.name || 'the board'}”`)
       },
 
       insertLaneAfter: (laneId) => {
@@ -3395,6 +3636,7 @@ export const useStore = create<Store>()(
         set({
           lanes: nodes.map((n) => (n.id === created.id ? { ...n, boardId: lane.boardId, flowId: lane.flowId } : n)),
         })
+        recordBoardChange(lane.boardId, `added the lane “${created.name}” after “${lane.name || 'lane'}”`)
       },
 
       duplicateLane: (laneId) => {
@@ -3405,6 +3647,7 @@ export const useStore = create<Store>()(
         // flow with them — the kernel only knows nodes.
         const { nodes } = duplicateLaneNode(state.lanes, laneId, uid)
         set({ lanes: nodes })
+        recordBoardChange(src.boardId, `duplicated the lane “${src.name || 'lane'}”`)
       },
 
       toggleCollapse: (laneId) =>
@@ -3430,6 +3673,7 @@ export const useStore = create<Store>()(
           // Nothing to rehome: the removed subtree held no card, and the fold only happened over
           // an empty survivor. The design changes; no card does.
           set({ lanes: nodes })
+          recordBoardChange(lane.boardId, `removed the lane “${lane.name || 'lane'}”`)
           return true
         }
 
@@ -3448,15 +3692,33 @@ export const useStore = create<Store>()(
         // A retired cell's initiatives were moved beside it; those entries are facts about them.
         const after = get()
         for (const id of from.keys()) void appendHistory(id, addedLog(state, after, id))
+        recordBoardChange(lane.boardId, `removed the lane “${lane.name || 'lane'}”`)
         return true
       },
 
 
-      renameLane: (laneId, name) => set({ lanes: get().lanes.map((l) => (l.id === laneId ? { ...l, name } : l)) }),
-      setLaneWip: (laneId, wipLimit) =>
-        set({ lanes: get().lanes.map((l) => (l.id === laneId ? { ...l, wipLimit } : l)) }),
-      setLaneDescription: (laneId, description) =>
-        set({ lanes: get().lanes.map((l) => (l.id === laneId ? { ...l, description } : l)) }),
+      renameLane: (laneId, name) => {
+        const lane = get().lanes.find((l) => l.id === laneId)
+        set({ lanes: get().lanes.map((l) => (l.id === laneId ? { ...l, name } : l)) })
+        if (lane && lane.name !== name) recordBoardChange(lane.boardId, `renamed the lane “${lane.name || 'lane'}” to “${name}”`)
+      },
+      setLaneWip: (laneId, wipLimit) => {
+        const lane = get().lanes.find((l) => l.id === laneId)
+        set({ lanes: get().lanes.map((l) => (l.id === laneId ? { ...l, wipLimit } : l)) })
+        if (lane) {
+          recordBoardChange(
+            lane.boardId,
+            wipLimit === undefined
+              ? `removed the WIP limit from “${lane.name || 'lane'}”`
+              : `set the WIP limit of “${lane.name || 'lane'}” to ${wipLimit}`,
+          )
+        }
+      },
+      setLaneDescription: (laneId, description) => {
+        const lane = get().lanes.find((l) => l.id === laneId)
+        set({ lanes: get().lanes.map((l) => (l.id === laneId ? { ...l, description } : l)) })
+        if (lane) recordBoardChange(lane.boardId, `changed the policy of “${lane.name || 'lane'}”`)
+      },
 
       setParent: (childId, parentId) => {
         const state = get()
@@ -3558,6 +3820,7 @@ export const useStore = create<Store>()(
           placements: [...state.placements, { id: uid(), boardId, itemId: item.id, laneId: lane.id, laneEnteredAt: Date.now() }],
           edges: [...state.edges, { id: uid(), kind: 'decomposition', from: parentId, to: item.id }],
         })
+        get().appendBoardActivity(activityEvent(boardId, 'card.created', item.id))
       },
 
       addDependency: (dependencyId, dependentId, reason) => {
@@ -3761,6 +4024,7 @@ export const useStore = create<Store>()(
           links: state.links.filter((l) => l.from !== itemId && l.to !== itemId),
           selectedItemId: state.selectedItemId === itemId ? null : state.selectedItemId,
         })
+        recordDeletedItems(state, new Set([itemId]))
       },
     }),
     {

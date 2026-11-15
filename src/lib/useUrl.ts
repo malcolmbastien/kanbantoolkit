@@ -39,6 +39,9 @@ export function useUrl() {
   const metricsServiceShare = useStore((s) => s.metricsServiceShare)
   // The Timeline's reading, subscribed for the same reason: a change to it changes the place.
   const timelineZoom = useStore((s) => s.timelineZoom)
+  // The board search's query is part of the Search place: typing changes the URL, and a link
+  // that names words opens on them.
+  const boardSearch = useStore((s) => s.boardSearch)
   // The document's name, derived the same way the URL is: the board and the view. The open card
   // is deliberately not read here — opening a drawer must not rename the page.
   const title = useStore((s) =>
@@ -123,7 +126,9 @@ export function useUrl() {
       }
     }
     const q = params.get('q')
-    if (q) {
+    if (place.view === 'search') {
+      s().setBoardSearch(place.q ?? '')
+    } else if (q) {
       s().setSearch(q)
       // A deep-linked ?q= meant a narrowed board, and the top-bar search no longer filters the
       // columns — narrowing by text is the filter panel's criterion now. Both get the query: the
@@ -155,13 +160,15 @@ export function useUrl() {
     const wasFirst = first.current
     first.current = false
     const s = useStore.getState()
-    const flow = viewOf(s) === 'flow'
+    const currentView = viewOf(s)
+    const flow = currentView === 'flow'
     const place: Place = {
       boardId: s.boardId,
-      view: viewOf(s),
+      view: currentView,
       itemId: s.selectedItemId,
       ...(flow ? { range: s.flowWindow, flowId: s.metricsFlowId, typeId: s.metricsTypeId, serviceBasis: s.metricsServiceBasis, serviceShare: s.metricsServiceShare } : {}),
-      ...(viewOf(s) === 'timeline' ? { zoom: s.timelineZoom } : {}),
+      ...(currentView === 'timeline' ? { zoom: s.timelineZoom } : {}),
+      ...(currentView === 'search' ? { q: s.boardSearch } : {}),
     }
     const before = last.current
     last.current = place
@@ -175,7 +182,7 @@ export function useUrl() {
     const samePlace = before !== null && before.boardId === place.boardId && before.view === place.view
     if (wasFirst || samePlace) window.history.replaceState(null, '', query)
     else window.history.pushState(null, '', query)
-  }, [boardId, view, selectedItemId, flowWindow, metricsFlowId, metricsTypeId, metricsServiceBasis, metricsServiceShare, timelineZoom])
+  }, [boardId, view, selectedItemId, flowWindow, metricsFlowId, metricsTypeId, metricsServiceBasis, metricsServiceShare, timelineZoom, boardSearch])
 
   // ---- And back: the places the app has been ----
   useEffect(() => {
@@ -189,6 +196,7 @@ export function useUrl() {
       if (place.view) s.setView(place.view)
       applyFlowReading(place)
       applyTimelineReading(place)
+      if (place.view === 'search') s.setBoardSearch(place.q ?? '')
       // Whatever the URL says about the open card is the truth, including saying nothing.
       const open = useStore.getState().selectedItemId
       if (place.itemId && place.itemId !== open && s.items.some((i) => i.id === place.itemId)) s.openItem(place.itemId)

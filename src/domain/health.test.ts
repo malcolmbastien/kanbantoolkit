@@ -68,6 +68,26 @@ describe('initiative health', () => {
     expect(initiativeHealth('init', graph, NOW).flags).toEqual([])
   })
 
+  it('raises a late start when a leaf’s planned start passed before it began', () => {
+    const graph = healthy()
+    // c is Not Started; give it a planned start before today.
+    graph.items[3] = { ...graph.items[3], targetStartDate: '2026-10-01' }
+    const late = initiativeHealth('init', graph, NOW)
+    expect(late.flags.map((f) => f.flag)).toEqual(['lateStart'])
+    expect(late.flags[0].label).toBe('1 late start')
+    expect(late.flags[0].items).toEqual(['c'])
+    expect(late.flags[0].why).toContain('past a planned start')
+
+    // Once it begins, the plan is no longer the finding.
+    graph.placements = graph.placements.map((p) => (p.itemId === 'c' ? { ...p, laneId: 'ip' } : p))
+    expect(initiativeHealth('init', graph, NOW).flags).toEqual([])
+
+    // A start still ahead says nothing either.
+    graph.placements = graph.placements.map((p) => (p.itemId === 'c' ? { ...p, laneId: 'ns' } : p))
+    graph.items[3] = { ...graph.items[3], targetStartDate: '2026-11-01' }
+    expect(initiativeHealth('init', graph, NOW).flags).toEqual([])
+  })
+
   it('does not count discarded work in a live parent, and says so', () => {
     const graph = healthy()
     graph.items[1] = { ...graph.items[1], archived: true, discarded: true }

@@ -1,5 +1,6 @@
 import { Children, useMemo, useRef, useState } from 'react'
 import { Card, type CardParent } from './Card'
+import { stageCountsOf } from './StageProgressBar'
 import { DragLayer } from './DragLayer'
 import { DropGap } from './DropGap'
 import { InlineEdit } from './InlineEdit'
@@ -356,6 +357,7 @@ export function BoardSummary({
     // Symbols summarise the direct children that count — team initiatives for a top-level
     // initiative, cards for a team-level one — coloured by their status.
     const symbols = progressItems.map((ci) => ({ id: ci.id, bucket: model.rollup.get(ci.id)?.bucket ?? 'backlog', title: ci.title }))
+    const roll = model.rollup.get(c.id)
     return (
       <Card
         key={c.id}
@@ -426,12 +428,13 @@ export function BoardSummary({
           childCount: model.childrenOf.get(c.id)?.length ?? 0,
           blockedBelow: model.blockedBelow.get(c.id) ?? 0,
           uncommittedBelow:
-            (model.rollup.get(c.id)?.bucket === 'notStarted' || model.rollup.get(c.id)?.bucket === 'inProgress')
-              ? (model.rollup.get(c.id)?.uncommitted ?? 0)
+            (roll?.bucket === 'notStarted' || roll?.bucket === 'inProgress')
+              ? (roll?.uncommitted ?? 0)
               : 0,
           openDescendants: model.openDescendants.get(c.id) ?? 0,
-          rollupPercent: model.rollup.get(c.id)?.percent ?? 0,
-          done: model.rollup.get(c.id)?.bucket === 'done',
+          rollupPercent: roll?.percent ?? 0,
+          rollupStages: roll && childItems.length > 0 ? stageCountsOf(roll) : undefined,
+          done: roll?.bucket === 'done',
           checklist: checklistProgress(c),
         }}
       />

@@ -52,6 +52,35 @@ browser per board, not in the workspace, so two people may read one board differ
 link opens the reader's own choice. It is not a permission — a Viewer gets it too. **Board design
 mode** always draws Full and disables the dial; Save or Cancel returns to the chosen level.
 
+## Search: a jump and a reading
+
+There are two searches, and they answer different questions. The field in the top bar is a **jump**:
+type a word, see matches from every board, press Enter, land on the card. The **Search** tab in the
+board's view switcher is a **reading**: it searches only the live work this board carries, keeps the
+result set in front of you, and shows the metadata a reader needs to judge a row without opening it.
+
+The query searches titles, descriptions, external-link labels and comments, in the same words the
+top-bar finder uses. A comment the browser does not hold is asked of the server, scoped to this
+board's work; a static deployment searches what it has. Archived work stays in the Archive, which has
+its own search — this view reads live work only.
+
+The board's filters narrow the result set: type, person (including **Unassigned**), priority, tag,
+initiative, age and the blocked/overdue/due-soon conditions, plus a **Stage** switch for the four
+columns. The table shows the title with a marked excerpt when the hit came from the description, link
+or comment, then type, status, people, priority, due, created and tags. **Relevance**, **Title** and
+**Newest** sort it; a page holds 50 rows. A row is a way in: the title opens the card in the side
+drawer, and the search stays behind it.
+
+The query is part of the link (`?view=search&q=…`), so back, forward and a shared URL all restore the
+words. <kbd>/</kbd> focuses the search field while the view is open; <kbd>↑</kbd>/<kbd>↓</kbd> move
+through the rows and <kbd>Enter</kbd> opens the one in front. Typing words in the top-bar finder and
+choosing **Search this board for “…”** hands the query to this view.
+
+<img src="img/guide/board-search.webp" alt="The board Search view for Team Atlas with the query signup, filter controls, and a results table showing type, status, people, priority, due, created and tags" width="1100">
+
+*The review table: the board's own live work, its filters, and the metadata that lets a row be
+judged before it is opened.*
+
 ## Connections
 
 The **Connections** toggle in the secondary bar draws the board's relationships over the work:
@@ -132,7 +161,11 @@ beside it. The same drawer opens from search, the dashboard, the timeline and th
   due date is the one day the work is promised for, and it is the date the **Overdue** and **Due soon**
   filters and every late badge speak about. A passed due date is never a block: it is a chip, and it
   clears when the day is moved or the work is done.
-- **Hierarchy** shows the parent, the work below, and dependencies. A dependency links two items and
+- **Hierarchy** shows the parent, the work below, and dependencies. For an initiative it opens with a
+  reading of the work below — progress, the four stages, the risks the health and attention rules
+  find, and the planned and actual dates — before the direct children. A flag chip narrows the child
+  list to the branches that carry it, with **All children** to reset. A card's Hierarchy shows its
+  own chain and dependencies as before. A dependency links two items and
   says one waits for the other. It runs **across** the hierarchy, never along it: a card cannot wait on
   its own parent or on anything below it. A link that would close a loop is refused rather than
   corrected. The picker is a searchable list that offers only the items the link would be accepted
@@ -185,12 +218,33 @@ invitation. <kbd>Escape</kbd> closes the drawer.
 *The drawer is the card's own page beside the board: fields in Overview, the conversation in
 Comments, lineage in Hierarchy and the record in History.*
 
+## Board activity
+
+**Activity** in the board's secondary bar opens the board's own stream on the right. It is a
+reading of the board, not a second copy of a card: a card made, changed or deleted, and a change to
+the board's design or workflows, in one list with who did it and when. A card's many changes are
+one **updated** row rather than a field-by-field diary — that detail belongs to the card's own
+**History** — and a card still on this board is a link into its drawer. A card that has since left
+the board is named in place without a link; a **deleted** card leaves the event and nothing else:
+no title, no assignee, no snapshot, and its earlier rows lose the reference too. Board design
+changes read as a sentence — a lane split, a workflow added, a WIP policy changed.
+
+Events are grouped by the day they happened and read newest first; **Load earlier activity** pages
+back. One side panel is open at a time: opening Activity closes an open card, Filters or My work,
+and opening a card from Activity replaces it with that card. A board made before this stream
+existed starts empty and says so, pointing at each card's History rather than inventing events.
+
+<img src="img/guide/board-activity.webp" alt="The Board activity drawer beside Team Atlas: Today's card creation, card update, design change and an anonymous card deletion, each with actor and time" width="420">
+
+*The board stream beside the work: card changes summarise as updated, a design change is a
+sentence, and a deleted card is never named.*
+
 ## What an initiative shows
 
 An initiative is the outcome above the cards. It has no status field and no estimate of its own:
 its status is read from the leaves below it, and its size is the number of those leaves.
 
-<img src="img/guide/initiative-rollup.webp" alt="An initiative card for Signup redesign showing three child pips, a 33 percent progress bar, a still 19d warning and the people on it" width="640">
+<img src="img/guide/initiative-rollup.webp" alt="An initiative card for Signup redesign showing three child pips, a segmented progress bar in done and in-progress colours, and the people on it" width="640">
 
 *An initiative card: the pips are its direct children, the percentage is the share of leaves done,
 and the roll-up label says what it rolls up to.*
@@ -198,8 +252,8 @@ and the roll-up label says what it rolls up to.*
 ### Card pips
 
 The small coloured squares across an initiative card are its **direct children**, one pip each, in
-the order of the four stages. The colour is the child's own stage — green for Done, violet for In
-Progress, blue for Not Started, grey for Backlog.
+the same order as the progress bar below them: **Done** (green), **In Progress** (violet), **Not
+Started** (blue), then **Backlog** (grey), so the state of the work reads left to right.
 
 - A pip is a way into that child: clicking it opens the child and, on a board, brings it into view.
 - Pips are direct children, not every descendant. The work beneath a child is behind that child's
@@ -212,16 +266,50 @@ Progress, blue for Not Started, grey for Backlog.
 ### The progress bar
 
 The percentage and the bar beside the pips are the same number: the share of the **leaf issues
-below** the initiative that are done. Every leaf counts once — however many levels of decomposition
-sit above it — and an archived leaf that was completed still counts, so filing away finished work
-does not lower a parent's progress. A **discarded** leaf does not count: it was thrown away, not a
-plan that remains unfinished, and leaving it in the denominator would make the parent impossible to
-finish.
+below** the initiative that are done. The bar itself keeps the whole answer, not only the
+finished share: its segments are **Done**, **In Progress**, **Not Started** and **Backlog**, in the
+order a reader moves through the work, and every segment is the leaves in that stage. Every leaf
+counts once — however many levels of decomposition sit above it — and an archived leaf that was
+completed still counts, so filing away finished work does not lower a parent's progress.
+**Discarded** leaves are not in the counts at all — thrown away, not a plan that remains unfinished
+— so they cannot flatter the bar or the percentage. The bar's title and accessible name carry every
+count.
+
+The due date, external link, **Done** stamp and people sit on the footer rule, as they do on a card.
+The progress bar above is the initiative's own reading; the footer is what a reader can act on.
 
 The denominator is all the leaves, including those still in Backlog, so planning more uncommitted
 work moves the percentage back. A Backlog leaf does not drag the initiative's *status* backwards, but
 it does count in the percentage. An initiative with nothing below it has no percentage and no bar,
 which is a different fact from 0%. **Done** on the card means every leaf below is done.
+
+### The Hierarchy reading
+
+An initiative's **Hierarchy** tab opens with a reading of the work below, before the direct children.
+It is the same model every other surface reads, not a second tracker:
+
+- **Progress below** shows the leaf count, the four stage counts, the percentage and the
+  `done of total` count, with a bar that carries no meaning on its own — the numbers beside it do.
+  **Waiting** is Backlog plus Not Started, **Working** is In Progress, and **Finished** is Done.
+- **Needs attention** carries the risks among the leaves: blocked, waiting, unowned, stale, overdue,
+  due soon, late start, still-uncommitted Backlog work, and discarded work. A chip is a way to
+  narrow the direct children to the branches that carry it; **All children** restores the list. The
+  counts are the rules' own counts, so the Overview warning row, the card badges and this summary
+  cannot disagree.
+- **Planned dates** is the envelope over the leaves' target windows: the earliest target start and the
+  latest target finish, beside the initiative's own target start and end. If only some leaves carry a
+  date the panel says so — `8 of 12 dated` — rather than implying the envelope is complete. A due date
+  is a promise; it is never used as a plan date.
+- **Actual start** and **Actual finish** appear only when the move history can support them. The start
+  is the earliest commitment among the leaves; a leaf that never left Backlog has not started, and a
+  history that was not loaded says **Not loaded** rather than inventing a date. The finish is shown
+  only when every leaf is done and every one carries a resolved stamp; otherwise it says **Not
+  finished**.
+
+<img src="img/guide/hierarchy-reading.webp" alt="An initiative's Hierarchy tab with Progress below, Needs attention chips, Planned dates and the direct children grouped by stage" width="420">
+
+*The Hierarchy reading: the leaves' progress, the risks they carry, and the plan beside the work.
+The direct children stay below, and a flag narrows them to the branch that carries it.*
 
 ### Roll-up and automatic movement
 

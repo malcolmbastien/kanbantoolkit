@@ -59,6 +59,7 @@ The flags themselves:
 | **N discarded** | watch | N items below were discarded. They remain in the hierarchy as history but no longer count toward progress. Reported in the drawer and the dashboard's health reading, not as a badge on the card face. | The items are restored, or the initiative is discarded or re-planned. |
 | **still Nd** | watch | The initiative is committed (Not Started or In Progress) and nothing below it has moved for at least 7 days. Where the last movement is unknown, the flag is not raised. | Something below moves. |
 | **N unowned** | watch | N cards in progress below have no assignee. | Each gets an owner, or leaves In Progress. |
+| **N late start** | watch | N cards below are past their planned target start and have not begun. The rule is the same one a card's own **Late start** badge and the dashboard's attention list read, so a child cannot be late in one place and not another. | The work starts, or each target start moves. |
 | **N backlog** | watch | The initiative is committed, but N of its leaves are in Backlog. | Those cards leave Backlog, or the initiative returns to Backlog. |
 | **N ending later** | watch | N cards below are planned to end after the initiative's target end date. About the plan's window, not the due date: two promises on different days is not an inconsistency. | The target dates are brought into line, or the cards finish. |
 

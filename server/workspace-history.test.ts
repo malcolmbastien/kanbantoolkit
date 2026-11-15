@@ -265,6 +265,19 @@ describe('the notes search and mentions read', () => {
     expect(await readNotes(db, 'workspace', { mentionOf: 'u-ada' })).toEqual([])
   })
 
+  it('narrows the notes to one board’s work, so a comment cannot leak across', async () => {
+    const db = database()
+    const workspace = seeded()
+    workspace.items = workspace.items.map((item) =>
+      item.id === 'i-2' ? card('i-2', [noted('e-9', 1_700_000_005_000, 'A budget note on the other board')]) : item,
+    )
+    await writeWorkspace(db, workspace, 'workspace')
+
+    expect((await readNotes(db, 'workspace', { q: 'budget', boardId: 'b-1' })).map((hit) => hit.entry.id)).toEqual(['e-3'])
+    expect((await readNotes(db, 'workspace', { q: 'budget', boardId: 'b-2' })).map((hit) => hit.entry.id)).toEqual(['e-9'])
+    expect(await readNotes(db, 'workspace', { q: 'budget', boardId: 'b-missing' })).toEqual([])
+  })
+
   it('serves both questions over the route, scoped to the caller for mentions', async () => {
     const db = database()
     await writeWorkspace(db, seeded(), 'workspace')

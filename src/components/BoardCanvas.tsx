@@ -103,6 +103,8 @@ interface Ctx {
     height: number | null
     /** The initiative the card in the air would become a child of, if one is under the pointer. */
     dropTargetId: string | null
+    /** Every card the gesture is carrying: the whole selection when one of it is lifted. */
+    groupIds: string[]
     /** Begin a lift from a press on a card. */
     start: (e: React.PointerEvent, itemId: string) => void
   }
@@ -616,6 +618,7 @@ function LaneBox({
         laneId={lane.id}
         dense={ctx.detail === 'mini'}
         draggingId={ctx.drag.itemId}
+        draggingIds={ctx.drag.groupIds}
         draggingHeight={ctx.drag.height}
         at={ctx.drag.laneId === lane.id ? ctx.drag.index : null}
         items={cards.map((c) => {
@@ -883,6 +886,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   const renameLane = useStore((s) => s.renameLane)
   const addCard = useStore((s) => s.addCard)
   const moveCardToIndex = useStore((s) => s.moveCardToIndex)
+  const moveCardsToLane = useStore((s) => s.moveCardsToLane)
   const parentPickId = useStore((s) => s.parentPickId)
   const childPickId = useStore((s) => s.childPickId)
   const setParent = useStore((s) => s.setParent)
@@ -980,7 +984,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
    * the gap one slot too low: lifting the top card left the card below at the top and showed the
    * shadow in the second slot, as if the gesture had already moved a place.
    */
-  const gapUnder = (draggedId: string, x: number, y: number, dense: boolean) => {
+  const gapUnder = (draggedIds: ReadonlySet<string>, x: number, y: number, dense: boolean) => {
     let lane = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-lane-id]') ?? null
     if (!lane) {
       // A release just below the last card lands past the lane's own box, and 'put it at the
@@ -996,8 +1000,21 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
     }
     const laneId = lane?.dataset.laneId
     if (!lane || !laneId) return null
-    const cards = [...lane.querySelectorAll<HTMLElement>('[data-card-id]')].filter((el) => el.dataset.cardId !== draggedId)
+    const cards = [...lane.querySelectorAll<HTMLElement>('[data-card-id]')].filter(
+      (el) => !draggedIds.has(el.dataset.cardId ?? ''),
+    )
     return { laneId, index: insertionIndex(cards, x, y, dense) }
+  }
+
+  /**
+   * What a gesture from this card is carrying.
+   *
+   * A card on its own is one card. A card inside a multi-select group is the whole group, with
+   * the card actually lifted first so it lands at the gap and the rest follow it.
+   */
+  const dragGroup = (itemId: string): string[] => {
+    const selection = useStore.getState().multiSelect
+    return selection.length > 1 && selection.includes(itemId) ? selection : [itemId]
   }
 
   const { lift, start: startLift, justDragged } = useCardLift({
@@ -1008,7 +1025,8 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
       // An initiative card under the pointer takes the drop, and the lane gives way to it: one
       // gesture, one meaning. The lane's gap is cleared so the two can never both be showing.
       const parent = parentTargetUnder(x, y, itemId, graph, issueTypes)
-      const gap = parent ? null : gapUnder(itemId, x, y, detail === 'mini')
+      const group = parent ? [itemId] : dragGroup(itemId)
+      const gap = parent ? null : gapUnder(new Set(group), x, y, detail === 'mini')
       setDropTarget(parent)
       setDragPreview({ itemId, height, laneId: gap?.laneId ?? null, index: gap?.index ?? null })
     },
@@ -1017,12 +1035,21 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
       setDropTarget(null)
       const parent = parentTargetUnder(x, y, itemId, graph, issueTypes)
       if (parent) {
-        // A hierarchy edit, not a move: the card stays in the lane it was in.
+        // A hierarchy edit, not a move: the card stays in the lane it was in, and a group drag
+        // stays a card drag on the one card that was grabbed.
         setParent(itemId, parent)
         return
       }
-      const gap = gapUnder(itemId, x, y, detail === 'mini')
-      if (gap) dropCardAt(itemId, gap.laneId, gap.index)
+      const group = dragGroup(itemId)
+      const gap = gapUnder(new Set(group), x, y, detail === 'mini')
+      if (!gap) return
+      if (group.length > 1) {
+        // The group lands as a block, the grabbed card first. The gap already counts the cards
+        // that are staying, so the index is the block's own starting place.
+        moveCardsToLane([itemId, ...group.filter((id) => id !== itemId)], gap.laneId, gap.index)
+        return
+      }
+      dropCardAt(itemId, gap.laneId, gap.index)
     },
   })
   const lifting = lift !== null
@@ -1070,6 +1097,15 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
       index: dragPreview?.index ?? null,
       height: dragPreview?.height ?? lift?.height ?? null,
       dropTargetId: lifting ? dropTargetId : null,
+      groupIds:
+        (lift?.itemId ?? dragPreview?.itemId) &&
+        multiSelect.length > 1 &&
+        multiSelect.includes((lift?.itemId ?? dragPreview?.itemId)!) &&
+        !dropTargetId
+          ? multiSelect
+          : (lift?.itemId ?? dragPreview?.itemId)
+            ? [(lift?.itemId ?? dragPreview?.itemId)!]
+            : [],
       start: beginLift,
     },
     openCard: (itemId) => {
@@ -1180,7 +1216,16 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
     <>
       {canvas}
       {lift && (
-        <DragLayer html={lift.html} x={lift.x} y={lift.y} grabX={lift.grabX} grabY={lift.grabY} width={lift.width} height={lift.height} />
+        <DragLayer
+          html={lift.html}
+          x={lift.x}
+          y={lift.y}
+          grabX={lift.grabX}
+          grabY={lift.grabY}
+          width={lift.width}
+          height={lift.height}
+          count={ctx.drag.groupIds.length}
+        />
       )}
     </>
   )

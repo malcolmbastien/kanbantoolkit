@@ -11,6 +11,7 @@
  *     /app?board=b-atlas&view=flow&type=t-bug     the Flow view of one card type
  *     /app?board=b-atlas&view=flow&sle=lead&sle-share=90  its service level on lead time at 90%
  *     /app?board=b-atlas&view=timeline&zoom=wide  the Timeline drawn day by day
+ *     /app?board=b-atlas&view=search&q=signup    the board's search view on those words
  *     /app?board=b-atlas&item=init-signup         a card or initiative open on it
  *     /app?board=b-atlas&view=dashboard&item=…    both at once
  *
@@ -35,7 +36,7 @@ import {
 } from '@/domain/timelineZoom'
 
 /** Every view the app can be in. `board` is the board's own flow — the Board tab. */
-export type ViewName = 'board' | 'dashboard' | 'timeline' | 'flow' | 'archive' | 'boards' | 'admin'
+export type ViewName = 'board' | 'dashboard' | 'timeline' | 'flow' | 'archive' | 'search' | 'boards' | 'admin'
 
 /** The Flow view's service-level defaults, left out of the URL so an ordinary link stays short. */
 export const DEFAULT_SERVICE_BASIS: ServiceBasis = 'cycle'
@@ -48,6 +49,8 @@ export interface ViewFlags {
   showDashboard: boolean
   showMetrics: boolean
   showTimeline: boolean
+  /** The board's search view: a reviewable table of this board's live work. */
+  showSearch: boolean
   /** The workspace's own administration: the copies this browser keeps, and its storage. */
   showAdmin: boolean
 }
@@ -75,6 +78,8 @@ export interface Place {
    * place: a link that opens the axis a week at a time must open that, not the default width.
    */
   zoom?: TimelineZoom
+  /** The board search's query, when the place is the Search view. */
+  q?: string
 }
 
 /**
@@ -90,6 +95,7 @@ export function viewOf(flags: ViewFlags): ViewName {
   if (flags.showDashboard) return 'dashboard'
   if (flags.showMetrics) return 'flow'
   if (flags.showTimeline) return 'timeline'
+  if (flags.showSearch) return 'search'
   if (flags.showAdmin) return 'admin'
   return 'board'
 }
@@ -120,6 +126,9 @@ export function urlQuery(place: Place): string {
   if (place.view === 'timeline' && place.zoom !== undefined && place.zoom !== DEFAULT_TIMELINE_ZOOM) {
     params.set('zoom', timelineZoomParam(place.zoom))
   }
+  // The Search view's query is part of the place: a link that found something must open on the
+  // same words. A blank query is the view's empty state, so it is not written.
+  if (place.view === 'search' && place.q?.trim()) params.set('q', place.q.trim())
   if (place.itemId) params.set('item', place.itemId)
   const query = params.toString()
   return query ? `?${query}` : ''
@@ -138,6 +147,7 @@ const VIEW_NAMES: Record<string, ViewName> = {
   flow: 'flow',
   metrics: 'flow',
   archive: 'archive',
+  search: 'search',
   boards: 'boards',
   admin: 'admin',
 }
@@ -188,5 +198,11 @@ export function placeFromQuery(search: string): Partial<Place> {
   }
   const zoom = params.get('zoom')
   if (zoom !== null && isTimelineZoom(zoom)) place.zoom = zoom
+  // The Search view's query is a place, not a one-shot intention: back/forward and a shared link
+  // must restore the words. On any other view `?q=` keeps its old meaning as an intention.
+  if (view === 'search') {
+    const q = params.get('q')
+    if (q) place.q = q
+  }
   return place
 }

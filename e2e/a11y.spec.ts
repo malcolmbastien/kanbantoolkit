@@ -109,6 +109,52 @@ test('a card open in its panel has none either', async ({ page }) => {
   expect(await barriers(page, { nestedInteractive: true })).toEqual([])
 })
 
+test('the board search has no barrier a machine can find', async ({ page }) => {
+  await page.goto('/app?board=b-atlas&view=search&q=signup')
+  await expect(page.locator('[data-board-search]')).toBeVisible()
+  await expect(page.getByLabel('Search Team Atlas')).toHaveValue('signup')
+  // The results are a real table, with a caption and column headings.
+  await expect(page.getByRole('table', { name: /Search results for signup/ })).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: 'Item' })).toBeVisible()
+  await expect(page.locator('[data-board-search-summary]')).toContainText('result')
+  expect(await barriers(page, { nestedInteractive: true })).toEqual([])
+})
+
+test('the initiative hierarchy has no barrier a machine can find', async ({ page }) => {
+  await page.goto('/app?board=b-atlas&item=init-billing')
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel).toBeVisible()
+  await panel.getByRole('button', { name: 'Hierarchy', exact: true }).click()
+
+  await expect(panel.getByRole('heading', { name: 'Progress below' })).toBeVisible()
+  await expect(panel.getByRole('heading', { name: 'Planned dates' })).toBeVisible()
+  // The bar is decoration; the counts are in text.
+  await expect(panel.locator('[data-hierarchy-progress]')).toContainText('0 of 5 done')
+  const blocked = panel.locator('[data-hierarchy-flag="blocked"]')
+  await expect(blocked).toHaveAttribute('aria-pressed', 'false')
+  // The chips are keyboard buttons, and a second press resets the child list.
+  await blocked.focus()
+  await page.keyboard.press('Enter')
+  await expect(blocked).toHaveAttribute('aria-pressed', 'true')
+  await expect(panel.getByRole('button', { name: 'All children' })).toBeVisible()
+  await page.keyboard.press('Enter')
+  await expect(blocked).toHaveAttribute('aria-pressed', 'false')
+
+  expect(await barriers(page, { nestedInteractive: true })).toEqual([])
+})
+
+test('the board activity drawer has no barrier a machine can find', async ({ page }) => {
+  await page.goto('/app?board=b-atlas')
+  await expect(page.locator('[data-workflow="cards"]').first()).toBeVisible()
+  await page.getByRole('button', { name: 'Activity', exact: true }).click()
+  // The drawer sits beside the board and names the board it is about.
+  await expect(page.getByRole('complementary', { name: 'Board activity: Team Atlas' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Activity', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  // The stream is grouped by day, so a reader can move between days rather than one flat list.
+  await expect(page.locator('[data-board-activity]').getByRole('heading', { name: 'Today' })).toBeVisible()
+  expect(await barriers(page, { nestedInteractive: true })).toEqual([])
+})
+
 test('the admin screen, signed in, has none', async ({ page }) => {
   // The instance's front door is the sign-in screen itself; there is no menu to open.
   await page.goto(`${SELF_HOSTED}/app`)

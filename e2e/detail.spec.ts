@@ -48,6 +48,21 @@ test('a blocked card wears its state on the card, not only in the badge row', as
   ).not.toBe('rgba(0, 0, 0, 0)')
 })
 
+test('a blocked card with no reason keeps the badge, not an empty reason box', async ({ page }) => {
+  await openBoard(page)
+  const card = page.locator('[data-card-id="st-pricing-experiment"]')
+  await card.click()
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel).toBeVisible()
+  await panel.getByRole('button', { name: 'Mark blocked' }).click()
+  await panel.getByPlaceholder('Why is it blocked? (optional)').press('Enter')
+  await panel.getByRole('button', { name: 'Close' }).click()
+
+  await expect(card).toHaveAttribute('data-card-blocked', '')
+  await expect(card).toContainText('Blocked')
+  await expect(card).not.toContainText('Blocker reason:')
+})
+
 test('Summary keeps the title, type, due date and people, and drops the extras', async ({ page }) => {
   await openBoard(page)
   await expect(page.getByRole('radio', { name: 'Full' })).toHaveAttribute('aria-checked', 'true')

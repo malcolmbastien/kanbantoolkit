@@ -9,6 +9,7 @@ import {
   type Graph,
 } from './derive'
 import { parseDay, STALE_AFTER_DAYS } from './filters'
+import { lateStartDay } from './due'
 
 /**
  * Initiative health: the signals that say an initiative is in trouble, derived and never stored.
@@ -29,7 +30,7 @@ import { parseDay, STALE_AFTER_DAYS } from './filters'
  * "nothing below" is the interface telling a reader what the absence already told them.
  */
 
-export type HealthFlag = 'blocked' | 'waiting' | 'discarded' | 'stale' | 'unowned' | 'uncommitted' | 'outlasted'
+export type HealthFlag = 'blocked' | 'waiting' | 'discarded' | 'stale' | 'unowned' | 'lateStart' | 'uncommitted' | 'outlasted'
 
 export interface HealthFlagInfo {
   flag: HealthFlag
@@ -141,6 +142,21 @@ export function initiativeHealth(id: string, graph: Graph, now = Date.now()): In
       why: `${unowned.length} card${plural(unowned.length)} in progress below ${unowned.length === 1 ? 'has' : 'have'} no owner`,
       tone: 'watch',
       items: unowned.map((i) => i.id),
+    })
+  }
+
+  // A plan that slipped before the work began: a leaf's target start passed while its derived
+  // stage still says it has not started. The rule is `lateStartDay`'s — the same one the board's
+  // Needs attention and a card's own badge read — so a child cannot be late in one place and not
+  // in the other. The initiative's own start is read there too; this is the work below it.
+  const late = open.filter((i) => lateStartDay(i.targetStartDate, rollupOf(i.id, graph).bucket, now) !== undefined)
+  if (late.length > 0) {
+    flags.push({
+      flag: 'lateStart',
+      label: late.length === 1 ? '1 late start' : `${late.length} late starts`,
+      why: `${late.length} card${plural(late.length)} below ${late.length === 1 ? 'is' : 'are'} past a planned start that has not begun`,
+      tone: 'watch',
+      items: late.map((i) => i.id),
     })
   }
 

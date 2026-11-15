@@ -37,6 +37,8 @@ const CommandPalette = lazy(() => import('./components/CommandPalette').then((m)
 const BoardSettings = lazy(() => import('./components/BoardSettings').then((m) => ({ default: m.BoardSettings })))
 const BulkActions = lazy(() => import('./components/BulkActions').then((m) => ({ default: m.BulkActions })))
 const FilterPanel = lazy(() => import('./components/FilterPanel').then((m) => ({ default: m.FilterPanel })))
+const BoardActivityPanel = lazy(() => import('./components/BoardActivityPanel').then((m) => ({ default: m.BoardActivityPanel })))
+const BoardSearchView = lazy(() => import('./components/BoardSearchView').then((m) => ({ default: m.BoardSearchView })))
 const ConfirmDialog = lazy(() => import('./components/ConfirmDialog').then((m) => ({ default: m.ConfirmDialog })))
 const ReasonDialog = lazy(() => import('./components/ReasonDialog').then((m) => ({ default: m.ReasonDialog })))
 
@@ -54,6 +56,7 @@ export default function App() {
   const showMetrics = useStore((s) => s.showMetrics)
   const showDashboard = useStore((s) => s.showDashboard)
   const showArchive = useStore((s) => s.showArchive)
+  const showSearch = useStore((s) => s.showSearch)
   const showTimeline = useStore((s) => s.showTimeline)
   const showBoards = useStore((s) => s.showBoards)
   const showAdmin = useStore((s) => s.showAdmin)
@@ -64,6 +67,7 @@ export default function App() {
   // The tabs go through the same door the URL does, so a tab and a link mean the same thing.
   const setView = useStore((s) => s.setView)
   const showFilters = useStore((s) => s.showFilters)
+  const showBoardActivity = useStore((s) => s.showBoardActivity)
   const view = useStore(viewOf)
   const heading = headingFor({ view, board: boards.find((board) => board.id === boardId)?.name })
   // The filter panel belongs to the board surface: it narrows one board, so it does not trail
@@ -144,7 +148,9 @@ export default function App() {
         target?.closest('[data-reason-dialog]') ||
         target?.closest('[data-card-menu]') ||
         target?.closest('[data-filters-toggle]') ||
-        target?.closest('[data-filter-clear]')
+        target?.closest('[data-filter-clear]') ||
+        target?.closest('[data-board-activity-toggle]') ||
+        target?.closest('[data-board-search]')
       ) {
         return
       }
@@ -262,6 +268,7 @@ export default function App() {
         showDashboard={showDashboard}
         showTimeline={showTimeline}
         showArchive={showArchive}
+        showSearch={showSearch}
         showMetrics={showMetrics}
         showBoards={showBoards}
         showAdmin={showAdmin}
@@ -271,6 +278,7 @@ export default function App() {
         onShowTimeline={() => setView('timeline')}
         onShowMetrics={() => setView('flow')}
         onShowArchive={() => setView('archive')}
+        onShowSearch={() => setView('search')}
         onGoToBoards={goToBoards}
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}
@@ -303,6 +311,8 @@ export default function App() {
               <MetricsView boardId={boardId} />
             ) : showTimeline ? (
               <TimelineView boardId={boardId} />
+            ) : showSearch ? (
+              <BoardSearchView boardId={boardId} />
             ) : showAdmin ? (
               <AdminView />
             ) : (
@@ -319,6 +329,10 @@ export default function App() {
         ) : showFilters && boardSurface ? (
           <Suspense fallback={<aside aria-busy="true" className="h-full w-[460px] shrink-0 border-l border-slate-300 bg-slate-100" />}>
             <FilterPanel />
+          </Suspense>
+        ) : showBoardActivity && boardSurface ? (
+          <Suspense fallback={<aside aria-busy="true" className="h-full w-[460px] shrink-0 border-l border-slate-300 bg-slate-100" />}>
+            <BoardActivityPanel />
           </Suspense>
         ) : selectedItemId ? (
           <Suspense

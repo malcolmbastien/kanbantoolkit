@@ -20,6 +20,7 @@ export function DropColumn({
   laneId,
   items,
   draggingId,
+  draggingIds,
   draggingHeight,
   at,
   footer,
@@ -30,6 +31,8 @@ export function DropColumn({
   items: Array<{ id: string; node: React.ReactNode }>
   /** The card in the air, if any — lifted out, so the lane previews where the drop lands. */
   draggingId?: string | null
+  /** The whole group being carried: a selection lifts together, not only the grabbed card. */
+  draggingIds?: readonly string[]
   /**
    * The lifted card's height, so the gap is its shape rather than a guess at one. Its width is
    * not needed: a card fills whatever lane it lands in, and the gap does the same.
@@ -42,8 +45,10 @@ export function DropColumn({
   dense?: boolean
 }) {
   // The lifted card has left the lane — it is drawn in the air by DragLayer — so the gap is
-  // counted among the cards that are left, which is the list a drop lands in.
-  const remaining = draggingId ? items.filter((i) => i.id !== draggingId) : items
+  // counted among the cards that are left, which is the list a drop lands in. A group drag takes
+  // the whole selection out of the lane, because that is what will land as one block.
+  const carried = new Set(draggingIds && draggingIds.length > 0 ? draggingIds : draggingId ? [draggingId] : [])
+  const remaining = carried.size > 0 ? items.filter((i) => !carried.has(i.id)) : items
 
   // A shadow, not a box: the lifted card is the thing you are holding, so what it leaves
   // behind is the shape it will occupy — recessed, the way a shadow is, and the card's own

@@ -21,6 +21,7 @@ import { statement } from '../audit'
 import { deleteWorkspace, lastAdministratorRefusal, workspaceNameOf } from './account'
 import { findBandChange, readBoardBands, readDesign, readStructureRev, writeDesign } from './structure'
 import { readItemLog, readMovements, readNotes } from './history'
+import { boardExists, readBoardActivity, writeBoardActivity } from './activity'
 import { writeVocabularyDocument } from './vocabulary'
 import { emitItemChange, graphWithItem } from '../events'
 
@@ -295,6 +296,52 @@ export function workspaceRoutes(runtime: Runtime) {
   })
 
   /**
+   * One board's activity stream.
+   *
+   * The stream is separate from a card's log: it is board-scoped, paginated, and a deleted card
+   * leaves only an anonymous event. Reading it is `board.read`.
+   */
+  routes.get('/boards/:id/activity', async (c) => {
+    const allowed = await requireWorkspace(c, runtime, 'board.read')
+    if (allowed instanceof Response) return allowed
+    const boardId = c.req.param('id')
+    if (!(await boardExists(allowed.db, boardId, allowed.workspaceId))) return c.json({ error: 'no such board' }, 404)
+    return c.json(
+      await readBoardActivity(allowed.db, boardId, allowed.workspaceId, {
+        cursor: c.req.query('cursor'),
+        limit: c.req.query('limit'),
+      }),
+    )
+  })
+
+  /**
+   * Record one activity event at the change's own seam.
+   *
+   * A card event needs `item.write`; a design event needs `board.design`. The actor is the session,
+   * never the client. A deletion may name its card only in `redactItemId`, which is used to clear
+   * earlier references and is not stored.
+   */
+  routes.post('/boards/:id/activity', async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { event?: unknown; redactItemId?: unknown } | null
+    const kind = body?.event && typeof body.event === 'object' && !Array.isArray(body.event)
+      ? (body.event as Record<string, unknown>).kind
+      : undefined
+    if (typeof kind !== 'string') return c.json({ error: 'an activity event is required' }, 400)
+    const allowed = await requireWorkspace(c, runtime, kind === 'board.updated' ? 'board.design' : 'item.write')
+    if (allowed instanceof Response) return allowed
+    const boardId = c.req.param('id')
+    if (!(await boardExists(allowed.db, boardId, allowed.workspaceId))) return c.json({ error: 'no such board' }, 404)
+    // A token's name is how the stream says "via CI bot": the actor is still the person the token
+    // acts for, and the credential is the thing that made the change.
+    const via = allowed.tokenId
+      ? (await allowed.db.get<{ name: string }>('SELECT name FROM api_tokens WHERE id = ?1', [allowed.tokenId]))?.name
+      : undefined
+    const event = await writeBoardActivity(allowed.db, allowed.workspaceId, boardId, body ?? {}, allowed.user.id, via)
+    if (!event) return c.json({ error: 'not an activity event' }, 400)
+    return c.json({ event })
+  })
+
+  /**
    * Append to one card's history, without taking a revision.
    *
    * The log entry a move leaves is a fact about the card, but the move itself is arrangement: it
@@ -364,6 +411,7 @@ export function workspaceRoutes(runtime: Runtime) {
     const notes = await readNotes(allowed.db, allowed.workspaceId, {
       q: c.req.query('q'),
       mentionOf: c.req.query('mention') === 'me' ? allowed.user.id : undefined,
+      boardId: c.req.query('boardId'),
       limit: c.req.query('limit'),
     })
     return c.json({ notes })

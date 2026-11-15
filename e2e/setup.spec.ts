@@ -220,6 +220,18 @@ test('a Viewer reads the board, and is offered nothing that would refuse', async
     await expect(grace.getByRole('button', { name: 'Add card to Backlog' })).toHaveCount(0)
     await expect(grace.locator('[data-workflow="cards"] [data-card-id]').first()).toBeVisible()
 
+    // A Viewer reads the board's search and opens a result; the view offers nothing that writes.
+    await grace.getByRole('button', { name: 'Search', exact: true }).click()
+    await expect(grace.locator('[data-board-search]')).toBeVisible()
+    await grace.locator('[data-board-search-input]').fill('New card')
+    await expect(grace.locator('[data-search-row]').first()).toBeVisible()
+    await expect(grace.locator('[data-board-search]').getByRole('button', { name: /Add card/ })).toHaveCount(0)
+    await grace.locator('[data-search-open]').first().click()
+    await expect(grace.locator('[data-item-panel]')).toBeVisible()
+    await grace.locator('[data-item-panel]').getByRole('button', { name: 'Close' }).click()
+    await grace.getByRole('button', { name: 'Board', exact: true }).click()
+    await expect(grace.locator('[data-workflow="cards"]')).toBeVisible()
+
     // A drag lifts nothing: the card the pointer started on is still in the column it was in.
     const backlog = await cardsIn(grace, 'Backlog')
     const done = await laneRegion(grace, 'Done').boundingBox()

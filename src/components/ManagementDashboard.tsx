@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { BAND_STYLES } from './BandBadge'
+import { StageProgressBar, stageCountsOf } from './StageProgressBar'
 import { PRIORITY_META } from './PriorityBadge'
 import { blockedBelow, decompositionChildren, rollupOf, type Graph } from '@/domain/derive'
 import { boardInitiatives, initiativeTypeById, isPortfolio, portfolioInitiatives, tagsOf } from '@/domain/board'
@@ -27,8 +28,6 @@ import { useStore } from '@/store'
 import type { IssueType, Stage } from '@/domain/types'
 import { cardsFlows } from '@/domain/flows'
 import { dueLabel, dueState, dueWhy } from '@/domain/due'
-
-const barColor = (pct: number) => (pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
 /** The promise's voice in the Dates column: a passed day is rose, the coming week amber. */
 const DUE_TEXT = {
@@ -355,9 +354,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
 
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
-                        <div className="h-1.5 w-28 overflow-hidden rounded-full bg-slate-200">
-                          <div className="h-full transition-all" style={{ width: `${roll.percent}%`, backgroundColor: barColor(roll.percent) }} />
-                        </div>
+                        <StageProgressBar counts={stageCountsOf(roll)} className="w-28" height="h-1.5" />
                         <span className="w-9 text-right text-meta font-bold tabular-nums text-slate-600">{roll.percent}%</span>
                       </div>
                       <div className="mt-0.5 text-micro text-slate-600">
