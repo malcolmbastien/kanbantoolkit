@@ -17,6 +17,11 @@ Three thresholds recur: **7 days** for age and staleness (`STALE_AFTER_DAYS`), t
 "due soon" (`DUE_SOON_DAYS`, the window the filter names), and a lane's own **WIP limit**. An
 initiative with nothing below it raises nothing.
 
+A **tag** is the board's vocabulary, not a warning: it wears a soft pill with a small tag mark.
+A **warning** is a state the card is in: it wears a rounded amber or rose badge with a small
+triangle. The shape and the mark say which is which before the words are read, so `tech-debt` and
+**Unowned** cannot be mistaken for the same kind of thing.
+
 ## On a card
 
 | What you see | What it means | What clears it |
@@ -28,6 +33,7 @@ initiative with nothing below it raises nothing.
 | **Due in 2d**, an amber chip | The due date is inside the week the board's **Due soon** filter names. A chip, never a block: the card can still move, and it clears when the work is done or the day moves. | The card is finished, or the date moves out. |
 | **3d overdue**, a rose chip | The due date has passed and the card is not done — the same reading as the **Overdue** filter and the dashboard's Overdue count. | The card reaches Done, or the date moves. |
 | **Late start**, an amber chip | The planned target start has passed and the card is still in Backlog or Not Started. A card in In Progress is not late — the stage says the work has begun. | The work starts, or the target start moves. |
+| **Unowned**, an amber chip | The card is **In Progress** and nobody is assigned. Work not started still has time to find an owner; work under way needs one now. | Somebody is assigned, or the work leaves In Progress. |
 | **Nd in lane**, a grey clock | In its current committed lane (Not Started or In Progress) for at least 7 days. Backlog is uncommitted inventory and rests; Done is finished, so neither is aged. Not **Stale**, below. | The card moves to another lane. |
 
 A Done card keeps its history but not its warnings: the age cue, a blocked band and the dependency
@@ -37,7 +43,7 @@ A card's own dependency on another card is counted on its face and named in the 
 **Dependencies** section; it clears when the card it waits on reaches Done. An initiative above it
 reports that wait as **N waiting**.
 
-**Unassigned** is a dashboard signal, below, not a mark on the card.
+The Assignee filter's **Unassigned** is the wider reading — any card with no owner at all. **Unowned** is the narrower warning: in progress, and therefore needing somebody now.
 
 ## On an initiative
 
@@ -80,7 +86,7 @@ them:
 | **Due soon** | watch | Its due date falls inside the next seven days — the window the board's **Due soon** filter names — and it is not done. A row never carries both **Overdue** and **Due soon**: a passed day is late, not soon. | It is done, or the date moves out of the window. |
 | **Late start** | watch | Its planned target start has passed and it has **not started**: a card in Backlog or Not Started, an initiative whose derived section is Backlog or Not Started. The date is the plan; the board's stage records whether work began, so an item under way is not late. An item with no planned start says nothing. | The work starts, or the target start is moved. |
 | **Stale** | watch | On a card: it has sat in Not Started or In Progress for at least 7 days. On an initiative: the health rule **still Nd**. A card in Backlog can show an age badge but is not stale. | It moves. |
-| **Unassigned** | watch | On a card: it is **In Progress** and nobody is assigned. On an initiative: the health rule **N unowned**, counting In Progress cards below with no owner. Work that has not started does not need an owner yet. | Assign somebody, or the work leaves In Progress. |
+| **Unowned** | watch | On a card: it is **In Progress** and nobody is assigned. On an initiative: the health rule **N unowned**, counting In Progress cards below with no owner. Work that has not started does not need an owner yet. | Assign somebody, or the work leaves In Progress. |
 
 The table also names each item's **Priority** — Urgent, High, Medium or Low; an unprioritised item
 shows a dash. The list leads with the highest priority, so an urgent card with one signal is read
@@ -109,7 +115,7 @@ raise a limit.
 
 | What you see | What it means | What clears it |
 | --- | --- | --- |
-| **N/limit** in amber, an alert icon, amber hazard tape, a solid amber header and **At WIP limit** | The lane is **at** its WIP limit. Tape and words, not only a tint, so a full lane is not mistaken for another stage colour. | Cards leave the lane. |
+| **N/limit** in a soft amber pill, with **At limit** | The lane is **at** its WIP limit. That is a normal, expected state: the column keeps its stage colours, and a warm amber count and line say only that the next card would exceed the limit. No tape and no alert icon — that language belongs to a breach. | Cards leave the lane. |
 | **N/limit** in red, an alert icon, rose hazard tape, a solid rose header and **Over WIP limit** | The lane is **over** its WIP limit. The breach is on the column, in a pattern the board uses nowhere else. | Cards leave the lane. |
 | A move that does not happen, or asks for a reason | The board's **WIP enforcement**: **justify** holds the move until a reason is given, recorded on the card; **block** refuses it; **visualize** only marks the lane and lets the move through. | The move is completed with a reason, or the card is placed elsewhere. |
 

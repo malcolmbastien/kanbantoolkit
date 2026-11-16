@@ -69,6 +69,8 @@ interface Ctx {
   boundaryId: string | null
   /** Multi-select group (shift+click). */
   multiSelect: string[]
+  /** The open drawer's scoped connection reading, when it is one card's. */
+  connectionScopeId: string | null
   toggleMultiSelect: (id: string) => void
   /** How much of a card this board draws: the dial's choice, or Full while designing. */
   detail: BoardDetail
@@ -221,7 +223,7 @@ function LaneBox({
     const over = wip === 'over'
     const at = wip === 'at'
     const count = countInLane(lane.id)
-    const darkHeader = !collapsed && (Boolean(wip) || Boolean(top && stage))
+    const darkHeader = !collapsed && (over || Boolean(top && stage))
     // A limit is an alarm, so at/over keeps its tinted pill; a top-level stage column wears its
     // stage colour and a translucent count; a nested cell keeps the quiet white count.
     const pill = over
@@ -240,10 +242,10 @@ function LaneBox({
             ? // A collapsed row says so in its own right: a dashed edge and a muted ground, so
               // it reads as folded away rather than as a row that happens to be short.
               'border border-dashed border-slate-300 bg-slate-100/80 text-slate-500'
-            : // A full column's shelf is its warning surface; otherwise a top-level stage column
-              // is a dark bar in its stage colour, and nested cells keep the quiet shelf.
-              wip
-              ? cn('mb-2', WIP_SURFACE[wip].header)
+            : // Going over is the one state that repaints the shelf. At the limit keeps the stage
+              // header and only adds the quiet sentence below it.
+              over
+              ? cn('mb-2', WIP_SURFACE.over.header)
               : top && stage
                 ? cn('shadow-sm', STAGE_COLUMN[stage].header)
                 : top
@@ -253,12 +255,12 @@ function LaneBox({
       >
         {/* The tape belongs to the header, as the sample does: the column's own edge is rose,
             not a second stripe painted over the stage colour. */}
-        {wip && !collapsed && (
+        {over && !collapsed && (
           <div
             aria-hidden
-            data-wip-stripe={wip}
+            data-wip-stripe="over"
             className="-mx-2.5 -mt-1.5 mb-1.5 h-2.5 rounded-t-md"
-            style={{ backgroundImage: WIP_SURFACE[wip].hazard }}
+            style={{ backgroundImage: WIP_SURFACE.over.hazard }}
           />
         )}
         {/* Name truly centred, count and policy pinned right. The side columns are equal
@@ -271,10 +273,8 @@ function LaneBox({
                 onClick={(e) => { e.stopPropagation(); ctx.toggleCollapse(lane.id) }}
                 className={cn(
                   'grid h-6 w-6 shrink-0 place-items-center rounded transition pointer-coarse:h-9 pointer-coarse:w-9',
-                  wip
-                    ? over
-                      ? 'text-rose-100 hover:bg-rose-500/60 hover:text-white'
-                      : 'text-amber-900 hover:bg-amber-400/60 hover:text-amber-950'
+                  over
+                    ? 'text-rose-100 hover:bg-rose-500/60 hover:text-white'
                     : darkHeader
                       ? 'text-white/80 hover:bg-white/15 hover:text-white'
                       : 'text-slate-500 hover:bg-slate-200 hover:text-slate-800',
@@ -312,7 +312,6 @@ function LaneBox({
           )}
           <span className="flex items-center justify-end gap-1">
             {over && <AlertTriangle size={12} className="shrink-0 text-yellow-300" aria-label="Over its WIP limit" />}
-            {at && <AlertTriangle size={12} className="shrink-0 text-amber-950" aria-label="At its WIP limit" />}
             <span
               data-lane-count
               className={cn(
@@ -323,7 +322,7 @@ function LaneBox({
                 over
                   ? `Over its WIP limit — ${count} card${count === 1 ? '' : 's'}, limit ${lane.wipLimit}`
                   : at
-                    ? `At its WIP limit — ${count} card${count === 1 ? '' : 's'}`
+                    ? `At its limit — ${count} of ${lane.wipLimit}; the next card would exceed it`
                     : `${count} card${count === 1 ? '' : 's'}${lane.wipLimit !== undefined ? ` of ${lane.wipLimit}` : ''}`
               }
             >
@@ -340,7 +339,8 @@ function LaneBox({
           <div
             data-wip-label={wip}
             className={cn(
-              '-mx-2.5 -mb-1.5 mt-1.5 rounded-b-md border-t px-2.5 py-1 text-center text-micro font-bold uppercase tracking-wide',
+              '-mx-2.5 -mb-1.5 mt-1.5 rounded-b-md border-t px-2.5 py-1 text-center text-micro',
+              over ? 'font-bold uppercase tracking-wide' : 'font-medium',
               WIP_SURFACE[wip].rule,
             )}
           >
@@ -407,7 +407,7 @@ function LaneBox({
   // horizontal header, so folding it means hiding what is under that header. Drawing a strip
   // instead would give one row a header that looks nothing like the rows beside it.
   if (collapsed && parentOrientation === 'columns') {
-    const accent = wip === 'over' ? '#e11d48' : wip === 'at' ? '#f59e0b' : stage ? STAGE_ACCENT[stage] : undefined
+    const accent = wip === 'over' ? '#e11d48' : stage ? STAGE_ACCENT[stage] : undefined
     const count = countInLane(lane.id)
     return (
       <div
@@ -433,11 +433,7 @@ function LaneBox({
           onClick={() => ctx.toggleCollapse(lane.id)}
           className={cn(
             'grid h-7 w-7 shrink-0 place-items-center rounded transition',
-            wip === 'over'
-              ? 'text-rose-700 hover:bg-rose-100'
-              : wip === 'at'
-                ? 'text-amber-700 hover:bg-amber-100'
-                : 'text-slate-700 hover:bg-white/70',
+            wip === 'over' ? 'text-rose-700 hover:bg-rose-100' : 'text-slate-700 hover:bg-white/70',
           )}
           title="Expand"
         >
@@ -448,7 +444,7 @@ function LaneBox({
             'grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1 text-micro font-bold tabular-nums',
             wip === 'over' ? WIP_PILL.over : wip === 'at' ? WIP_PILL.at : 'bg-white/80 text-slate-700 ring-1 ring-slate-300/70',
           )}
-          title={`${count} card${count === 1 ? '' : 's'}${wip === 'over' ? ', over its limit' : wip === 'at' ? ', at its limit' : ''}`}
+          title={`${count} card${count === 1 ? '' : 's'}${wip === 'over' ? ', over its limit' : wip === 'at' ? `, at its limit of ${lane.wipLimit}; the next card would exceed it` : ''}`}
         >
           {count}
         </span>
@@ -456,7 +452,7 @@ function LaneBox({
           <span
             className={cn(
               'rotate-180 whitespace-nowrap text-meta font-semibold uppercase tracking-wide [writing-mode:vertical-rl]',
-              wip === 'over' ? 'text-rose-800' : wip === 'at' ? 'text-amber-800' : 'text-slate-600',
+              wip === 'over' ? 'text-rose-800' : 'text-slate-600',
             )}
           >
             {lane.name}
@@ -499,10 +495,10 @@ function LaneBox({
           'relative flex h-full min-h-0 w-full flex-1 flex-col',
           // A top-level column is the object: a light ground, one thin stage edge, and a dark
           // header in the stage colour. A nested cell sits on its section's tint and needs no
-          // frame; the air beside it is enough. A lane at or over its limit owns the colour.
+          // frame; the air beside it is enough. Only a breach repaints the column.
           top && 'overflow-hidden rounded-xl border',
-          top && (wip ? WIP_SURFACE[wip].lane : stage ? STAGE_COLUMN[stage].surface : 'border-slate-300/80 bg-slate-100'),
-          !top && wip ? WIP_SURFACE[wip].cell : '',
+          top && (wip === 'over' ? WIP_SURFACE.over.lane : stage ? STAGE_COLUMN[stage].surface : 'border-slate-300/80 bg-slate-100'),
+          !top && wip === 'over' ? WIP_SURFACE.over.cell : '',
         )}
       >
         {/* The root of the cards workflow is the board's whole flow, not a lane: its name is
@@ -590,7 +586,7 @@ function LaneBox({
   // top-bar search is a cross-board finder; it no longer also filters these columns,
   // and a deep-linked ?q= lands in the text filter instead (see App).
   const matches = (item: (typeof boardItems)[number]) =>
-    matchesFilters(item, ctx.filters, ctx.model.status.get(item.id)?.resolved ?? false, Date.now(), ctx.ageOf(item.id), ctx.initiativeScope)
+    matchesFilters(item, ctx.filters, ctx.model.status.get(item.id)?.resolved ?? false, Date.now(), ctx.ageOf(item.id), ctx.initiativeScope, stage)
   const cards = boardItems
     .filter((i) => effectiveLane.get(i.id) === lane.id)
     .filter((i) => ctx.filterDisplay === 'dim' || matches(i))
@@ -607,10 +603,10 @@ function LaneBox({
         'relative flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col',
         // A top-level column is the object: a light ground, one thin stage edge, and a dark
         // header in the stage colour. A nested cell sits on its section's tint and needs none of
-        // the frame; the air beside it is enough. A lane at or over its limit owns the colour.
+        // the frame; the air beside it is enough. Only a breach repaints the column.
         top && 'overflow-hidden rounded-xl border',
-        top && (wip ? WIP_SURFACE[wip].lane : stage ? STAGE_COLUMN[stage].surface : 'border-slate-300/80 bg-slate-100'),
-        !top && wip ? WIP_SURFACE[wip].cell : '',
+        top && (wip === 'over' ? WIP_SURFACE.over.lane : stage ? STAGE_COLUMN[stage].surface : 'border-slate-300/80 bg-slate-100'),
+        !top && wip === 'over' ? WIP_SURFACE.over.cell : '',
       )}
     >
       {!hideHeader && header(true)}
@@ -674,6 +670,7 @@ function LaneBox({
               locked={ctx.editMode}
               onOpen={ctx.openCard}
               onOpenDependencies={ctx.openDependencies}
+              connectionsOpen={ctx.connectionScopeId === c.id}
               lateStart={lateStartDay(c.targetStartDate, stage)}
               tags={tagsOf(ctx.boards, c)}
               completed={stage === 'done'}
@@ -682,6 +679,7 @@ function LaneBox({
                 blockedBelow: ctx.model.blockedBelow.get(c.id) ?? 0,
                 openDescendants: ctx.model.openDescendants.get(c.id) ?? 0,
                 rollupPercent: (ctx.model.childrenOf.get(c.id)?.length ?? 0) > 0 ? roll.percent : undefined,
+                unowned: stage === 'inProgress' && (c.assignees ?? []).length === 0,
                 done: roll.bucket === 'done',
                 // Backlog is uncommitted inventory and legitimately rests; Done is finished, so
                 // neither is aged. A card in Done with an open child is still done.
@@ -868,6 +866,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   const toggleMultiSelect = useStore((s) => s.toggleMultiSelect)
   const askConfirm = useStore((s) => s.askConfirm)
   const selectedItemId = useStore((s) => s.selectedItemId)
+  const connectionScopeId = useStore((s) => s.connectionScopeId)
   const boardDetail = useStore((s) => s.boardDetail)
   const storeEdit = useStore((s) => s.editMode)
   const openItem = useStore((s) => s.openItem)
@@ -1082,7 +1081,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
     return map
   }, [placements, boardId])
   const ctx: Ctx = {
-    lanes, items, issueTypes, graph, users, boards, editMode, detail, filters, filterDisplay, boundaryId, boardId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, effectiveLane,
+    lanes, items, issueTypes, graph, users, boards, editMode, detail, filters, filterDisplay, boundaryId, boardId, multiSelect, connectionScopeId, toggleMultiSelect, askConfirm, selectedItemId, boardItems, effectiveLane,
     model,
     ageOf: (itemId) => ageDays(boardPlacement.get(itemId)),
     initiativeScope: initiativeScope(filters, graph),
@@ -1172,7 +1171,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
           pan.handlers.onPointerDown(event)
         }}
         className={cn(
-          'min-h-0 flex-1 overflow-auto py-3',
+          'min-h-0 flex-1 overflow-auto py-1.5',
           // The surface is draggable, so it says so — and holds the selection still while
           // it is being dragged.
           pan.panning || lifting ? 'cursor-grabbing select-none' : 'cursor-grab',

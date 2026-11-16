@@ -84,14 +84,14 @@ export function BoardPicker({ boards, boardId, onSelect, disabled = false }: Pro
         {current && (
           <span
             className={cn(
-              'w-[72px] shrink-0 rounded py-px text-center text-micro font-bold uppercase tracking-wide',
+              'hidden w-[72px] shrink-0 rounded py-px text-center text-micro font-bold uppercase tracking-wide lg:block',
               (BAND_STYLES[current.band] ?? BAND_STYLES.team).chip,
             )}
           >
             {(BAND_STYLES[current.band] ?? BAND_STYLES.team).label}
           </span>
         )}
-        <span className="max-w-[150px] truncate">{current?.name ?? 'Board'}</span>
+        <span className="max-w-[96px] truncate sm:max-w-[120px]">{current?.name ?? 'Board'}</span>
         <ChevronDown size={13} className={cn('shrink-0 text-slate-400 transition', open && 'rotate-180')} />
       </button>
 

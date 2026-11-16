@@ -1,6 +1,7 @@
 import { descendants, type Graph } from './derive'
+import { lateStartDay } from './due'
 import { subtreeIds } from './lanes'
-import type { Item, Lane, Placement } from './types'
+import type { Item, Lane, Placement, Stage } from './types'
 
 /**
  * Card filters for the board view. Filters combine with AND across categories
@@ -18,8 +19,12 @@ export interface CardFilters {
   overdue: boolean
   /** Only cards whose due date is within the next week and that aren't done. */
   dueSoon: boolean
+  /** Only cards whose planned start passed while they are still unbegun. */
+  lateStart: boolean
   /** Only cards with no assignees — the pseudo-entry in the assignee filter. */
   unassigned: boolean
+  /** Only cards In Progress with no assignee — the ownership warning, narrower than unassigned. */
+  unowned: boolean
   /** Selected assignee ids. Empty = anyone. */
   assigneeIds: string[]
   /** Selected priorities. Empty = any priority. */
@@ -43,7 +48,9 @@ export const NO_FILTERS: CardFilters = {
   blocked: false,
   overdue: false,
   dueSoon: false,
+  lateStart: false,
   unassigned: false,
+  unowned: false,
   assigneeIds: [],
   priorities: [],
   tagIds: [],
@@ -140,7 +147,9 @@ export function activeFilterCount(f: CardFilters): number {
     (f.blocked ? 1 : 0) +
     (f.overdue ? 1 : 0) +
     (f.dueSoon ? 1 : 0) +
+    (f.lateStart ? 1 : 0) +
     (f.unassigned ? 1 : 0) +
+    (f.unowned ? 1 : 0) +
     (f.assigneeIds.length > 0 ? 1 : 0) +
     (f.priorities.length > 0 ? 1 : 0) +
     (f.tagIds.length > 0 ? 1 : 0) +
@@ -165,6 +174,8 @@ export function matchesFilters(
   age?: number,
   /** The ids an initiative filter narrows to — see `initiativeScope`. */
   within?: ReadonlySet<string>,
+  /** The card's stage, for rules that mean "has not begun" — see `lateStartDay`. */
+  stage?: Stage,
 ): boolean {
   // An initiative filter with nothing to narrow to matches nothing rather than everything: a
   // filter that silently stops filtering is the one failure nobody would notice.
@@ -173,6 +184,8 @@ export function matchesFilters(
   if (f.blocked && item.blocked !== true) return false
   if (f.overdue && !isOverdue(item, resolved, now)) return false
   if (f.dueSoon && !isDueSoon(item, resolved, now)) return false
+  if (f.lateStart && lateStartDay(item.targetStartDate, stage, now) === undefined) return false
+  if (f.unowned && (stage !== 'inProgress' || (item.assignees ?? []).length > 0)) return false
   // Assignees are one concept with one control: the picked people and the unassigned
   // pseudo-entry draw from the same list, so they combine as a union within the category
   // — picking Alice and "no one" shows Alice's cards plus every card without an owner.
@@ -214,7 +227,9 @@ export function filtersFromParam(param: string | null): CardFilters | undefined 
     if (key === 'blocked') next.blocked = true
     else if (key === 'overdue') next.overdue = true
     else if (key === 'duesoon') next.dueSoon = true
+    else if (key === 'latestart') next.lateStart = true
     else if (key === 'unassigned') next.unassigned = true
+    else if (key === 'unowned') next.unowned = true
     else if (key === 'priority' && rawValue) {
       const level = rawValue.toLowerCase()
       if (!next.priorities.includes(level)) next.priorities.push(level)
@@ -252,7 +267,9 @@ export function sameFilters(a: CardFilters, b: CardFilters): boolean {
     a.blocked === b.blocked &&
     a.overdue === b.overdue &&
     a.dueSoon === b.dueSoon &&
+    (a.lateStart === true) === (b.lateStart === true) &&
     a.unassigned === b.unassigned &&
+    (a.unowned === true) === (b.unowned === true) &&
     a.minAgeDays === b.minAgeDays &&
     a.initiativeId === b.initiativeId &&
     set(a.typeIds) === set(b.typeIds) &&

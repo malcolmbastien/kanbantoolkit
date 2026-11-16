@@ -87,7 +87,7 @@ export const ATTENTION_TILES: { key: AttentionKey; label: string }[] = [
   { key: 'dueSoon', label: 'Due soon' },
   { key: 'lateStart', label: 'Late start' },
   { key: 'stale', label: 'Stale' },
-  { key: 'unassigned', label: 'Unassigned' },
+  { key: 'unassigned', label: 'Unowned' },
 ]
 
 const COMMITTED = new Set<Stage>(['notStarted', 'inProgress'])
@@ -270,7 +270,7 @@ export function attentionSignals(
   if (stage === 'inProgress' && (item.assignees ?? []).length === 0) {
     signals.push({
       key: 'unassigned',
-      label: 'Unassigned',
+      label: 'Unowned',
       why: 'It is in progress and nobody is assigned',
       tone: 'watch',
     })
@@ -365,7 +365,7 @@ function initiativeRows(
     // Staleness and ownership below are the health rules' own readings, so the dashboard and the
     // initiative's health column speak about the same work in the same words.
     if (stale) signals.push({ key: 'stale', label: 'Stale', why: stale.why, tone: 'watch' })
-    if (unowned) signals.push({ key: 'unassigned', label: 'Unassigned', why: unowned.why, tone: 'watch' })
+    if (unowned) signals.push({ key: 'unassigned', label: 'Unowned', why: unowned.why, tone: 'watch' })
     rows.push({
       item,
       status: STAGE_LABELS[bucket],

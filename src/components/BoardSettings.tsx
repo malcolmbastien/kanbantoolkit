@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { LayoutTemplate, Minus, Pencil, Plus, Settings, Target, Trash2, X } from 'lucide-react'
+import { Download, LayoutTemplate, Minus, Pencil, Plus, Settings, Target, Trash2, X } from 'lucide-react'
 import { BAND_STYLES } from './BandBadge'
 import { cardTypes, defaultCardTypeId, isAggregating, isPortfolio, linkableBoards, NONE_TYPE_ID } from '@/domain/board'
 import { initiativesCarrying, itemsCarryingTag } from '@/domain/board'
@@ -8,6 +8,8 @@ import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { useDialogFocus } from '@/lib/useDialogFocus'
 import { cardsFlows } from '@/domain/flows'
+import { boardCsv, csvFilename } from '@/domain/csv'
+import { downloadText } from '@/lib/download'
 import { VocabularySaveError } from './VocabularySaveError'
 
 type SettingsTab = 'general' | 'cards' | 'tags' | 'boards'
@@ -40,6 +42,11 @@ export function BoardSettings() {
   const saveBoardAsTemplate = useStore((s) => s.saveBoardAsTemplate)
   const addIssueType = useStore((s) => s.addIssueType)
   const items = useStore((s) => s.items)
+  const edges = useStore((s) => s.edges)
+  const links = useStore((s) => s.links)
+  const placements = useStore((s) => s.placements)
+  const lanes = useStore((s) => s.lanes)
+  const users = useStore((s) => s.users)
   const addInitiativeType = useStore((s) => s.addInitiativeType)
   const updateInitiativeType = useStore((s) => s.updateInitiativeType)
   const removeInitiativeType = useStore((s) => s.removeInitiativeType)
@@ -106,6 +113,11 @@ export function BoardSettings() {
   const isAggregatingBoard = isAggregating(board)
   // A portfolio reads work rather than holding it: none of the card-shaped settings below apply.
   const portfolio = isPortfolio(board)
+  const exportCsv = () =>
+    downloadText(
+      csvFilename(board.name, 'cards'),
+      boardCsv(board.id, { items, edges, links, placements, lanes }, issueTypes, users, flows, boards),
+    )
   // Any board that keeps the aggregation graph acyclic and isn't already linked.
   const candidates = linkableBoards(boards, board.id).filter((b) => !linked.includes(b.id))
 
@@ -313,6 +325,28 @@ export function BoardSettings() {
               </p>
             )}
           </div>
+          )}
+
+          {/* Export is a read of this board, not a setting: it lives here with the board's other
+              identity actions, and leaves the board's working toolbar for reading the board. */}
+          {!isAggregatingBoard && (
+            <div>
+              <div className={label}>Export</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  data-board-export
+                  onClick={exportCsv}
+                  className="flex shrink-0 items-center gap-1 rounded border border-slate-200 px-2 py-1.5 text-meta font-medium text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700"
+                  title="This board's cards as CSV: title, type, column, people, dates, parent"
+                >
+                  <Download size={13} /> Export CSV
+                </button>
+                <span className="text-meta text-slate-600">
+                  This board's cards as a table: title, type, column, people, dates and parent.
+                </span>
+              </div>
+            </div>
           )}
           </div>
 

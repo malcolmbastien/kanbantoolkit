@@ -166,7 +166,7 @@ export function GlobalSearch() {
         placeholder="Search all boards…"
         aria-label="Search all boards"
         title="Search every board. ⌘K opens the command palette."
-        className="w-44 rounded-md border border-slate-200 bg-white py-1 pl-7 pr-2 text-meta text-slate-800 placeholder:text-slate-600 outline-none focus:ring-2 focus:ring-indigo-400"
+        className="w-24 min-w-0 rounded-md border border-slate-200 bg-white py-1 pl-7 pr-2 text-meta text-slate-800 placeholder:text-slate-600 outline-none focus:ring-2 focus:ring-indigo-400 sm:w-28 md:w-36 2xl:w-40"
       />
       {showResults && (
         <div className="absolute right-0 z-50 mt-1 max-h-[70vh] w-80 overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-xl">

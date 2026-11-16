@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { Archive, ChartNoAxesGantt, Check, ChevronDown, Kanban, Keyboard, LayoutDashboard, LayoutGrid, Pencil, Plus, Search, Settings, TrendingUp, X } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Archive, ChartNoAxesGantt, Check, ChevronDown, Kanban, Keyboard, LayoutDashboard, LayoutGrid, MoreHorizontal, Pencil, Plus, Search, Settings, TrendingUp, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { InboxBell } from './InboxBell'
 import { AccountMenu } from './AccountMenu'
@@ -47,6 +47,17 @@ interface Props {
   onAddInitiative: () => void
 }
 
+/**
+ * A control's word.
+ *
+ * The bar is one row at every width, so a control gives up its **word** before it gives up its
+ * **place**. From `2xl` down the icon and its tooltip carry the control and the word stays in the
+ * accessible name, so a screen reader hears the same bar and nothing is reachable only by mouse-over.
+ */
+function BarLabel({ children }: { children: ReactNode }) {
+  return <span className="sr-only 2xl:not-sr-only">{children}</span>
+}
+
 export function TopBar(props: Props) {
   // A Viewer reads and comments; the controls that write are not offered, because the server would
   // refuse them and a button that answers 403 is a lie about what the product does.
@@ -61,6 +72,11 @@ export function TopBar(props: Props) {
   const [targetFlowId, setTargetFlowId] = useState<string | null>(null)
   const [flowMenuOpen, setFlowMenuOpen] = useState(false)
   const flowMenuRef = useRef<HTMLDivElement>(null)
+  // The bar's secondary actions are a menu of their own on a tight window, so the views keep their
+  // room. They are the same actions with the same rules, not a reduced set.
+  const [moreOpen, setMoreOpen] = useState(false)
+  const moreRef = useRef<HTMLDivElement>(null)
+  const navRef = useRef<HTMLElement>(null)
   const targetFlow = cardFlows.find((flow) => flow.id === targetFlowId) ?? cardFlows[0]
 
   useEffect(() => {
@@ -70,13 +86,19 @@ export function TopBar(props: Props) {
   }, [boardId])
 
   useEffect(() => {
-    if (!flowMenuOpen) return
+    if (!flowMenuOpen && !moreOpen) return
     const onDown = (event: MouseEvent) => {
       if (flowMenuRef.current && !flowMenuRef.current.contains(event.target as Node)) setFlowMenuOpen(false)
+      if (moreRef.current && !moreRef.current.contains(event.target as Node)) setMoreOpen(false)
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
-  }, [flowMenuOpen])
+  }, [flowMenuOpen, moreOpen])
+
+  useEffect(() => {
+    // A menu belongs to one board's controls; moving boards closes it.
+    setMoreOpen(false)
+  }, [boardId])
 
   const addCardTo = (flowId: string) => {
     setTargetFlowId(flowId)
@@ -103,12 +125,27 @@ export function TopBar(props: Props) {
   const mayDesignThisBoard = mayDesign && canDesignBoard(board)
   const inEditMode = editMode && mayDesign
 
+  // When the views scroll, the view that is lit is the one to show: on a very narrow bar the
+  // active tab can otherwise sit beyond the right edge, and the reader sees no current place.
+  useEffect(() => {
+    navRef.current?.querySelector('[aria-pressed="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [boardActive, showDashboard, showTimeline, showArchive, showSearch, showMetrics])
+
+  const viewButton = 'flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40'
+
   return (
-    <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-300 bg-slate-100 px-3 py-2 text-slate-700 shadow-sm">
+    // One row, always. The bar never wraps into a second line: width is taken from the board's
+    // navigation first (which scrolls when the window is very narrow) and from the controls' words
+    // next, never from the header's height.
+    <header
+      data-top-bar
+      className="flex flex-nowrap items-center gap-2 border-b border-slate-300 bg-slate-100 px-3 py-2 text-slate-700 shadow-sm"
+    >
       <button
         onClick={onGoToBoards}
+        aria-label="Kanban Toolkit"
         className={cn(
-          'flex items-center gap-2 rounded-md px-1.5 py-1 transition',
+          'flex shrink-0 items-center gap-2 rounded-md px-1.5 py-1 transition',
           showBoards ? 'bg-white ring-1 ring-indigo-300' : 'hover:bg-white',
         )}
         title="Workspace home"
@@ -116,7 +153,7 @@ export function TopBar(props: Props) {
         <span className="grid h-6 w-6 place-items-center rounded bg-indigo-500 text-white shadow-sm">
           <LayoutGrid size={14} />
         </span>
-        <span className="text-title font-semibold tracking-tight text-slate-900">Kanban Toolkit</span>
+        <span className="hidden text-title font-semibold tracking-tight text-slate-900 lg:inline">Kanban Toolkit</span>
       </button>
 
       {/* The navigation is always here: where you can go does not depend on where you are.
@@ -124,34 +161,34 @@ export function TopBar(props: Props) {
           when the board is the surface, because a view that *reports* on work (dashboard,
           timeline, flow, archive, objectives) is not the place to make it. */}
       {!showBoards && (
-        <>
-          {/* The board's own controls never shrink, so the only thing that gives when the
-              bar is tight is the focus chip — which is why focusing no longer wraps the
-              bar and shoves the whole screen down. */}
-          <div className="flex min-w-0 shrink-0 items-center gap-x-3">
-            <div className="flex items-center gap-1.5 text-meta font-medium text-slate-600">
-              Board
-              <BoardPicker boards={boards} boardId={boardId} onSelect={onSelectBoard} disabled={editMode} />
-            </div>
+        <nav
+          ref={navRef}
+          aria-label="Board navigation"
+          data-board-nav
+          className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden 2xl:gap-2.5"
+        >
+          <div className="flex shrink-0 items-center gap-1.5 text-meta font-medium text-slate-600">
+            <span className="hidden 2xl:inline">Board</span>
+            <BoardPicker boards={boards} boardId={boardId} onSelect={onSelectBoard} disabled={editMode} />
+          </div>
 
-            {!portfolio && <div className="h-5 w-px bg-slate-200" />}
+          {!portfolio && <div className="hidden h-5 w-px shrink-0 bg-slate-200 2xl:block" />}
 
-            {!portfolio && (
-              <>
-                <button
-                  onClick={onShowBoard}
-                  aria-pressed={boardActive}
-                  disabled={editMode}
-                  className={cn(
-                    'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
-                    boardActive ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
-                  )}
-                  title="Board"
-                >
-                  <Kanban size={12} /> Board
-                </button>
-              </>
-            )}
+          {!portfolio && (
+            <button
+              onClick={onShowBoard}
+              aria-pressed={boardActive}
+              disabled={editMode}
+              className={cn(
+                viewButton,
+                boardActive ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
+              )}
+              title="Board"
+            >
+              <Kanban size={12} /> <BarLabel>Board</BarLabel>
+            </button>
+          )}
+
           {!portfolio && (
             <>
               <button
@@ -159,12 +196,12 @@ export function TopBar(props: Props) {
                 aria-pressed={showDashboard}
                 disabled={editMode}
                 className={cn(
-                  'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
+                  viewButton,
                   showDashboard ? 'border-violet-300 bg-violet-50 text-violet-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
                 )}
-                title="This board's initiatives at a glance"
+                title="Dashboard — this board's initiatives at a glance"
               >
-                <LayoutDashboard size={12} /> Dashboard
+                <LayoutDashboard size={12} /> <BarLabel>Dashboard</BarLabel>
               </button>
 
               <button
@@ -172,12 +209,12 @@ export function TopBar(props: Props) {
                 aria-pressed={showTimeline}
                 disabled={editMode}
                 className={cn(
-                  'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
+                  viewButton,
                   showTimeline ? 'border-teal-300 bg-teal-50 text-teal-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
                 )}
-                title="This board's initiatives over time"
+                title="Timeline — this board's initiatives over time"
               >
-                <ChartNoAxesGantt size={12} /> Timeline
+                <ChartNoAxesGantt size={12} /> <BarLabel>Timeline</BarLabel>
               </button>
             </>
           )}
@@ -190,12 +227,12 @@ export function TopBar(props: Props) {
               aria-pressed={showMetrics}
               disabled={editMode}
               className={cn(
-                'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
+                viewButton,
                 showMetrics ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
               )}
-              title="Delivery metrics from each card's history"
+              title="Flow — delivery metrics from each card's history"
             >
-              <TrendingUp size={12} /> Flow
+              <TrendingUp size={12} /> <BarLabel>Flow</BarLabel>
             </button>
           )}
 
@@ -205,12 +242,12 @@ export function TopBar(props: Props) {
               aria-pressed={showArchive}
               disabled={editMode}
               className={cn(
-                'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
+                viewButton,
                 showArchive ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
               )}
-              title="Filed-away items, still searchable"
+              title="Archive — filed-away items, still searchable"
             >
-              <Archive size={12} /> Archive
+              <Archive size={12} /> <BarLabel>Archive</BarLabel>
             </button>
           )}
 
@@ -221,20 +258,17 @@ export function TopBar(props: Props) {
             aria-pressed={showSearch}
             disabled={editMode}
             className={cn(
-              'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
+              viewButton,
               showSearch ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
             )}
-            title="Search this board's live work"
+            title="Search — this board's live work"
           >
-            <Search size={12} /> Search
+            <Search size={12} /> <BarLabel>Search</BarLabel>
           </button>
-
-          </div>
-
-        </>
+        </nav>
       )}
 
-      <div className="ml-auto flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1.5 2xl:gap-2">
         {/* Making work is the board's business, so these show on the board and nowhere else. */}
         {boardActive && (
           <>
@@ -251,11 +285,11 @@ export function TopBar(props: Props) {
                   disabled={editMode}
                   title={targetFlow ? `Add a card to ${targetFlow.name}` : 'Add a card'}
                   className={cn(
-                    'flex items-center gap-1 bg-indigo-600 px-2.5 py-1 text-meta font-medium text-white hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40',
+                    'flex shrink-0 items-center gap-1 bg-indigo-600 px-2.5 py-1 text-meta font-medium text-white hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40',
                     cardFlows.length > 1 ? 'rounded-l-md' : 'rounded-md',
                   )}
                 >
-                  <Plus size={13} /> Card
+                  <Plus size={13} /> <BarLabel>Card</BarLabel>
                 </button>
                 {cardFlows.length > 1 && (
                   <button
@@ -266,7 +300,7 @@ export function TopBar(props: Props) {
                     aria-expanded={flowMenuOpen}
                     aria-label="Choose a workflow for the new card"
                     title="Choose a workflow for the new card"
-                    className="flex items-center rounded-r-md border-l border-indigo-400/60 bg-indigo-600 px-1.5 text-white transition hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
+                    className="flex shrink-0 items-center rounded-r-md border-l border-indigo-400/60 bg-indigo-600 px-1.5 text-white transition hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
                   >
                     <ChevronDown size={13} className={cn('transition', flowMenuOpen && 'rotate-180')} />
                   </button>
@@ -297,14 +331,14 @@ export function TopBar(props: Props) {
               </div>
             )}
             {mayWrite && canAddInitiative(board) && (
-            <button
-              onClick={onAddInitiative}
-              disabled={editMode}
-              title="A new initiative on this board"
-              className="flex items-center gap-1 rounded-md border border-indigo-300 bg-white px-2.5 py-1 text-meta font-medium text-indigo-700 hover:bg-indigo-50 disabled:pointer-events-none disabled:opacity-40"
-            >
-              <Plus size={13} /> Initiative
-            </button>
+              <button
+                onClick={onAddInitiative}
+                disabled={editMode}
+                title="Initiative — a new initiative on this board"
+                className="flex shrink-0 items-center gap-1 rounded-md border border-indigo-300 bg-white px-2.5 py-1 text-meta font-medium text-indigo-700 hover:bg-indigo-50 disabled:pointer-events-none disabled:opacity-40"
+              >
+                <Plus size={13} /> <BarLabel>Initiative</BarLabel>
+              </button>
             )}
           </>
         )}
@@ -314,7 +348,9 @@ export function TopBar(props: Props) {
         <GlobalSearch />
 
         {/* The keyboard's page, for anyone who would rather click than learn a key. It sits with
-            the search because that is where a person looks for "how do I…" in this app. */}
+            the search because that is where a person looks for "how do I…" in this app. Below `lg`
+            these three step into one menu, so the views keep their room rather than the bar
+            scrolling them out of sight. Same actions, same permissions. */}
         <button
           type="button"
           onClick={openShortcuts}
@@ -322,7 +358,7 @@ export function TopBar(props: Props) {
           aria-label="Keyboard shortcuts"
           aria-keyshortcuts="?"
           title="Keyboard shortcuts (?)"
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+          className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:text-slate-900 lg:flex"
         >
           <Keyboard size={14} />
         </button>
@@ -330,40 +366,104 @@ export function TopBar(props: Props) {
         {boardActive && !editMode && maySettings && (
           <button
             onClick={onOpenBoardSettings}
-            className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 hover:text-slate-900"
-            title={isPortfolio(board) ? 'Title, board type, linked boards' : 'Title, card types, tags, WIP'}
+            className="hidden shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 hover:text-slate-900 lg:flex"
+            title={isPortfolio(board) ? 'Settings — title, board type, linked boards' : 'Settings — title, card types, tags, WIP'}
           >
-            <Settings size={13} /> Settings
+            <Settings size={13} /> <BarLabel>Settings</BarLabel>
           </button>
         )}
 
+        <div
+          ref={moreRef}
+          className="relative lg:hidden"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setMoreOpen(false)
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setMoreOpen((open) => !open)}
+            aria-label="More actions"
+            aria-haspopup="menu"
+            aria-expanded={moreOpen}
+            title="More actions"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+          >
+            <MoreHorizontal size={15} />
+          </button>
+          {moreOpen && (
+            <div
+              role="menu"
+              aria-label="More actions"
+              className="absolute right-0 top-full z-50 mt-1 w-52 rounded-md border border-slate-200 bg-white py-1 text-slate-800 shadow-xl"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMoreOpen(false)
+                  openShortcuts()
+                }}
+                className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-meta transition hover:bg-slate-100"
+              >
+                <Keyboard size={13} className="shrink-0 text-slate-500" /> Keyboard shortcuts
+              </button>
+              {boardActive && !editMode && maySettings && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMoreOpen(false)
+                    onOpenBoardSettings()
+                  }}
+                  className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-meta transition hover:bg-slate-100"
+                >
+                  <Settings size={13} className="shrink-0 text-slate-500" /> Board settings
+                </button>
+              )}
+              {boardActive && mayDesignThisBoard && !inEditMode && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMoreOpen(false)
+                    onEditBoard()
+                  }}
+                  className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-meta transition hover:bg-slate-100"
+                >
+                  <Pencil size={13} className="shrink-0 text-slate-500" /> Edit board
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
         {boardActive && (inEditMode || mayDesignThisBoard) &&
           (inEditMode ? (
             <>
               <button
                 onClick={onSaveEdit}
-                className="flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-meta font-semibold text-white hover:bg-emerald-500"
+                className="flex shrink-0 items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-meta font-semibold text-white hover:bg-emerald-500"
                 title="Save the layout"
               >
-                <Check size={13} /> Save
+                <Check size={13} /> <BarLabel>Save</BarLabel>
               </button>
               <button
                 onClick={onCancelEdit}
-                className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 hover:border-slate-300 hover:text-slate-900"
+                className="flex shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 hover:border-slate-300 hover:text-slate-900"
                 title="Discard the changes"
               >
-                <X size={13} /> Cancel
+                <X size={13} /> <BarLabel>Cancel</BarLabel>
               </button>
             </>
           ) : (
-          <button
-            onClick={onEditBoard}
-            className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 hover:text-slate-900"
-            title="Split, add and rename lanes"
-          >
-            <Pencil size={13} /> Edit board
-          </button>
+            <button
+              onClick={onEditBoard}
+              className="hidden shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 hover:text-slate-900 lg:flex"
+              title="Edit board — split, add and rename lanes"
+            >
+              <Pencil size={13} /> <BarLabel>Edit board</BarLabel>
+            </button>
           ))}
 
         {/* The one moment a workspace can move to the server, and a change that did not land. */}

@@ -1972,6 +1972,14 @@ export const useStore = create<Store>()(
       clearTitleFocus: () => set({ titleFocusItemId: null }),
       setPanelTab: (panelTab) => set({ panelTab }),
       openItemDependencies: (itemId) => {
+        // The badge is a toggle: the same card, already open on its scoped connections, closes
+        // both the reading and the drawer. That is the second press a reader expects from a door
+        // that is also a lens, and it leaves the board's own lens alone.
+        const state = get()
+        if (state.selectedItemId === itemId && state.connectionScopeId === itemId) {
+          get().openItem(null)
+          return
+        }
         // The drawer opens through the one door, then says which face and which reading it was
         // asked for. `openItem` has already cleared the old scope; this is the new one.
         get().openItem(itemId)

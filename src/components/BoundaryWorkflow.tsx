@@ -4,11 +4,12 @@ import { boundaryInStage, boundaryEntries, type BoundaryEntry } from '@/domain/b
 import { STAGES, STAGE_LABELS } from '@/domain/lanes'
 import { softChipColors, STAGE_COLUMN, STAGE_DOT, tintOn } from '@/lib/colors'
 import { detailFor, type BoardDetail } from '@/domain/boardDetail'
+import { activeFilterCount } from '@/domain/filters'
 import { announce } from '@/lib/announce'
 import { stillScrolling } from '@/lib/useStillScroll'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
-import { WorkflowHeader } from './WorkflowHeader'
+import { NotFilteredBadge, WorkflowHeader } from './WorkflowHeader'
 import { MiniHoverCard } from './MiniHoverCard'
 import type { IssueType } from '@/domain/types'
 
@@ -55,6 +56,7 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
   const boundaryId = useStore((s) => s.boundaryId)
   const toggleBoundary = useStore((s) => s.toggleBoundary)
   const boardDetail = useStore((s) => s.boardDetail)
+  const cardFiltersActive = useStore((s) => activeFilterCount(s.filters) > 0)
   const editMode = useStore((s) => s.editMode)
   // A pick mode is open: one end of a decomposition edge is being chosen on the board. A
   // boundary card lives on another board, so it is never that end — it recedes with the other
@@ -105,7 +107,7 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
       ref={sectionRef}
       data-workflow="boundary"
       aria-labelledby="boundary-workflow-title"
-      className="space-y-2.5"
+      className="space-y-1.5"
       // The same courtesy as the board: pressing the section's own ground — an empty column, the
       // band — ends the focus. A press on a card is the card's business.
       onPointerDown={(event) => {
@@ -130,9 +132,12 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
           </>
         }
         right={
-          <span className="hidden shrink-0 text-micro text-slate-600 sm:inline">
-            {count} open · {entries.length - count} cleared
-          </span>
+          <>
+            {cardFiltersActive && <NotFilteredBadge />}
+            <span className="hidden shrink-0 text-micro text-slate-600 sm:inline">
+              {count} open · {entries.length - count} cleared
+            </span>
+          </>
         }
       />
 

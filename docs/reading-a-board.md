@@ -30,14 +30,14 @@ stage. The top-level columns themselves are not added, removed or reordered.
 
 ## Level of detail
 
-Every board has a **Detail** dial in its secondary bar, beside **Archive done**, **Export CSV** and
-**Filters**: **Mini → Summary → Full**.
+Every board has a **Detail** dial in its secondary bar, beside **Archive done** and **Filters**:
+**Mini → Summary → Full**.
 
 - **Full** is the card described on this page — every field, badge and control.
 - **Summary** keeps the title, type, due date and people, with the due date at the foot where Full
-  puts it. It carries **no warnings**: a compact face is for reading the work, and the warning
-  badges belong to Full, where each has room to say what it means. The description, tags,
-  checklist, links, parent, age, priority, counts and warning badges are not drawn.
+  puts it. It carries no **warning words**: a small red or amber triangle marks that warnings exist,
+  with their sentences in its title, and Full is where each one explains itself. The description,
+  tags, checklist, links, parent, age, priority, counts and warning badges are not drawn.
 - **Mini** draws each item as a small colour tile in a wrapping grid: the type's colour, a red marker
   when the card is blocked, and an amber marker when it has a warning. Hovering or focusing a tile
   opens a reading card with the title and type, what it rolls up to, who is assigned (or
@@ -349,7 +349,8 @@ and the cards here that wait on it are named beside it.*
 - Each entry names the home board, its state, and the cards here that wait on it. A card that waits
   wears a chain-link badge with the number of its open dependencies — here or on another board; the
   card's panel names them. Selecting that badge opens the card's **Hierarchy** tab and scopes the
-  **Connections** lens to that item. Selecting a dependency card highlights its dependents.
+  **Connections** lens to that item; selecting the same badge again closes the drawer and ends the
+  reading. Selecting a dependency card highlights its dependents.
 - External dependency cards follow the board's **Detail** level: **Full** names the dependent
   cards, **Summary** keeps the type, title, home board and dependent count, and **Mini** is a
   type-coloured tile. Selection and the **linked** badge work at every level.

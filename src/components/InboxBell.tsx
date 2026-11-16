@@ -107,7 +107,7 @@ export function InboxBell() {
       {open && (
         <div
           data-inbox-panel
-          className="absolute right-0 top-full z-50 mt-1 flex max-h-[70vh] w-[24rem] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
+          className="absolute right-0 top-full z-50 mt-1 flex max-h-[70vh] w-[min(24rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
         >
           <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2">
             <span className="flex items-center gap-1.5 text-meta font-semibold text-slate-800">

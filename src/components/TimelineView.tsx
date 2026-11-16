@@ -134,6 +134,7 @@ export function TimelineView({ boardId }: { boardId: string }) {
   const users = useStore((s) => s.users)
   const openItem = useStore((s) => s.openItem)
   const openItemDependencies = useStore((s) => s.openItemDependencies)
+  const connectionScopeId = useStore((s) => s.connectionScopeId)
   const timelineZoom = useStore((s) => s.timelineZoom)
   const setTimelineZoom = useStore((s) => s.setTimelineZoom)
 
@@ -591,6 +592,7 @@ export function TimelineView({ boardId }: { boardId: string }) {
                           blockedTone="aggregate"
                           onOpen={(id) => openItem(id)}
                           onOpenDependencies={openItemDependencies}
+                          connectionsOpen={connectionScopeId === item.id}
                           openDependencies={openDependenciesOf(item.id, graph).length}
                           hasDependencies={dependenciesOf(item.id, graph).length > 0}
                           summary={{

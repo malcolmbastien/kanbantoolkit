@@ -41,24 +41,29 @@ shows it but does not offer to change it, because a different level would hide t
 already holds.
 
 **Board settings** is a tabbed dialog. **General** holds the board’s name and description, its WIP
-enforcement and the template a board design can be saved as; **Cards** its card types and its
+enforcement, the template a board design can be saved as and the board’s CSV export; **Cards** its card types and its
 initiative kinds, with the type new cards default to; **Tags** its tags; and **Boards** the
 boards a program or portfolio reads beneath it. Only the tabs a board can act on are shown, and
 changes are saved as you edit. A board’s type is fixed when it is made and is not a setting: the
 dialog’s header names it, and there is nothing to change.
 
-The **Detail** dial in the board’s secondary bar — beside **Archive done**, **Export CSV** and
-**Filters** — chooses how much of a card the board draws, including an external dependency card:
+The **Detail** dial in the board’s secondary bar — beside **Archive done** and **Filters** — chooses
+how much of a card the board draws, including an external dependency card:
 **Mini** (colour tiles, with blocked and warning markers), **Summary** (title, type, the dependency
-count beside it, people, and the due date at the foot — no warning badges; those are Full's to spell
-out and Mini's to mark) or **Full** (the whole card). Hover or focus a Mini
+count beside it, people, and the due date at the foot — a small red or amber triangle marks warnings
+without their words; Full spells them out) or **Full** (the whole card). Hover or focus a Mini
 tile to read the card it stands for: its title and type, what it rolls up to, who is assigned, what
 it depends on, and why it has a red or amber marker. It is one person's reading, remembered in this
 browser per board. It changes only the drawing: counts, WIP, filters, search, drag, the card menu and
 the keyboard all work the same. **Edit board** always shows Full and disables the dial.
 
-**Filters** opens the board’s filter drawer: text, type, initiative, assignee, priority, tag, age,
-blocked, overdue and due-soon, plus saved sets. At the top, **Filter mode** chooses what
+**Filters** opens the board’s **Card filters** drawer: text, type, initiative, assignee, priority,
+tag, age, blocked, overdue, due-soon, late start and unowned, plus saved sets. The filters narrow the
+cards workflow only; the initiatives and external-dependency workflows stay whole as context and say
+**Not filtered** in their headers while a filter is active. Choices with no active card on this board
+stay visible but dimmed, so the vocabulary is readable without offering a filter that can only empty
+the board; the assignee list is the exception and names only people already on this board’s work. At
+the top, **Filter mode** chooses what
 happens to the cards outside the filter. **Dim** is the default: they stay in their lanes, recede
 visually, and still open, drag and take the keyboard; counts and WIP continue to describe the whole
 lane. **Hide** narrows the board to the matches. The choice is view state with the filters, so it
@@ -105,6 +110,13 @@ period controls, key results and re-order controls into it. Read mode stays the 
 serve them; its navigation is **Board** alone, because the dashboard, timeline and archive report on
 work a portfolio does not hold itself.
 
+The top bar is **one line at every window width**, so the board never loses height to its own
+navigation. As the window narrows the controls give up their **words** first — the icons keep their
+place, their tooltips and their accessible names — and the three secondary actions (**Keyboard
+shortcuts**, **Settings**, **Edit board**) step into a **More actions** menu. Where the views still
+cannot fit, that part of the bar scrolls sideways rather than wrapping, and it keeps the board
+switcher at its head. Every view and every action stays reachable at any width.
+
 A board carries **flows**, each a set of those four columns. It has exactly one **initiatives** flow —
 where the same work is read as outcomes — and **one or more cards flows**: the team's own. Each cards
 flow is a band of its own, stacked the way the initiatives flow is, with its own name, its own
@@ -132,9 +144,10 @@ toolbar. When the board has more than one cards workflow, the arrow beside **Car
 the card belongs to; choosing a flow also makes the card there. An initiative is made in the
 initiatives workflow's Backlog footer (**Initiative**) or from **Initiative** in the toolbar. Drag a card to
 another cell to move it — including into another cards flow, where the target flow's WIP limit
-applies. A column can carry a **WIP limit**; **Settings** decides what a limit does — mark the column with
-hazard tape and the words (**visualize**), hold the move until a reason is given (**justify**), or
-refuse it (**block**) — and that policy covers every cards flow on the board.
+applies. A column can carry a **WIP limit**; **Settings** decides what a limit does — show a soft amber
+**At limit** line and count when full, and mark a breach with hazard tape (**visualize**),
+hold the move until a reason is given (**justify**), or refuse it (**block**) — and that policy covers
+every cards flow on the board.
 
 <kbd>Shift</kbd>-click cards to select several. Dragging any card in the selection moves the whole
 group to the cell it is dropped in, with the grabbed card at the drop point and the rest following
@@ -264,7 +277,7 @@ never the initiatives flow, which is the standard shape the organisation reads. 
 a template brings every flow across.
 
 **Admin → Workspace data → Export** downloads the whole workspace as JSON; **Import…** replaces it with a file, after
-a confirmation. **Export CSV** on a board writes its cards as a table. On an instance the server holds
+a confirmation. **Board settings → General → Export CSV** writes a board’s cards as a table. On an instance the server holds
 the same workspace, and [backup](backup.md) is the operator's copy of it.
 
 ## What the server keeps, and what it does not

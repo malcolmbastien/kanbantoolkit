@@ -16,6 +16,19 @@ import { WorkflowToggle } from './WorkflowToggle'
  * The header is sticky by default: a flow can be taller than the board, and its name has to stay
  * in view while its columns scroll under it.
  */
+/** A quiet marker for a workflow the board's card filters deliberately do not narrow. */
+export function NotFilteredBadge() {
+  return (
+    <span
+      data-not-filtered
+      className="shrink-0 rounded-full border border-dashed border-slate-300 bg-white/70 px-2 py-0.5 text-micro font-medium text-slate-600"
+      title="Card filters narrow the cards workflow only; this workflow stays whole as context."
+    >
+      Not filtered
+    </span>
+  )
+}
+
 export function WorkflowHeader({
   name,
   collapsed,
@@ -45,7 +58,7 @@ export function WorkflowHeader({
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-2 rounded-lg border border-slate-200/70 bg-white/80 px-3 py-1.5 backdrop-blur-sm',
+        'flex items-center justify-between gap-2 rounded-lg border border-slate-200/70 bg-white/80 px-3 py-1 backdrop-blur-sm',
         sticky && 'sticky top-0 z-20',
       )}
     >

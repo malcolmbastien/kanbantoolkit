@@ -135,6 +135,7 @@ export function searchBoard(input: BoardSearchInput): BoardSearchHit[] {
         now,
         ageDays(placement, now),
         scope,
+        itemStage,
       )
     ) {
       continue
@@ -163,7 +164,7 @@ export function searchBoard(input: BoardSearchInput): BoardSearchHit[] {
     const itemStage = stageOfItem(item, placement, graph, issueTypes)
     if (input.stage && input.stage !== 'all' && itemStage !== input.stage) continue
     const resolved = isComplete(item.id, graph)
-    if (!matchesFilters(item, filtersWithoutText, resolved, now, ageDays(placement, now), scope)) continue
+    if (!matchesFilters(item, filtersWithoutText, resolved, now, ageDays(placement, now), scope, itemStage)) continue
     hits.push({
       item,
       match,

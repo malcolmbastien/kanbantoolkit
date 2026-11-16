@@ -362,16 +362,11 @@ export function statusDot(status: { resolved: boolean; started: boolean }): stri
 }
 
 /**
- * A WIP breach, stated on the column and in the count.
+ * A WIP count, in the column header.
  *
- * The pill alone was not enough: a reader scanning the board saw a small badge and a tinted
- * header, and the column — the thing the eye is drawn to — still wore its stage colour. A lane
- * at or over its limit now wears a wash of the alarm colour too, on the tint, the edge, the accent
- * line and the header, so a full column is legible from across the board.
- *
- * It is a wash, not a flood: the ground is a 100-level tint and the cards stay white, so a busy
- * column still reads as a column rather than as a fault, and the stage is still named in the
- * header. Left, not blocked: colour changes nothing about what a move may do.
+ * A full column is a normal state — it means the team is working at the limit it chose — so the
+ * pill is a quiet step up from the plain count, not an alarm. Only going over the limit is a
+ * breach, and that is where the board uses the rose warning language.
  */
 export const WIP_PILL = {
   over: 'bg-white text-rose-700 ring-1 ring-rose-200',
@@ -379,14 +374,16 @@ export const WIP_PILL = {
 } as const
 
 /**
- * The column's own share of the breach, by state.
+ * The column's own reading of its limit, by state.
  *
- * A tinted wash was not enough: the board already uses colour to say which stage a column is, and
- * a soft amber or rose read as another pleasant column colour rather than as a problem. So a
- * breach is drawn in things this board uses nowhere else — a hazard-striped header, a solid title
- * bar, a darker sentence beneath it, and a glow around the whole column. `lane` is the top-level
- * column (ground and edge), `cell` the body of a nested cell, `header` the title bar and its edge,
- * `rule` the sentence strip beneath it, `hazard` the tape's gradient, and `label` the sentence.
+ * **Over** is a breach and is drawn in things this board uses nowhere else — a hazard-striped
+ * header, a solid title bar, a darker sentence beneath it and a glow around the whole column.
+ * **At** is not a breach: the stage colour, border and ground stay exactly as they were, with a
+ * quiet neutral pill and one muted line saying the next card would exceed the limit.
+ *
+ * `lane` is the top-level column (ground and edge), `cell` the body of a nested cell, `header`
+ * the title bar and its edge, `rule` the sentence strip beneath it, `hazard` the tape's gradient,
+ * and `label` the sentence.
  */
 export const WIP_SURFACE = {
   over: {
@@ -401,15 +398,13 @@ export const WIP_SURFACE = {
     label: 'Over WIP limit',
   },
   at: {
-    lane:
-      'border-2 border-amber-400 bg-amber-50/40 shadow-[0_0_0_1px_rgba(245,158,11,0.2),0_4px_12px_rgba(245,158,11,0.06)]',
-    cell: 'border-2 border-amber-400 bg-amber-50/40',
-    header: 'border border-amber-300 bg-amber-500 text-amber-950 shadow-sm',
-    stripe: 'bg-amber-500 text-amber-950',
-    hazard:
-      'repeating-linear-gradient(-45deg, rgba(255,255,255,0.22) 0 8px, rgba(0,0,0,0.12) 8px 16px)',
-    rule: 'border-amber-600/50 bg-amber-600 text-amber-50',
-    label: 'At WIP limit',
+    lane: '',
+    cell: '',
+    header: '',
+    stripe: '',
+    hazard: '',
+    rule: 'border-amber-300/70 bg-amber-50 text-amber-800',
+    label: 'At limit',
   },
 } as const
 

@@ -328,6 +328,8 @@ export function BoardSearchView({ boardId }: { boardId: string }) {
             <StatusToggle label="Blocked" checked={filters.blocked} onChange={(blocked) => setFilters({ blocked })} />
             <StatusToggle label="Overdue" checked={filters.overdue} onChange={(overdue) => setFilters({ overdue })} />
             <StatusToggle label="Due soon" checked={filters.dueSoon} onChange={(dueSoon) => setFilters({ dueSoon })} />
+            <StatusToggle label="Late start" checked={filters.lateStart} onChange={(lateStart) => setFilters({ lateStart })} />
+            <StatusToggle label="Unowned" checked={filters.unowned} onChange={(unowned) => setFilters({ unowned })} />
             <span className="ml-auto flex items-center gap-1.5 text-micro text-slate-500">
               <SlidersHorizontal size={12} />
               {filtersOn ? 'Filters narrow the results' : 'No filters'}

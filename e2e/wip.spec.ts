@@ -18,7 +18,7 @@ async function askForReasons(page: Page): Promise<void> {
 
 const reasonDialog = (page: Page) => page.locator('[data-reason-dialog]')
 
-test('a full column wears the alarm colour, not only a badge', async ({ page }) => {
+test('a breach wears the alarm; a full column only says so quietly', async ({ page }) => {
   await openBoard(page)
   const cards = page.locator('[data-workflow="cards"]')
   const cell = (name: string) =>
@@ -39,7 +39,8 @@ test('a full column wears the alarm colour, not only a badge', async ({ page }) 
   // A column with no limit is untouched.
   await expect(cell('In Progress')).not.toHaveClass(/border-(rose|amber)-(400|500)/)
 
-  // Bring Backlog to its own count, and it reads amber: at a limit is a watch, not a risk.
+  // Bring Backlog to its own count. Meeting the limit is normal: the column keeps its stage
+  // colours, loses the tape and gets one quiet line saying the next card would exceed it.
   await page.getByRole('button', { name: 'Edit board' }).click()
   await laneRegion(page, 'Backlog')
     .getByRole('button', { name: 'Name, WIP limit and policy' })
@@ -50,10 +51,12 @@ test('a full column wears the alarm colour, not only a badge', async ({ page }) 
   await page.getByRole('button', { name: 'Save' }).click()
 
   const at = cell('Backlog')
-  await expect(at).toHaveClass(/border-amber-400/)
-  await expect(at.locator('[data-wip-label="at"]')).toHaveText('At WIP limit')
+  await expect(at).not.toHaveClass(/border-(amber|rose)-(400|500)/)
+  await expect(at.locator('[data-wip-stripe]')).toHaveCount(0)
+  await expect(at.locator('[data-wip-label="at"]')).toHaveText('At limit')
+  await expect(at.locator('[data-lane-count]')).toHaveClass(/text-amber-900/)
 
-  // A folded column keeps the alarm colour on its strip: red for over, amber for at.
+  // A folded column keeps the alarm colour on its strip only when it is over.
   await over.getByTitle('Collapse column').click()
   const strip = page
     .locator('[data-workflow="cards"] [role="treeitem"][aria-expanded="false"]')

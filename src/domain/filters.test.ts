@@ -45,6 +45,26 @@ describe('card filters', () => {
     expect(matchesFilters(past, with_({ overdue: true }), true)).toBe(false)
   })
 
+  it('filters late start from the plan and the card’s stage', () => {
+    const f = with_({ lateStart: true })
+    const late = card({ targetStartDate: day(-1, NOON) })
+    expect(matchesFilters(late, f, false, NOON, undefined, undefined, 'notStarted')).toBe(true)
+    expect(matchesFilters(late, f, false, NOON, undefined, undefined, 'backlog')).toBe(true)
+    // A card that has begun is not late, and one whose start is ahead is not either.
+    expect(matchesFilters(late, f, false, NOON, undefined, undefined, 'inProgress')).toBe(false)
+    expect(matchesFilters(card({ targetStartDate: day(1, NOON) }), f, false, NOON, undefined, undefined, 'notStarted')).toBe(false)
+    // The date is the plan, not the promise.
+    expect(matchesFilters(card({ dueDate: '2000-01-01' }), f, false, NOON, undefined, undefined, 'notStarted')).toBe(false)
+  })
+
+  it('filters unowned work: in progress and nobody assigned', () => {
+    const f = with_({ unowned: true })
+    expect(matchesFilters(card(), f, false, NOON, undefined, undefined, 'inProgress')).toBe(true)
+    expect(matchesFilters(card({ assignees: ['MB'] }), f, false, NOON, undefined, undefined, 'inProgress')).toBe(false)
+    expect(matchesFilters(card(), f, false, NOON, undefined, undefined, 'notStarted')).toBe(false)
+    expect(matchesFilters(card(), f, false, NOON, undefined, undefined, 'backlog')).toBe(false)
+  })
+
   it('combines categories with AND', () => {
     const f = with_({ blocked: true, unassigned: true })
     expect(matchesFilters(card({ blocked: true, assignees: ['MB'] }), f, false)).toBe(false)
@@ -105,7 +125,7 @@ describe('card filters', () => {
     expect(filtersFromParam(null)).toBeUndefined()
     expect(filtersFromParam('')).toBeUndefined()
 
-    expect(filtersFromParam('blocked,overdue')).toMatchObject({ blocked: true, overdue: true, unassigned: false })
+    expect(filtersFromParam('blocked,overdue,latestart,unowned')).toMatchObject({ blocked: true, overdue: true, lateStart: true, unowned: true, unassigned: false })
     expect(filtersFromParam('priority:urgent,priority:high,assignee:u-1,age:7')).toMatchObject({
       priorities: ['urgent', 'high'],
       assigneeIds: ['u-1'],
@@ -125,6 +145,8 @@ describe('card filters', () => {
     expect(activeFilterCount(NO_FILTERS)).toBe(0)
     expect(activeFilterCount(with_({ typeIds: ['a', 'b'] }))).toBe(1)
     expect(activeFilterCount(with_({ typeIds: ['a'], blocked: true, overdue: true }))).toBe(3)
+    expect(activeFilterCount(with_({ lateStart: true }))).toBe(1)
+    expect(activeFilterCount(with_({ unowned: true }))).toBe(1)
     expect(activeFilterCount(with_({ assigneeIds: ['u-1'], priorities: ['high'], minAgeDays: 7 }))).toBe(3)
   })
 
@@ -169,6 +191,8 @@ describe('card filters', () => {
   it('sameFilters compares the narrowing, not the order a list was built in', () => {
     expect(sameFilters(with_({ assigneeIds: ['a', 'b'] }), with_({ assigneeIds: ['b', 'a'] }))).toBe(true)
     expect(sameFilters(with_({ dueSoon: true }), NO_FILTERS)).toBe(false)
+    expect(sameFilters(with_({ lateStart: true }), NO_FILTERS)).toBe(false)
+    expect(sameFilters(with_({ unowned: true }), NO_FILTERS)).toBe(false)
     // Whitespace in a text query is no narrowing, so neither is having it saved.
     expect(sameFilters(with_({ text: ' ' }), NO_FILTERS)).toBe(true)
     expect(sameFilters(with_({ text: 'x' }), with_({}))).toBe(false)

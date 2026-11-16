@@ -65,7 +65,7 @@ test('Needs attention shows priority, and the urgent work leads', async ({ page 
   await expect(sso.locator('td').nth(2)).toHaveText('Dev')
   // Not Started work with no owner is not a finding; In Progress work is.
   const notStarted = rows.filter({ hasText: 'Migrate invoice numbering' })
-  await expect(notStarted).not.toContainText('Unassigned')
+  await expect(notStarted).not.toContainText('Unowned')
 })
 
 test('attention card titles share a left edge under their type', async ({ page }) => {

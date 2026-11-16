@@ -94,6 +94,13 @@ test('the dependency badge opens the Hierarchy tab with this item’s connection
   // The Connections lens is scoped to this item, and its strings are on the board behind it.
   await expect(panel.getByTitle(/Hide this item.s connections/)).toBeVisible()
   await expect(page.locator('[data-connection-link]').first()).toBeVisible()
+  await expect(badge).toHaveAttribute('aria-pressed', 'true')
+
+  // The same badge is now the way out: it dismisses the drawer and ends the scoped reading.
+  await badge.click()
+  await expect(panel).toHaveCount(0)
+  await expect(page.locator('[data-connection-link]')).toHaveCount(0)
+  await expect(badge).toHaveAttribute('aria-pressed', 'false')
 })
 
 test('a selected boundary card draws the same dependency string the lens draws', async ({ page }) => {

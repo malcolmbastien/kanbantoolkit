@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Activity, Archive, ChevronDown, ChevronUp, Download, Plus, SlidersHorizontal, Trash2, X } from 'lucide-react'
+import { Activity, Archive, ChevronDown, ChevronUp, Plus, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BoardCanvas } from './BoardCanvas'
 import { DetailDial } from './DetailDial'
@@ -9,14 +9,12 @@ import { InlineEdit } from './InlineEdit'
 import { BoundaryWorkflow } from './BoundaryWorkflow'
 import { BoardSummary } from './BoardSummary'
 import { ManagementBoard } from './ManagementBoard'
-import { WorkflowHeader } from './WorkflowHeader'
+import { NotFilteredBadge, WorkflowHeader } from './WorkflowHeader'
 import { isAggregating, isInitiativeItem } from '@/domain/board'
-import { boardCsv, csvFilename } from '@/domain/csv'
 import { activeFilterCount } from '@/domain/filters'
 import { canRemoveFlow, cardsFlows, FLOW_DESCRIPTION_LIMIT, flowLaneIds, initiativesFlow } from '@/domain/flows'
 import { effectiveStage } from '@/domain/lanes'
 import { BAND_ACCENT } from '@/lib/colors'
-import { downloadText } from '@/lib/download'
 import { stillScrolling, useStillScroll } from '@/lib/useStillScroll'
 import { useRevealSelection } from '@/lib/useRevealSelection'
 import { cn } from '@/lib/utils'
@@ -55,10 +53,7 @@ export function BoardView({ requestMove }: Props) {
   const toggleFilters = useStore((s) => s.toggleFilters)
   const clearFilters = useStore((s) => s.clearFilters)
 
-  const edges = useStore((s) => s.edges)
-  const links = useStore((s) => s.links)
   const issueTypes = useStore((s) => s.issueTypes)
-  const users = useStore((s) => s.users)
 
   const board = boards.find((b) => b.id === boardId)
   // A Viewer reads a board and comments on it, and is offered nothing that writes to it. The
@@ -148,7 +143,7 @@ export function BoardView({ requestMove }: Props) {
             edit mode · unsaved changes
           </span>
         )}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           {/* The board's own reading: how much of a card it draws. It lives here with the other
               controls that command the surface beneath it, not in the global bar. */}
           <ConnectionsLegend boardId={boardId} />
@@ -171,20 +166,6 @@ export function BoardView({ requestMove }: Props) {
               <Archive size={11} /> Archive done ({doneCount})
             </button>
           )}
-          {/* One explicit action, one file: the board as it reads, columns and all. */}
-          <button
-            onClick={() =>
-              downloadText(
-                csvFilename(board?.name ?? 'board', 'cards'),
-                boardCsv(boardId, { items, edges, links, placements, lanes }, issueTypes, users, flows, boards),
-              )
-            }
-            disabled={editMode}
-            className="flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-0.5 text-meta font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-40"
-            title="This board's cards as CSV: title, type, column, people, dates, parent"
-          >
-            <Download size={11} /> Export CSV
-          </button>
           <button
             type="button"
             onClick={toggleBoardActivity}
@@ -238,14 +219,14 @@ export function BoardView({ requestMove }: Props) {
         // browser, and testable.
         style={{ overflowAnchor: 'none' }}
         data-board-scroll
-        className={cn('min-h-0 flex-1 overflow-y-auto p-4', pan.panning ? 'cursor-grabbing select-none' : 'cursor-grab')}
+        className={cn('min-h-0 flex-1 overflow-y-auto px-4 py-3', pan.panning ? 'cursor-grabbing select-none' : 'cursor-grab')}
       >
-        <div ref={contentRef} className="relative space-y-6">
+        <div ref={contentRef} className="relative space-y-4">
         <ConnectionsLinks contentRef={contentRef} boardId={boardId} />
         {/* Initiatives workflow — this team's initiatives, by rollup. The strategic surface:
             a tinted band of its own, so a reader knows which workflow they are looking at
             before reading a single column. */}
-        <section className="space-y-2.5">
+        <section className="space-y-1.5">
           <WorkflowHeader
             name="Initiatives workflow"
             collapsed={initiativesCollapsed}
@@ -254,9 +235,12 @@ export function BoardView({ requestMove }: Props) {
             title="Initiatives workflow"
             description={initiativesBand ? <FlowDescription flow={initiativesBand} editable={editMode && editable} /> : undefined}
             right={
-              <span className="hidden shrink-0 text-micro font-semibold text-slate-600 sm:inline">
-                {initiativeCount} {initiativeCount === 1 ? 'initiative' : 'initiatives'}
-              </span>
+              <>
+                {activeFilterCount(filters) > 0 && <NotFilteredBadge />}
+                <span className="hidden shrink-0 text-micro font-semibold text-slate-600 sm:inline">
+                  {initiativeCount} {initiativeCount === 1 ? 'initiative' : 'initiatives'}
+                </span>
+              </>
             }
           />
           {/* `variant` says this surface is the board's *own* initiatives flow — the one that owns
@@ -277,7 +261,7 @@ export function BoardView({ requestMove }: Props) {
           return (
             <section
               key={flow.id}
-              className="space-y-2.5"
+              className="space-y-1.5"
               data-flow-band={flow.id}
               data-flow-name={name}
               aria-label={`${name} — cards flow`}

@@ -95,6 +95,7 @@ export function BoardSummary({
   const users = useStore((s) => s.users)
   const links = useStore((s) => s.links)
   const selectedItemId = useStore((s) => s.selectedItemId)
+  const connectionScopeId = useStore((s) => s.connectionScopeId)
   const multiSelect = useStore((s) => s.multiSelect)
   const dropTargetId = useDrag((s) => s.dropTargetId)
   const setDropTarget = useDrag((s) => s.setDropTarget)
@@ -393,6 +394,7 @@ export function BoardSummary({
         // The menu is new here: initiative cards never had one.
         onContextMenu={openCardMenu}
         onOpenDependencies={openItemDependencies}
+        connectionsOpen={connectionScopeId === c.id}
         openDependencies={model.openDependencies.get(c.id)?.size ?? 0}
         hasDependencies={Boolean(model.dependenciesOf.get(c.id)?.length)}
         showConnections={showConnections}
@@ -446,7 +448,7 @@ export function BoardSummary({
     <div
       ref={flowRef}
       data-workflow="initiatives"
-      className="flex gap-2 p-2"
+      className="flex gap-2 px-2 py-1.5"
       style={lift && dragStartHeight.current !== null ? { minHeight: dragStartHeight.current } : undefined}
     >
       {lift && (

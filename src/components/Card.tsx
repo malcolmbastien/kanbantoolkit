@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef, useState } from 'react'
-import { ArrowLeftRight, Ban, Check, Clock, CornerDownRight, Link2, ListChecks, Lock } from 'lucide-react'
+import { ArrowLeftRight, Ban, Check, Clock, CornerDownRight, Link2, ListChecks, Lock, Tag as TagIcon, TriangleAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, softChipColors, STAGE_COLOR, tintOn } from '@/lib/colors'
 import { dueLabel, dueState } from '@/domain/due'
@@ -31,6 +31,8 @@ export interface CardSummary {
    */
   uncommittedBelow?: number
   openDescendants: number
+  /** In progress and nobody is assigned: the ownership warning, narrower than "has no owner". */
+  unowned?: boolean
   /** For parents: the share of leaf descendants done (derived rollup). */
   rollupPercent?: number
   /**
@@ -150,6 +152,8 @@ interface Props {
    * The badge is a door; a surface that has no drawer leaves it out and the count is read only.
    */
   onOpenDependencies?: (itemId: string) => void
+  /** The open drawer's scoped connections are this card's: the badge is a pressed toggle. */
+  connectionsOpen?: boolean
   /**
    * Whether to show the card's dependency/connections button. A management board reads outcomes;
    * its bands are not working surfaces, so the door is left off where it would only add noise.
@@ -294,21 +298,49 @@ const cardKeyboard = (
  * An initiative card offers the door when it has a hierarchy or a link to read, even with a count
  * of zero; an empty initiative is left quiet.
  */
+/**
+ * A warning, as a shape of its own.
+ *
+ * Tags are the board's vocabulary and wear a soft pill and a tag mark. A warning is a state the
+ * card is in, so it wears a rounded badge with a small triangle — the shape says "look here"
+ * before the words are read, and the hue says whether it is a risk or something to watch.
+ */
+function WarningBadge({ label, why, tone = 'watch' }: { label: string; why: string; tone?: 'risk' | 'watch' }) {
+  return (
+    <span className={cn(FLAG_BADGE_SHAPE, FLAG_BADGE[tone], 'inline-flex w-fit items-center gap-1')} title={why}>
+      <TriangleAlert size={10} className="shrink-0" aria-hidden />
+      {label}
+    </span>
+  )
+}
+
 function DependencyCount({
   count,
   onOpen,
   always = false,
+  open = false,
 }: {
   count?: number
   onOpen?: () => void
   /** Draw the door even with no open dependencies — an initiative always has a hierarchy. */
   always?: boolean
+  /** The drawer is open on this card's scoped connections: the next press closes it. */
+  open?: boolean
 }) {
   if (!count && (!always || !onOpen)) return null
   const countLabel = count ? `${count} open ${count === 1 ? 'dependency' : 'dependencies'}` : ''
-  const label = count ? `${countLabel} — open its hierarchy and connections` : 'Open hierarchy and connections'
+  const label = open
+    ? count
+      ? `${countLabel} — close its hierarchy and connections`
+      : 'Close hierarchy and connections'
+    : count
+      ? `${countLabel} — open its hierarchy and connections`
+      : 'Open hierarchy and connections'
   const shape = cn(
-    'flex shrink-0 items-center gap-0.5 rounded bg-slate-100 py-0.5 text-micro font-semibold tabular-nums text-slate-700 ring-1 ring-slate-300',
+    'flex shrink-0 items-center gap-0.5 rounded py-0.5 text-micro font-semibold tabular-nums ring-1 transition',
+    open
+      ? 'bg-indigo-100 text-indigo-800 ring-indigo-300'
+      : 'bg-slate-100 text-slate-700 ring-slate-300',
     count ? 'px-1.5' : 'px-1',
   )
   const content = (
@@ -328,8 +360,10 @@ function DependencyCount({
     <button
       type="button"
       data-open-connections=""
+      data-connections-open={open ? '' : undefined}
       data-open-dependencies={count || undefined}
       aria-label={label}
+      aria-pressed={open}
       title={label}
       onClick={(event) => {
         event.stopPropagation()
@@ -343,7 +377,9 @@ function DependencyCount({
       onPointerDown={(event) => event.stopPropagation()}
       className={cn(
         shape,
-        'cursor-pointer transition hover:bg-slate-200 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500',
+        open
+          ? 'cursor-pointer hover:bg-indigo-200 hover:text-indigo-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
+          : 'cursor-pointer hover:bg-slate-200 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500',
       )}
     >
       {content}
@@ -357,7 +393,7 @@ const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset f
 /** The one badge that is allowed to shout: a card's own blockage, in the header's top-right. */
 const BLOCKED_BADGE = 'shrink-0 rounded bg-rose-600 px-1.5 py-0.5 text-micro font-bold uppercase tracking-wide text-white shadow-sm'
 
-function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', draggable, onDragStateChange, locked, selected, boundary, openDependencies, hasDependencies, onOpenDependencies, showConnections = true, lateStart, multi, dimmed, filterDimmed, inert, connectRoot, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', draggable, onDragStateChange, locked, selected, boundary, openDependencies, hasDependencies, onOpenDependencies, connectionsOpen = false, showConnections = true, lateStart, multi, dimmed, filterDimmed, inert, connectRoot, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const complete = summary.done || completed
   const held = heldByOther(usePresence((state) => state.locks), item.id)
 
@@ -519,6 +555,13 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         why: `Its planned start (${lateStart}) passed and it has not started`,
       })
     }
+    if (!complete && summary.unowned) {
+      found.push({
+        label: 'Unowned',
+        tone: 'watch',
+        why: 'It is in progress and nobody is assigned',
+      })
+    }
     if (aged) {
       found.push({
         label: `${summary.ageDays}d in lane`,
@@ -557,6 +600,11 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
   }
 
   if (detail === 'summary') {
+    // Summary keeps the warning's presence, not its sentence. The card's own Blocked badge already
+    // says the loudest one, so it is not repeated here; a small triangle carries the rest.
+    const summaryWarnings = attention(false).filter((warning) => !(blocked && warning.label === 'Blocked'))
+    const summaryTone = summaryWarnings.some((warning) => warning.tone === 'risk') ? 'risk' : 'watch'
+    const summaryWarningLabel = summaryWarnings.map((warning) => warning.why ?? warning.label).join(' · ')
     return (
       <div
         {...dragProps}
@@ -612,11 +660,23 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
             </span>
           )}
           <span className="ml-auto flex items-center gap-1">
+            {summaryWarnings.length > 0 && (
+              <span
+                role="img"
+                data-card-warning-summary={summaryTone}
+                aria-label={`${summaryWarnings.length} warning${summaryWarnings.length === 1 ? '' : 's'}: ${summaryWarningLabel}`}
+                title={summaryWarningLabel}
+                className={cn('inline-flex shrink-0 items-center', summaryTone === 'risk' ? 'text-rose-600' : 'text-amber-600')}
+              >
+                <TriangleAlert size={12} />
+              </span>
+            )}
             {showConnections && (
               <DependencyCount
                 count={complete ? 0 : openDependencies}
                 onOpen={openDependenciesDoor}
                 always={wide && (summary.childCount > 0 || Boolean(hasDependencies))}
+                open={connectionsOpen}
               />
             )}
             {blocked && <span className={BLOCKED_BADGE}>Blocked</span>}
@@ -635,8 +695,8 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         <div className="mt-auto flex items-end justify-between gap-2 px-2 pb-1.5 pt-1">
           {/* The due date sits at the foot, where the Full card puts it, and the people stay on
               the right, so scanning down the column reads the same shape at either level. Summary
-              carries no warnings: a compact face is for reading the work, and its badges are
-              Full's to spell out and Mini's to mark. */}
+              carries no warning words: a small triangle above marks their presence, and Full is
+              where each one explains itself. */}
           <div className="flex min-w-0 flex-wrap items-center gap-1">
             <DueChip item={item} complete={complete} />
           </div>
@@ -931,6 +991,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
                   count={complete ? 0 : openDependencies}
                   onOpen={openDependenciesDoor}
                   always={summary.childCount > 0 || Boolean(hasDependencies)}
+                  open={connectionsOpen}
                 />
               )}
               <PriorityBadge priority={item.priority} />
@@ -1033,9 +1094,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           {badges.length > 0 && (
             <div className="flex flex-wrap items-center gap-1">
               {badges.map((b) => (
-                <span key={b.key} className={cn(FLAG_BADGE_SHAPE, FLAG_BADGE[b.tone])} title={b.why}>
-                  {b.label}
-                </span>
+                <WarningBadge key={b.key} label={b.label} why={b.why} tone={b.tone} />
               ))}
             </div>
           )}
@@ -1157,7 +1216,9 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
               leading chip, and with one child the row would start the marks at the left edge.
               The weight a reader scans for stays in the top-right corner whatever the type. */}
           <span className="ml-auto flex shrink-0 items-center gap-1.5">
-            {showConnections && <DependencyCount count={complete ? 0 : openDependencies} onOpen={openDependenciesDoor} />}
+            {showConnections && (
+              <DependencyCount count={complete ? 0 : openDependencies} onOpen={openDependenciesDoor} open={connectionsOpen} />
+            )}
             <PriorityBadge priority={item.priority} />
             {blocked && <span className={BLOCKED_BADGE}>Blocked</span>}
           </span>
@@ -1186,12 +1247,10 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           {blockedAlert}
           {rolledUpBlocked}
           {!complete && lateStart && (
-            <span
-              className={cn(FLAG_BADGE_SHAPE, FLAG_BADGE.watch, 'w-fit')}
-              title={`Its planned start (${lateStart}) passed and it has not started`}
-            >
-              Late start
-            </span>
+            <WarningBadge label="Late start" why={`Its planned start (${lateStart}) passed and it has not started`} />
+          )}
+          {!complete && summary.unowned && (
+            <WarningBadge label="Unowned" why="It is in progress and nobody is assigned" />
           )}
         </div>
 
@@ -1279,6 +1338,7 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
   if (a.selected !== b.selected || a.boundary !== b.boundary || a.multi !== b.multi || a.dimmed !== b.dimmed || a.filterDimmed !== b.filterDimmed) return false
   if (a.inert !== b.inert || a.connectRoot !== b.connectRoot) return false
   if (a.openDependencies !== b.openDependencies) return false
+  if (a.connectionsOpen !== b.connectionsOpen) return false
   if (a.hasDependencies !== b.hasDependencies) return false
   if (a.showConnections !== b.showConnections) return false
   if (a.lateStart !== b.lateStart) return false
@@ -1300,6 +1360,7 @@ const summaryEqual = (a: CardSummary, b: CardSummary) =>
   a.blockedBelow === b.blockedBelow &&
   a.openDescendants === b.openDescendants &&
   a.rollupPercent === b.rollupPercent &&
+  a.unowned === b.unowned &&
   a.rollupStages?.total === b.rollupStages?.total &&
   a.rollupStages?.backlog === b.rollupStages?.backlog &&
   a.rollupStages?.notStarted === b.rollupStages?.notStarted &&
@@ -1346,8 +1407,8 @@ function KindBand({ kind }: { kind: InitiativeType }) {
  *
  * Quieter than everything else a card says, on purpose. A tag is the board's own vocabulary rather
  * than a fact about the work: it is not the type — the solid chip that says what this is — and it
- * is never a blockage, so it wears the soft chip and sentence case, and gives the loud chip to the
- * two things that have earned it.
+ * is never a warning, so it wears a soft pill with a tag mark rather than the rounded triangle
+ * badge a warning wears.
  *
  * A set, not a choice, so it is capped: three chips and a count of the rest, with the whole list
  * in the title. A card wearing eight tags is a card with nothing readable on it.
@@ -1363,10 +1424,11 @@ function TagChips({ tags }: { tags?: Tag[] }) {
         return (
           <span
             key={t.id}
-            className="shrink-0 rounded border px-1.5 py-px text-micro font-medium"
+            className="inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-px text-micro font-medium"
             style={{ backgroundColor: chip.background, color: chip.color, borderColor: tintOn(t.color, 0.32) }}
             title={`Tag: ${t.name}`}
           >
+            <TagIcon size={9} className="shrink-0 opacity-70" aria-hidden />
             {t.name}
           </span>
         )

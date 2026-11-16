@@ -198,7 +198,7 @@ describe('keeping the workspace’s words on the server', () => {
 
     // This device's view state moves; the server has no opinion about it.
     useStore.setState({
-      savedFilters: [{ id: 'f-1', name: 'Mine', boardId: 'b-1', filters: { typeIds: [], blocked: false, overdue: false, dueSoon: false, unassigned: false, assigneeIds: [], priorities: [], tagIds: [] } }],
+      savedFilters: [{ id: 'f-1', name: 'Mine', boardId: 'b-1', filters: { typeIds: [], blocked: false, overdue: false, dueSoon: false, lateStart: false, unassigned: false, unowned: false, assigneeIds: [], priorities: [], tagIds: [] } }],
       collapsedLanes: { 'l-1': true },
     })
     expect(vocabularyChanged()).toBe(false)
@@ -210,7 +210,7 @@ describe('keeping the workspace’s words on the server', () => {
 
   it('carries the words and never this device’s view state — or an auto-archive age', () => {
     useStore.setState({
-      savedFilters: [{ id: 'f-1', name: 'Mine', boardId: 'b-1', filters: { typeIds: [], blocked: false, overdue: false, dueSoon: false, unassigned: false, assigneeIds: [], priorities: [], tagIds: [] } }],
+      savedFilters: [{ id: 'f-1', name: 'Mine', boardId: 'b-1', filters: { typeIds: [], blocked: false, overdue: false, dueSoon: false, lateStart: false, unassigned: false, unowned: false, assigneeIds: [], priorities: [], tagIds: [] } }],
       collapsedLanes: { 'l-1': true },
     })
 

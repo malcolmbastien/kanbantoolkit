@@ -101,11 +101,15 @@ test('Summary keeps the title, type, due date and people, and drops the extras',
   expect(dueBox.x - cardBox.x).toBeLessThan(24)
   await expect(due.locator('[title="Diego Santos"]')).toBeVisible()
 
-  // No warnings at Summary: the badge is Full's to spell out and Mini's to mark. A compact face
-  // that carries a warning is a face asking to be read like Full, half-equipped to be.
-  for (const id of ['st-enterprise-sso', 'init-billing', 'init-trial', 'st-signup-rebuild']) {
-    await expect(page.locator(`[data-card-id="${id}"] [data-card-warning]`)).toHaveCount(0)
-  }
+  // Summary carries no warning words, but it keeps their presence as a small triangle. Unowned
+  // is the chip Full spells out; here it is only the mark and its title.
+  const warned = page.locator('[data-card-id="st-pricing-cache"]')
+  const marker = warned.locator('[data-card-warning-summary]')
+  await expect(marker).toHaveAttribute('data-card-warning-summary', 'watch')
+  await expect(marker).toHaveAttribute('title', /in progress and nobody is assigned/i)
+  await expect(warned).not.toContainText('Unowned')
+  // An ordinary card has no marker at all.
+  await expect(due.locator('[data-card-warning-summary]')).toHaveCount(0)
 
   // The same cards are there: a level changes the drawing, not the work.
   expect(await cardsIn(page, 'Backlog')).toEqual(backlog)

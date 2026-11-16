@@ -1576,6 +1576,24 @@ describe('store actions', () => {
     expect(s().panelTab).toBe('overview')
   })
 
+  it('the same connections badge closes its drawer and scoped reading', () => {
+    s().openItemDependencies('st-email')
+    expect(s().selectedItemId).toBe('st-email')
+    expect(s().connectionScopeId).toBe('st-email')
+
+    // The second press is the way out: the drawer is dismissed and the lens ends.
+    s().openItemDependencies('st-email')
+    expect(s().selectedItemId).toBe(null)
+    expect(s().connectionScopeId).toBe(null)
+    expect(s().panelTab).toBe('overview')
+
+    // A different card's badge replaces the reading rather than closing it.
+    s().openItemDependencies('st-email')
+    s().openItemDependencies('st-sso')
+    expect(s().selectedItemId).toBe('st-sso')
+    expect(s().connectionScopeId).toBe('st-sso')
+  })
+
   it('multi-select: shift+click seeds from the open card; bulk actions apply', () => {
     s().selectBoard('b-atlas')
     // A card is open; shift+click a second → group of two, panel closed.

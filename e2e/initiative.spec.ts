@@ -192,6 +192,12 @@ test('an initiative card counts its dependencies, and the count opens Hierarchy 
   await expect(panel.getByRole('button', { name: 'Hierarchy' })).toHaveClass(/text-indigo-600/)
   await expect(panel.getByTitle(/Hide this item.s connections/)).toBeVisible()
   await expect(page.locator('[data-connection-link]').first()).toBeVisible()
+  await expect(door).toHaveAttribute('aria-pressed', 'true')
+
+  // Pressing the same door again dismisses the drawer and cancels the scoped connections.
+  await door.click()
+  await expect(panel).toHaveCount(0)
+  await expect(door).toHaveAttribute('aria-pressed', 'false')
   await page.keyboard.press('Escape')
   await expect(panel).toHaveCount(0)
 

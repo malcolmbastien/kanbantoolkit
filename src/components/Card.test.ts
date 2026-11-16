@@ -46,12 +46,14 @@ describe('card memo', () => {
     expect(cardPropsEqual(props(), props({ boundary: true }))).toBe(false)
     expect(cardPropsEqual(props(), props({ openDependencies: 2 }))).toBe(false)
     expect(cardPropsEqual(props(), props({ hasDependencies: true }))).toBe(false)
+    expect(cardPropsEqual(props(), props({ connectionsOpen: true }))).toBe(false)
     expect(cardPropsEqual(props(), props({ lateStart: '12 Mar' }))).toBe(false)
     expect(cardPropsEqual(props(), props({ locked: true }))).toBe(false)
     expect(cardPropsEqual(props(), props({ item: item({ title: 'Renamed' }) }))).toBe(false)
     expect(cardPropsEqual(props(), props({ summary: { ...summary, blockedBelow: 1 } }))).toBe(false)
     expect(cardPropsEqual(props(), props({ summary: { ...summary, checklist: { done: 2, total: 2 } } }))).toBe(false)
     expect(cardPropsEqual(props(), props({ summary: { ...summary, ageDays: undefined } }))).toBe(false)
+    expect(cardPropsEqual(props(), props({ summary: { ...summary, unowned: true } }))).toBe(false)
     const stages = { total: 3, backlog: 1, notStarted: 1, inProgress: 1, done: 0 }
     expect(cardPropsEqual(props({ summary: { ...summary, rollupStages: stages } }), props({ summary: { ...summary, rollupStages: stages } }))).toBe(true)
     expect(
