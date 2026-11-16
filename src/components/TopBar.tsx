@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { Archive, ChartNoAxesGantt, Check, ChevronDown, Kanban, Keyboard, LayoutDashboard, LayoutGrid, MoreHorizontal, Pencil, Plus, Search, Settings, TrendingUp, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { InboxBell } from './InboxBell'
@@ -51,11 +51,55 @@ interface Props {
  * A control's word.
  *
  * The bar is one row at every width, so a control gives up its **word** before it gives up its
- * **place**. From `2xl` down the icon and its tooltip carry the control and the word stays in the
- * accessible name, so a screen reader hears the same bar and nothing is reachable only by mouse-over.
+ * **place** — but only once the row has no room for it. The word is always in the accessible name,
+ * and `data-bar-words` is what draws it once the bar has measured that it fits. See `index.css`.
  */
 function BarLabel({ children }: { children: ReactNode }) {
-  return <span className="sr-only 2xl:not-sr-only">{children}</span>
+  return (
+    <span data-bar-label className="sr-only">
+      {children}
+    </span>
+  )
+}
+
+type BarWords = 'none' | 'views' | 'all'
+
+/**
+ * How much of the bar's words the row has room for.
+ *
+ * The question is not "how wide is the window" but "do the words still fit beside the controls
+ * that never give way" — and the answer depends on the board's name, the account menu, edit mode
+ * and the notices, not only on the viewport. A `ResizeObserver` asks it against the real row and
+ * re-asks whenever anything changes width, so words come back the moment a resize makes them fit
+ * and are given up only when they genuinely do not. `views` turns the navigation's words on while
+ * the actions stay icons; `all` turns on every word. The measurement applies the same CSS the
+ * bar draws with (`data-force-words`), so it cannot promise room the row does not have.
+ */
+function useBarWords(barRef: RefObject<HTMLElement | null>, navRef: RefObject<HTMLElement | null>): BarWords {
+  const [words, setWords] = useState<BarWords>('none')
+  useLayoutEffect(() => {
+    const bar = barRef.current
+    if (!bar) return
+    const fits = (mode: Exclude<BarWords, 'none'>) => {
+      bar.dataset.forceWords = mode
+      const nav = navRef.current
+      const navFits = !nav || nav.offsetParent === null || nav.scrollWidth <= nav.clientWidth + 1
+      const barFits = bar.scrollWidth <= bar.clientWidth + 1
+      delete bar.dataset.forceWords
+      return navFits && barFits
+    }
+    const measure = () => setWords(fits('all') ? 'all' : fits('views') ? 'views' : 'none')
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(bar)
+    if (navRef.current) observer.observe(navRef.current)
+    // The actions are what the navigation shares the row with: a new button, a different role, an
+    // account menu signing in — each changes the room left for words without resizing the bar.
+    const actions = bar.querySelector('[data-bar-actions]')
+    if (actions) observer.observe(actions)
+    return () => observer.disconnect()
+  }, [barRef, navRef])
+  return words
 }
 
 export function TopBar(props: Props) {
@@ -76,6 +120,7 @@ export function TopBar(props: Props) {
   // room. They are the same actions with the same rules, not a reduced set.
   const [moreOpen, setMoreOpen] = useState(false)
   const moreRef = useRef<HTMLDivElement>(null)
+  const barRef = useRef<HTMLElement>(null)
   const navRef = useRef<HTMLElement>(null)
   const targetFlow = cardFlows.find((flow) => flow.id === targetFlowId) ?? cardFlows[0]
 
@@ -124,6 +169,7 @@ export function TopBar(props: Props) {
   // cancelled wherever the reader is — it can only have been started on another board.
   const mayDesignThisBoard = mayDesign && canDesignBoard(board)
   const inEditMode = editMode && mayDesign
+  const words = useBarWords(barRef, navRef)
 
   // When the views scroll, the view that is lit is the one to show: on a very narrow bar the
   // active tab can otherwise sit beyond the right edge, and the reader sees no current place.
@@ -134,11 +180,13 @@ export function TopBar(props: Props) {
   const viewButton = 'flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40'
 
   return (
-    // One row, always. The bar never wraps into a second line: width is taken from the board's
-    // navigation first (which scrolls when the window is very narrow) and from the controls' words
-    // next, never from the header's height.
+    // One row, always. The bar never wraps into a second line: the words are shown only while the
+    // measured row has room for them (`useBarWords`), the views scroll when even icons cannot fit,
+    // and height is never the thing that gives.
     <header
+      ref={barRef}
       data-top-bar
+      data-bar-words={words}
       className="flex flex-nowrap items-center gap-2 border-b border-slate-300 bg-slate-100 px-3 py-2 text-slate-700 shadow-sm"
     >
       <button
@@ -165,14 +213,13 @@ export function TopBar(props: Props) {
           ref={navRef}
           aria-label="Board navigation"
           data-board-nav
-          className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden 2xl:gap-2.5"
+          className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           <div className="flex shrink-0 items-center gap-1.5 text-meta font-medium text-slate-600">
-            <span className="hidden 2xl:inline">Board</span>
             <BoardPicker boards={boards} boardId={boardId} onSelect={onSelectBoard} disabled={editMode} />
           </div>
 
-          {!portfolio && <div className="hidden h-5 w-px shrink-0 bg-slate-200 2xl:block" />}
+          {!portfolio && <div className="h-5 w-px shrink-0 bg-slate-200" />}
 
           {!portfolio && (
             <button
@@ -268,7 +315,7 @@ export function TopBar(props: Props) {
         </nav>
       )}
 
-      <div className="flex shrink-0 items-center gap-1.5 2xl:gap-2">
+      <div data-bar-actions className="flex shrink-0 items-center gap-1.5">
         {/* Making work is the board's business, so these show on the board and nowhere else. */}
         {boardActive && (
           <>

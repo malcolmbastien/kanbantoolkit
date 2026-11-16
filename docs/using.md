@@ -111,11 +111,13 @@ serve them; its navigation is **Board** alone, because the dashboard, timeline a
 work a portfolio does not hold itself.
 
 The top bar is **one line at every window width**, so the board never loses height to its own
-navigation. As the window narrows the controls give up their **words** first — the icons keep their
-place, their tooltips and their accessible names — and the three secondary actions (**Keyboard
-shortcuts**, **Settings**, **Edit board**) step into a **More actions** menu. Where the views still
-cannot fit, that part of the bar scrolls sideways rather than wrapping, and it keeps the board
-switcher at its head. Every view and every action stays reachable at any width.
+navigation. It measures its own row rather than guessing from the window: the views keep their
+**names** for as long as the row has room for them, the action labels are the first to go, and
+only when the names themselves no longer fit does each control fall back to its icon — with the
+same words in its tooltip and its accessible name. The three secondary actions (**Keyboard
+shortcuts**, **Settings**, **Edit board**) step into a **More actions** menu on a narrow window.
+Where the views still cannot fit, that part of the bar scrolls sideways rather than wrapping, and
+it keeps the board switcher at its head. Every view and every action stays reachable at any width.
 
 A board carries **flows**, each a set of those four columns. It has exactly one **initiatives** flow —
 where the same work is read as outcomes — and **one or more cards flows**: the team's own. Each cards

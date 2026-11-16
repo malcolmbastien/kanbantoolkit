@@ -156,3 +156,28 @@ body {
 .rich-text :where(blockquote) {
   @apply mt-1 border-l-2 border-slate-300 pl-2 text-slate-600;
 }
+
+/*
+ * The top bar's words.
+ *
+ * The bar is one row at every width, so a control's word is shown only while the row has room for
+ * it. `data-bar-words` is set by the bar itself from a measurement against its real contents — a
+ * narrow window still shows the views by name when the row has the space, and gives them up only
+ * when it does not. `data-force-words` applies the same styling for that measurement alone, so
+ * what is measured is exactly what is drawn. Until then `sr-only` keeps the word in the
+ * accessible name.
+ */
+[data-bar-words='all'] [data-bar-label],
+[data-bar-words='views'] [data-board-nav] [data-bar-label],
+[data-force-words='all'] [data-bar-label],
+[data-force-words='views'] [data-board-nav] [data-bar-label] {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  clip-path: none;
+  white-space: nowrap;
+}

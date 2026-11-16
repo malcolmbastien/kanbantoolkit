@@ -41,6 +41,32 @@ test('the top bar stays one row as the window narrows', async ({ page }) => {
 })
 
 /**
+ * A breakpoint is a guess about the room a row has. The bar measures the room instead: the same
+ * window shows the views by name when the board, the account and the actions leave space for them,
+ * and the words come back when a resize frees that space again.
+ */
+test('the views keep their words while the row has room for them', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 1000 })
+  await openBoard(page)
+
+  const bar = page.locator('[data-top-bar]')
+  const dashboard = page.getByRole('button', { name: 'Dashboard' })
+  await expect.poll(async () => bar.getAttribute('data-bar-words')).toBe('views')
+  await expect(dashboard.locator(':scope > span')).toHaveCSS('position', 'static')
+
+  // Narrower than the words need: the icon keeps the place and the name stays in the accessible
+  // name — but the *row* decides that, not a fixed width.
+  await page.setViewportSize({ width: 900, height: 1000 })
+  await expect.poll(async () => bar.getAttribute('data-bar-words')).toBe('none')
+  await expect(dashboard.locator(':scope > span')).toHaveCSS('position', 'absolute')
+  await expect(dashboard).toHaveAttribute('title', /Dashboard/)
+
+  await page.setViewportSize({ width: 1280, height: 1000 })
+  await expect.poll(async () => bar.getAttribute('data-bar-words')).toBe('views')
+  await expect(dashboard.locator(':scope > span')).toHaveCSS('position', 'static')
+})
+
+/**
  * A control that gives up its word keeps its place and its name. At a tight width the views are
  * icons; the word is still the accessible name and the tooltip still names it, so nothing becomes
  * reachable only by knowing where it is.
