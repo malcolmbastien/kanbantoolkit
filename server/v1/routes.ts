@@ -36,6 +36,7 @@ import {
   mapInitiative,
   moveItem,
   ok,
+  promoteItem,
   search,
   updateItem,
   type ApiFailure,
@@ -327,6 +328,35 @@ export function v1Routes(runtime: Runtime) {
       },
     },
     {
+      method: 'POST',
+      path: '/boards/:boardId/items/:itemId/promote',
+      summary: 'Turn a card into an initiative: the same item, moved to the initiatives section of its stage.',
+      scope: 'items:write',
+      action: 'item.write',
+      body: { $ref: '#/components/schemas/Promote' },
+      responses: {
+        '200': { description: 'The item, now an initiative, with its new cell' },
+        '404': { description: 'No such item or board' },
+        '409': { description: 'The card moved past the revision the conversion was based on' },
+        '422': { description: 'The domain refused it: an initiative, an archived card, a portfolio, or no initiatives cell' },
+      },
+      handler: async (c, caller) => {
+        const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown> | null
+        const result = await promoteItem(
+          caller,
+          c.req.param('boardId') ?? '',
+          c.req.param('itemId') ?? '',
+          body ?? {},
+          c.req.header('idempotency-key'),
+        )
+        if (result.ok && (result.value as { replayed?: boolean }).replayed) {
+          const { replayed: _replayed, ...value } = result.value as { replayed?: boolean } & Record<string, unknown>
+          return c.json(value, 200)
+        }
+        return respond(c, result)
+      },
+    },
+    {
       method: 'GET',
       path: '/objectives',
       summary: 'Objectives with the completeness their work gives them, and their key results.',
@@ -542,6 +572,12 @@ const schemas = {
       dueDate: { type: 'string', format: 'date', description: 'The day the work is promised for.' },
       externalLabel: { type: 'string', description: 'Where the work lives elsewhere: the label the card shows.' },
       externalUrl: { type: 'string', format: 'uri', description: 'The address it opens — http or https only.' },
+    },
+  },
+  Promote: {
+    type: 'object',
+    properties: {
+      baseRev: { type: 'integer', description: 'Optional: refuse if the card moved since you read it.' },
     },
   },
   ItemPatch: {

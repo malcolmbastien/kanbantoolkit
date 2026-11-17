@@ -164,6 +164,7 @@ Writes:
 | `create_item` | `items:write` | a board, lane, type, parent, tag or assignee that does not exist; a lane of the wrong kind of flow; a `size`, because boards count issues, not points; a `createdById`, because the server records the creator |
 | `update_item` | `items:write` | a missing or stale `baseRev`, returning the current item; a change of type into or out of Initiative or Sub-task (`invalid`); a `size`; a `createdById`; a parent that is not an initiative, or would make a cycle |
 | `move_item` | `items:write` | a `block` lane at its limit; a `justify` lane without a reason; a card into an initiatives cell, or an initiative into a cards cell; an initiative across its section |
+| `convert_to_initiative` | `items:write` | an item that is already an initiative; a filed-away card; a portfolio board; a card not placed on that board; a board with no initiatives cell for the card's stage |
 | `set_parent` | `items:write` | a parent that is not an initiative, the item itself, or one of its own descendants |
 | `add_note` | `items:comment` | an empty note, or one over 2000 characters. It changes no field and takes no revision, so a move by somebody else cannot block it; the note lands in the card's Comments with its mentions, and the entry says which token wrote it |
 

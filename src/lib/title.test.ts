@@ -14,6 +14,13 @@ describe('what the document is called', () => {
     expect(headingFor({ view: 'dashboard', board: 'Team Atlas' })).toBe('Team Atlas · Dashboard')
   })
 
+  it('does not lead an organisation-level place with the board a person came from', () => {
+    expect(titleFor({ view: 'boards', board: 'Team Atlas' })).toBe('Workspace Home · Kanban Toolkit')
+    expect(titleFor({ view: 'admin', board: 'Team Atlas' })).toBe('Admin · Kanban Toolkit')
+    expect(headingFor({ view: 'boards', board: 'Team Atlas' })).toBe('Workspace Home')
+    expect(headingFor({ view: 'admin', board: 'Team Atlas' })).toBe('Admin')
+  })
+
   it('says a repeated name once', () => {
     // A board named after a view, or after the product, should not stutter.
     expect(titleFor({ view: 'timeline', board: 'Timeline' })).toBe('Timeline · Kanban Toolkit')

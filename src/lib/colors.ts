@@ -146,24 +146,36 @@ export function softChipColors(hex: string): { background: string; color: string
 export const TAG_PALETTE = ['#0ea5e9', '#8b5cf6', '#f43f5e', '#f59e0b', '#10b981', '#64748b']
 
 /**
- * The palette a new type or kind starts from, in order. Two vocabulary entries with the same
- * colour stop being tellable apart at a glance, so the next free colour is chosen rather than a
- * fixed default. Past the named palette a fresh hue is generated rather than repeating one.
+ * The presets a vocabulary colour is chosen from, in order.
+ *
+ * A type, kind or tag is read at a glance on a card, so its colour is a set of distinguishable
+ * hues rather than a colour wheel. The names are what a person hears and sees in the picker; the
+ * values are what the model stores, and `nextUnusedColor` walks them in this order. Two entries
+ * with the same colour stop being tellable apart at a glance, which is why a new word starts from
+ * the next free one; past the named presets a fresh hue is generated rather than repeating one.
  */
-export const VOCABULARY_PALETTE = [
-  '#0ea5e9',
-  '#8b5cf6',
-  '#f43f5e',
-  '#f59e0b',
-  '#10b981',
-  '#64748b',
-  '#6366f1',
-  '#14b8a6',
-  '#ec4899',
-  '#84cc16',
-  '#f97316',
-  '#06b6d4',
+export interface VocabularySwatch {
+  name: string
+  value: string
+}
+
+export const VOCABULARY_SWATCHES: readonly VocabularySwatch[] = [
+  { name: 'Sky', value: '#0ea5e9' },
+  { name: 'Violet', value: '#8b5cf6' },
+  { name: 'Rose', value: '#f43f5e' },
+  { name: 'Amber', value: '#f59e0b' },
+  { name: 'Emerald', value: '#10b981' },
+  { name: 'Slate', value: '#64748b' },
+  { name: 'Indigo', value: '#6366f1' },
+  { name: 'Teal', value: '#14b8a6' },
+  { name: 'Pink', value: '#ec4899' },
+  { name: 'Lime', value: '#84cc16' },
+  { name: 'Orange', value: '#f97316' },
+  { name: 'Cyan', value: '#06b6d4' },
 ]
+
+/** The same presets as plain values, for the tools that pick the next free one. */
+export const VOCABULARY_PALETTE: readonly string[] = VOCABULARY_SWATCHES.map((swatch) => swatch.value)
 
 /** HSL to a hex colour, for the colours past the named palette. */
 function hslToHex(hue: number, saturation: number, lightness: number): string {

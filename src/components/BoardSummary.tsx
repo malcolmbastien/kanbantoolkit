@@ -357,7 +357,37 @@ export function BoardSummary({
     const progressItems = childItems.filter((ci) => !isDiscarded(ci, graph))
     // Symbols summarise the direct children that count — team initiatives for a top-level
     // initiative, cards for a team-level one — coloured by their status.
-    const symbols = progressItems.map((ci) => ({ id: ci.id, bucket: model.rollup.get(ci.id)?.bucket ?? 'backlog', title: ci.title }))
+    const symbols = progressItems.map((ci) => {
+      const roll = model.rollup.get(ci.id)
+      const bucket = roll?.bucket ?? 'backlog'
+      // The child may sit on another board when this is a linked band; its own placement is the
+      // one its reading should name, wherever the reader is.
+      const placement =
+        placements.find((p) => p.itemId === ci.id && p.boardId === (viewedBoardId ?? boardId)) ??
+        placements.find((p) => p.itemId === ci.id)
+      const lane = placement ? lanes.find((l) => l.id === placement.laneId) : undefined
+      const flow = lane ? flows.find((f) => f.id === lane.flowId) : undefined
+      const board = placement ? boards.find((b) => b.id === placement.boardId) : undefined
+      const initiative = isInitiativeItem(ci, issueTypes)
+      const kind = initiative ? initiativeTypeById(boards, ci.initiativeTypeId) : undefined
+      return {
+        id: ci.id,
+        bucket,
+        title: ci.title,
+        type: typeOf(ci.typeId),
+        ...(kind ? { kind } : {}),
+        assigneeIds: ci.assignees,
+        dueDate: ci.dueDate,
+        priority: ci.priority,
+        tags: tagsOf(boards, ci),
+        blocked: Boolean(ci.blocked && bucket !== 'done'),
+        blockedReason: ci.blockedReason,
+        ...(board ? { boardName: board.name } : {}),
+        ...(flow ? { flowName: flow.name } : {}),
+        ...(lane ? { laneName: lanePath(lanes, lane.id).join(' / ') } : {}),
+        ...(initiative && roll ? { below: { total: roll.total, percent: roll.total > 0 ? roll.percent : undefined } } : {}),
+      }
+    })
     const roll = model.rollup.get(c.id)
     return (
       <Card

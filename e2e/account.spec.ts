@@ -370,3 +370,110 @@ test('a listed domain is a door, the selection is judged whole, and the director
   await list.getByRole('button', { name: 'Deactivate' }).click()
   await expect(page.getByText('1 person changed.')).toBeVisible()
 })
+
+test('a card held in one session closes its fields in another, and names the holder', async ({ browser }) => {
+  const one = await browser.newContext()
+  const two = await browser.newContext()
+
+  try {
+    const holder = await one.newPage()
+    await boardOpen(holder)
+    await addCardTo(holder, 'Backlog')
+    const card = holder.locator('[data-workflow="cards"] [data-card-id]').filter({ hasText: 'New card' }).last()
+    const id = await card.getAttribute('data-card-id')
+    await card.click()
+    // Edit intent is what takes the pen; opening a card is free.
+    await holder.getByLabel('Title').click()
+
+    // Wait for the lease to be *on the server* before the other session reads it, not merely for
+    // the drawer to have taken focus.
+    const locks = async () => {
+      const feed = (await (await holder.request.get(`${SELF_HOSTED}/api/workspace/changes?since=0`)).json()) as {
+        locks: Array<{ itemId: string }>
+      }
+      return feed.locks
+    }
+    await expect.poll(async () => (await locks()).some((lock) => lock.itemId === id)).toBe(true)
+
+    const other = await two.newPage()
+    await openInstanceBoard(other, SELF_HOSTED, BOARD, MAYA)
+    // The second tab has to be in front for its feed to poll; a hidden tab catches up when looked at.
+    await other.bringToFront()
+    const same = other.locator(`[data-card-id="${id}"]`)
+    await expect(same).toBeVisible({ timeout: 20_000 })
+
+    // The lease the server enforces reaches the other session on its poll, and the drawer closes
+    // what it cannot write while leaving the card readable (and movable).
+    await same.click()
+    await expect(other.getByText('This card is open in another tab.')).toBeVisible({ timeout: 20_000 })
+    await expect(other.getByLabel('Title')).toBeDisabled()
+  } finally {
+    await one.close()
+    await two.close()
+  }
+})
+
+test('a conversion on an instance reaches the server as the same card, now an initiative', async ({ page }) => {
+  await boardOpen(page)
+  await addCardTo(page, 'Backlog')
+  const card = page.locator('[data-workflow="cards"] [data-card-id]').filter({ hasText: 'New card' }).last()
+  const id = await card.getAttribute('data-card-id')
+  await card.click({ button: 'right' })
+  await page.getByRole('menu', { name: 'Card actions' }).getByRole('button', { name: 'Convert to initiative' }).click()
+  await page.locator('[data-confirm-dialog]').getByRole('button', { name: 'Convert', exact: true }).click()
+
+  // The card leaves the flow it was in and reads in the initiatives flow, in the same tab.
+  await expect(page.locator(`[data-workflow="initiatives"] [data-card-id="${id}"]`)).toBeVisible()
+
+  // Both halves reached the server: the item wears the Initiative type, and its cell belongs to
+  // an initiatives flow. The design and the card travel separately and the client waits for both.
+  await expect
+    .poll(
+      async () => {
+        const body = (await (await page.request.get(`${SELF_HOSTED}/api/workspace`)).json()) as {
+          items: Array<{ id: string; typeId: string }>
+          placements: Array<{ itemId: string; laneId: string }>
+          lanes: Array<{ id: string; flowId: string }>
+          flows: Array<{ id: string; kind: string }>
+        }
+        const item = body.items.find((entry) => entry.id === id)
+        const placement = body.placements.find((entry) => entry.itemId === id)
+        const lane = body.lanes.find((entry) => entry.id === placement?.laneId)
+        const flow = body.flows.find((entry) => entry.id === lane?.flowId)
+        // The reserved type is the build's own id, not a board's label.
+        if (item?.typeId !== 't-initiative') return 'wrong-type'
+        return flow?.kind === 'initiatives' ? 'initiatives' : 'cards'
+      },
+      { timeout: 20_000 },
+    )
+    .toBe('initiatives')
+
+  await page.reload()
+  await expect(page.locator(`[data-workflow="initiatives"] [data-card-id="${id}"]`)).toBeVisible()
+  await expect(page.locator(`[data-workflow="cards"] [data-card-id="${id}"]`)).toHaveCount(0)
+})
+
+test('Admin leaves the board, and the profile stays at the right of the bar', async ({ page }) => {
+  await boardOpen(page)
+  // On a board, the bar names the board and its views.
+  await expect(page.getByRole('navigation', { name: 'Board navigation' })).toBeVisible()
+
+  await page.getByRole('button', { name: /Maya Blake/ }).click()
+  await page.getByRole('button', { name: 'Admin', exact: true }).click()
+
+  // Admin belongs to the organisation, not to the board that was in front: the board's
+  // navigation and its way back are both gone, and the logo is how a person goes home.
+  await expect(page.getByRole('heading', { name: 'Admin', exact: true })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Board navigation' })).toHaveCount(0)
+  await expect(page.getByTitle('Back to every board in the organisation')).toHaveCount(0)
+  await expect.poll(() => page.title()).toBe('Admin · Kanban Toolkit')
+
+  const bar = page.locator('[data-top-bar]')
+  const profile = page.getByRole('button', { name: /Maya Blake/ })
+  const barBox = (await bar.boundingBox())!
+  const profileBox = (await profile.boundingBox())!
+  expect(Math.round(barBox.x + barBox.width - (profileBox.x + profileBox.width))).toBe(12)
+
+  await page.getByTitle('Workspace home').click()
+  await expect(page.getByRole('heading', { name: 'Workspace Home' })).toBeVisible()
+})

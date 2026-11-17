@@ -164,15 +164,17 @@ test('a column header wears its stage colour', async ({ page }) => {
   expect(await dev.evaluate((el) => getComputedStyle(el).borderTopWidth)).toBe('1px')
 })
 
-test('a Done card wears a thin green edge and one quiet surface', async ({ page }) => {
+test('a Done card wears a thin green edge, a quiet ground and a footer band', async ({ page }) => {
   await openBoard(page)
   const card = page.locator('[data-card-id="st-signup-screens"]')
   await expect(card).toHaveClass(/border-emerald-200/)
   const background = (part: string) =>
     card.locator(part).evaluate((el) => getComputedStyle(el).backgroundColor)
-  // The type is the top stripe; the header and footer keep the card's white ground.
+  // The type is the top stripe; the header keeps the card's ground, and the foot is its own band.
   expect(await background('[data-card-header]')).toBe('rgba(0, 0, 0, 0)')
-  expect(await background('[data-card-footer]')).toBe('rgba(0, 0, 0, 0)')
+  const foot = await background('[data-card-footer]')
+  expect(foot).not.toBe('rgba(0, 0, 0, 0)')
+  expect(foot).not.toBe(await card.evaluate((el) => getComputedStyle(el).backgroundColor))
   await expect(card.locator('[data-card-type-stripe]')).toBeVisible()
 })
 

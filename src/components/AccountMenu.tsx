@@ -152,7 +152,25 @@ export function AccountMenu() {
                 <button
                   onClick={() => {
                     setOpen(false)
-                    useStore.getState().setView('admin')
+                    // Admin is organisation-level, so it leaves the board in front. An open board
+                    // design is an unsaved draft; leaving must say so rather than keep it behind a
+                    // screen that has no Save control.
+                    const state = useStore.getState()
+                    if (!state.editMode) {
+                      state.setView('admin')
+                      return
+                    }
+                    state.askConfirm({
+                      title: 'Leave design?',
+                      body: 'Unsaved changes lost.',
+                      confirmLabel: 'Discard',
+                      danger: true,
+                      onConfirm: () => {
+                        const after = useStore.getState()
+                        after.cancelEdit()
+                        after.setView('admin')
+                      },
+                    })
                   }}
                   className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1.5 text-left text-meta text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                 >

@@ -22,7 +22,12 @@ const VIEW_LABEL: Record<ViewName, string | null> = {
 }
 
 export function headingFor(place: { view: ViewName; board?: string }): string {
-  const parts = [place.board, VIEW_LABEL[place.view]].filter((part): part is string => Boolean(part))
+  // The workspace home and Admin belong to the organisation, not to the board a person came from,
+  // so that board does not lead their name.
+  const organisation = place.view === 'boards' || place.view === 'admin'
+  const parts = [organisation ? undefined : place.board, VIEW_LABEL[place.view]].filter(
+    (part): part is string => Boolean(part),
+  )
   // A board called "Admin" should not read "Admin · Admin"; a repeated part is said once.
   const said = parts.filter((part, i) => parts.indexOf(part) === i)
   return said.join(' · ') || PRODUCT

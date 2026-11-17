@@ -30,6 +30,7 @@ import { useStore } from '@/store'
 import { useDialogFocus } from '@/lib/useDialogFocus'
 import type { BoardTemplate, TemplateLane } from '@/domain/types'
 import { VocabularySaveError } from './VocabularySaveError'
+import { ColorSwatches } from './ColorSwatches'
 
 /**
  * A template, read-only or editable.
@@ -325,13 +326,7 @@ export function TemplateEditor({
                   ))}
 
                   <div className="flex items-center gap-1 pt-0.5">
-                    <input
-                      type="color"
-                      value={newTypeColor}
-                      onChange={(e) => setNewTypeColor(e.target.value)}
-                      title="New type colour"
-                      className="h-6 w-6 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
-                    />
+                    <ColorSwatches value={newTypeColor} onChange={setNewTypeColor} label="New type colour" size="sm" />
                     <input
                       value={newTypeName}
                       onChange={(e) => setNewTypeName(e.target.value)}

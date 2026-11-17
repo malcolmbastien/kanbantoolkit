@@ -34,10 +34,11 @@ Every board has a **Detail** dial in its secondary bar, beside **Archive done** 
 **Mini → Summary → Full**.
 
 - **Full** is the card described on this page — every field, badge and control.
-- **Summary** keeps the title, type, due date and people, with the due date at the foot where Full
-  puts it. It carries no **warning words**: a small red or amber triangle marks that warnings exist,
-  with their sentences in its title, and Full is where each one explains itself. The description,
-  tags, checklist, links, parent, age, priority, counts and warning badges are not drawn.
+- **Summary** keeps the title, type, due date and people, with the due date and people in the same
+  footer band Full uses. It carries no **warning words**: a small red or amber triangle marks that
+  warnings exist, with their sentences in its title, and Full is where each one explains itself. The
+  description, tags, checklist, links, parent, age, priority, counts and warning badges are not
+  drawn.
 - **Mini** draws each item as a small colour tile in a wrapping grid: the type's colour, a red marker
   when the card is blocked, and an amber marker when it has a warning. Hovering or focusing a tile
   opens a reading card with the title and type, what it rolls up to, who is assigned (or
@@ -45,6 +46,12 @@ Every board has a **Detail** dial in its secondary bar, beside **Archive done** 
   accessible name carries. The layer is visual only: it takes no click, and it closes on a press,
   a scroll or when focus leaves. An **external dependency** tile opens the same way, with its state,
   home board and the cards here that wait on it.
+
+Every card ends in a **footer band**, at Full and Summary alike: the promise (due date), the link,
+the checklist, the finished stamp and the people sit on one opaque strip at the foot, so the facts a
+reader acts on are found in the same place on every card. A blocked card's band is rose, like its
+surface; a done card's is grey; a card with nothing in its foot draws no band rather than an empty
+one.
 
 The level changes only the drawing. The same items are in the same cells, with the same counts, WIP,
 filters, search, selection, drag, card menu and keyboard moves. It is remembered in this
@@ -241,6 +248,12 @@ sentence, and a deleted card is never named.*
 
 ## What an initiative shows
 
+A card becomes an initiative from its card menu (**Convert to initiative**). It is the same item —
+the same id, people, tags, links, comments, dependencies, parent and history — wearing the reserved
+Initiative type; the card type it gave up is named in its history. Its placement leaves the cards
+flow for the initiatives flow's section of its stage, and its kind is left unset for a person to
+choose. One card at a time, and only where the board has an initiatives cell.
+
 An initiative is the outcome above the cards. It has no status field and no estimate of its own:
 its status is read from the leaves below it, and its size is the number of those leaves.
 
@@ -256,6 +269,10 @@ the same order as the progress bar below them: **Done** (green), **In Progress**
 Started** (blue), then **Backlog** (grey), so the state of the work reads left to right.
 
 - A pip is a way into that child: clicking it opens the child and, on a board, brings it into view.
+- Hovering a pip shows a small reading of that child without opening it: whether it is a card or an
+  initiative and what stage it is in, its title, type and kind, people, deadline, tags, and the
+  board, workflow and column it sits in. The reading is visual only — it takes no click and closes
+  when the pointer leaves; the initiative's own panel remains the keyboard path to every child.
 - Pips are direct children, not every descendant. The work beneath a child is behind that child's
   own card.
 - Up to 12 pips are drawn; beyond that a **+N** says how many more there are. Completed filed-away
@@ -275,7 +292,7 @@ completed still counts, so filing away finished work does not lower a parent's p
 — so they cannot flatter the bar or the percentage. The bar's title and accessible name carry every
 count.
 
-The due date, external link, **Done** stamp and people sit on the footer rule, as they do on a card.
+The due date, external link, **Done** stamp and people sit in the footer band, as they do on a card.
 The progress bar above is the initiative's own reading; the footer is what a reader can act on.
 
 The denominator is all the leaves, including those still in Backlog, so planning more uncommitted

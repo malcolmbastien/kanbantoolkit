@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
+  ArrowUpRight,
   Archive,
   ArchiveX,
   Ban,
@@ -25,7 +26,10 @@ import { lanePath, leafLanes } from '@/domain/lanes'
 import { cn } from '@/lib/utils'
 import { heldByOther, usePresence } from '@/lib/presence'
 import { useStore } from '@/store'
+import { useMay } from '@/lib/permissions'
+import { announce } from '@/lib/announce'
 import { cardsFlows } from '@/domain/flows'
+import { canPromoteToInitiative } from '@/domain/promote'
 
 interface Props {
   /** The cards this menu acts on — a selection group, or just the one. */
@@ -77,6 +81,8 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const unblockItems = useStore((s) => s.unblockItems)
   const archiveItems = useStore((s) => s.archiveItems)
   const askConfirm = useStore((s) => s.askConfirm)
+  const promoteToInitiative = useStore((s) => s.promoteToInitiative)
+  const may = useMay()
 
   const [open, setOpen] = useState<Panel | null>(null)
   const [subPos, setSubPos] = useState<{ top: number; left: number; maxHeight: number } | null>(null)
@@ -104,6 +110,14 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const kinds = boardInitiativeTypes(boards.find((b) => b.id === boardId))
   const kind = initiativeTypeById(boards, only?.initiativeTypeId)
   const kindElsewhere = kind && !kinds.some((k) => k.id === kind.id)
+  // One card, one board, one cell: the conversion moves the same item out of a cards flow and
+  // into the initiatives flow, so a group would have several sections to choose between. The
+  // domain decides, the same rule the server asks, so an offered action is one that will work.
+  const canPromote =
+    single &&
+    Boolean(only) &&
+    may('item.write') &&
+    canPromoteToInitiative(only!.id, boardId, { items, boards, placements, lanes, flows, issueTypes })
   const lanesLeaf = cardsFlows(flows, boardId).flatMap((flow) => leafLanes(lanes, flow.id))
   const anyBlocked = targets.some((t) => t.blocked)
   const allBlocked = count > 0 && targets.every((t) => t.blocked)
@@ -120,6 +134,21 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
       if (!itemIds.includes(child)) below.add(child)
     }
   }
+  const requestPromote = () => {
+    if (!only) return
+    askConfirm({
+      title: `Convert “${only.title}” to an initiative?`,
+      body:
+        'The same item, with its people, links, comments and history. It leaves the cards flow for ' +
+        'the initiatives section of its stage, and its type becomes Initiative; the old type is ' +
+        'recorded in its history.',
+      confirmLabel: 'Convert',
+      onConfirm: () => {
+        if (!promoteToInitiative(only.id)) announce('This card could not be converted to an initiative.')
+      },
+    })
+  }
+
   const requestArchive = () => {
     const discard = !allComplete
     if (below.size === 0 && !discard) {
@@ -484,6 +513,17 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
               <Unlink size={13} />
             </span>
             <span className="flex-1">Remove parent</span>
+          </button>
+        )}
+        {/* A card becoming an initiative is its own act, not a retype: the item keeps its id and
+            history, and its placement leaves the cards flow for the initiatives section of its
+            stage. Offered only where the domain would accept it. */}
+        {canPromote && (
+          <button className={ITEM} onClick={() => run(requestPromote)}>
+            <span className="shrink-0 text-slate-600">
+              <ArrowUpRight size={13} />
+            </span>
+            <span className="flex-1">Convert to initiative</span>
           </button>
         )}
         {/* An initiative does not live in a lane — it lives in a cell of a section, and moves

@@ -1,4 +1,5 @@
-import { memo, useCallback, useRef, useState } from 'react'
+import { memo, useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ArrowLeftRight, Ban, Check, Clock, CornerDownRight, Link2, ListChecks, Lock, Tag as TagIcon, TriangleAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, softChipColors, STAGE_COLOR, tintOn } from '@/lib/colors'
@@ -13,7 +14,7 @@ import type { HealthFlagInfo } from '@/domain/health'
 import type { InitiativeType, Tag } from '@/domain/types'
 import { PersonAvatar } from './PersonAvatar'
 import { PROGRESS_STAGE_ORDER, StageProgressBar, type StageCounts } from './StageProgressBar'
-import { PriorityBadge } from './PriorityBadge'
+import { PriorityBadge, PRIORITY_META } from './PriorityBadge'
 import { DueChip } from './DueChip'
 import { heldByOther, usePresence } from '@/lib/presence'
 import { MiniHoverCard, MiniHoverReasons } from './MiniHoverCard'
@@ -58,6 +59,238 @@ export interface CardSymbol {
   id: string
   bucket: Stage
   title: string
+  /**
+   * The child's own facts, resolved by the surface that draws the pips. A pip is a pointer shortcut
+   * to a card that may be on another board, and its hover reading has to name what the reader would
+   * see if they opened it — without the initiative card walking the whole workspace for each pip.
+   */
+  type?: IssueType
+  /** An initiative child's own kind, when it has one. */
+  kind?: InitiativeType
+  assigneeIds?: string[]
+  dueDate?: string
+  priority?: Item['priority']
+  tags?: Tag[]
+  blocked?: boolean
+  blockedReason?: string
+  boardName?: string
+  flowName?: string
+  laneName?: string
+  /** For an initiative child: the work below it, as the count the child's own card reads. */
+  below?: { total: number; percent?: number }
+}
+
+/**
+ * The sentence over a pip's hover reading.
+ *
+ * The stage is said in words as well as shown as a dot, because the panel is a reading rather than
+ * a colour key — and "A child card currently in progress" is the fact the pip's colour stands for.
+ */
+function pipSentence(bucket: Stage, initiative: boolean): string {
+  const noun = initiative ? 'initiative' : 'card'
+  switch (bucket) {
+    case 'backlog':
+      return `A child ${noun} in the backlog`
+    case 'notStarted':
+      return `A child ${noun} not started`
+    case 'inProgress':
+      return `A child ${noun} currently in progress`
+    case 'done':
+      return `A child ${noun} that is done`
+  }
+}
+
+/**
+ * A pip's rich reading, shown while the pointer is over it.
+ *
+ * Visual only, like the Mini reading card: a pointer can hover a pip, but the keyboard path to a
+ * child is the initiative's own panel, which lists every child and opens each with a name. The panel
+ * is therefore hidden from assistive technology and does not take the pointer — moving off the pip
+ * closes it, exactly as moving off a tooltip does.
+ */
+function PipPreview({ symbol, anchor, users }: { symbol: CardSymbol; anchor: DOMRect; users?: User[] }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [at, setAt] = useState<{ left: number; top: number } | null>(null)
+  const people = peopleOf(users ?? [], symbol.assigneeIds)
+
+  useLayoutEffect(() => {
+    const element = ref.current
+    if (!element) return
+    const box = element.getBoundingClientRect()
+    const gap = 8
+    const left =
+      anchor.right + gap + box.width <= window.innerWidth - gap
+        ? anchor.right + gap
+        : Math.max(gap, anchor.left - gap - box.width)
+    const top = Math.max(gap, Math.min(anchor.top - 8, window.innerHeight - box.height - gap))
+    setAt({ left, top })
+  }, [anchor])
+
+  const row = (label: string, value: React.ReactNode) => (
+    <div className="flex items-start gap-2">
+      <dt className="w-[74px] shrink-0 text-slate-500">{label}</dt>
+      <dd className="min-w-0 flex-1 break-words text-slate-800">{value}</dd>
+    </div>
+  )
+  const type = symbol.type
+  const kind = symbol.kind
+
+  return createPortal(
+    <div
+      ref={ref}
+      data-pip-preview
+      aria-hidden
+      role="presentation"
+      style={{ left: at?.left ?? -9999, top: at?.top ?? -9999 }}
+      className="pointer-events-none fixed z-40 w-72 overflow-hidden rounded-lg border border-slate-300 bg-white text-meta shadow-xl"
+    >
+      <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2">
+        <span className={cn('grid h-5 w-5 shrink-0 place-items-center rounded-full text-white', BUCKET_DOT[symbol.bucket])}>
+          <CornerDownRight size={11} aria-hidden />
+        </span>
+        <span className="min-w-0 text-micro font-semibold text-slate-700">
+          {pipSentence(symbol.bucket, Boolean(kind) || Boolean(type?.name === 'Initiative'))}
+        </span>
+      </div>
+
+      <div className="space-y-2 px-3 py-2.5">
+        <p className="line-clamp-2 break-words text-body font-semibold leading-snug text-slate-900">{symbol.title}</p>
+
+        {symbol.blocked && (
+          <p className="rounded border border-rose-200 bg-rose-50 px-2 py-1 text-micro font-medium text-rose-800">
+            Blocked{symbol.blockedReason ? `: ${symbol.blockedReason}` : ''}
+          </p>
+        )}
+
+        {(type || kind || symbol.priority) && (
+          <div className="flex flex-wrap items-center gap-1">
+            {type && type.id !== NONE_TYPE_ID && (
+              <span
+                className="inline-flex items-center rounded border px-1.5 py-px text-micro font-bold uppercase tracking-wide"
+                style={{ ...softChipColors(type.color), borderColor: tintOn(type.color, 0.32) }}
+              >
+                {type.name}
+              </span>
+            )}
+            {type && type.id === NONE_TYPE_ID && (
+              <span className="text-micro text-slate-500">Type: None</span>
+            )}
+            {kind && (
+              <span className="inline-flex items-center gap-1 rounded border border-slate-200 px-1.5 py-px text-micro font-medium text-slate-700">
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: kind.color }} />
+                {kind.name}
+              </span>
+            )}
+            {symbol.priority && (
+              <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-px text-micro font-medium text-slate-700">
+                {PRIORITY_META[symbol.priority].label}
+              </span>
+            )}
+          </div>
+        )}
+
+        <dl className="space-y-1">
+          {row(
+            'People',
+            people.length === 0 ? (
+              <span className="text-slate-500">Unassigned</span>
+            ) : (
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="flex shrink-0 items-center -space-x-1">
+                  {people.slice(0, 3).map((person) => (
+                    <PersonAvatar key={person.id} user={person} gone={person.gone} small className="ring-1 ring-white" />
+                  ))}
+                </span>
+                <span className="min-w-0 truncate">{people.map((person) => person.name).join(', ')}</span>
+              </span>
+            ),
+          )}
+          {row(
+            'Deadline',
+            symbol.dueDate ? (
+              <DueChip item={symbol} complete={symbol.bucket === 'done'} />
+            ) : (
+              <span className="text-slate-500">—</span>
+            ),
+          )}
+          {symbol.tags && symbol.tags.length > 0 && row('Tags', <span className="flex flex-wrap items-center gap-1"><TagChips tags={symbol.tags} /></span>)}
+        </dl>
+
+        <div className="border-t border-slate-100 pt-1.5">
+          <dl className="space-y-1">
+            {symbol.boardName && row('Board', <span className="block truncate" title={symbol.boardName}>{symbol.boardName}</span>)}
+            {symbol.flowName && row('Workflow', <span className="block truncate" title={symbol.flowName}>{symbol.flowName}</span>)}
+            {symbol.laneName && row('Column', <span className="block truncate" title={symbol.laneName}>{symbol.laneName}</span>)}
+            {symbol.below && row(
+              'Below',
+              symbol.below.total === 0
+                ? <span className="text-slate-500">Nothing yet</span>
+                : <span>{symbol.below.total} {symbol.below.total === 1 ? 'item' : 'items'}{symbol.below.percent !== undefined ? ` · ${symbol.below.percent}% done` : ''}</span>,
+            )}
+          </dl>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+/** One pip: a way into a child, with the child's own facts on hover. */
+function ChildPip({ symbol, onOpen, users }: { symbol: CardSymbol; onOpen: (id: string) => void; users?: User[] }) {
+  const ref = useRef<HTMLButtonElement>(null)
+  const [anchor, setAnchor] = useState<DOMRect | null>(null)
+
+  // The panel is fixed against the viewport, so a scroll would leave it pointing at where the pip
+  // used to be. Closing is the honest answer; the pointer can find the pip again.
+  useLayoutEffect(() => {
+    if (!anchor) return
+    const close = () => setAnchor(null)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => {
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
+  }, [anchor])
+
+  return (
+    <>
+      <button
+        ref={ref}
+        type="button"
+        data-child-pip
+        data-pip-for={symbol.id}
+        // A board carries one pip for every child of every initiative on it, so a tab stop each
+        // would put hundreds of stops between the top of a board and the cards below. The pip is a
+        // pointer shortcut; the keyboard path to a child is the card's own panel.
+        tabIndex={-1}
+        aria-label={`${symbol.title} — ${STAGE_LABELS[symbol.bucket]}`}
+        title={`${symbol.title} · ${STAGE_LABELS[symbol.bucket]}`}
+        onPointerEnter={(event) => {
+          if (event.pointerType !== 'mouse') return
+          setAnchor(event.currentTarget.getBoundingClientRect())
+        }}
+        onPointerLeave={(event) => {
+          if (event.pointerType === 'mouse') setAnchor(null)
+        }}
+        onClick={(e) => {
+          // The pip is not the card: opening the child must not also open the initiative whose
+          // face the pip sits on.
+          setAnchor(null)
+          e.stopPropagation()
+          onOpen(symbol.id)
+        }}
+        className={cn(
+          'h-4 w-4 shrink-0 rounded transition hover:brightness-90',
+          // A finger needs a bigger square than a pointer does, and the square is the hit area —
+          // so it grows, and the touch target is what you can see.
+          'pointer-coarse:h-6 pointer-coarse:w-6',
+          BUCKET_DOT[symbol.bucket],
+        )}
+      />
+      {anchor && <PipPreview symbol={symbol} anchor={anchor} users={users} />}
+    </>
+  )
 }
 
 /**
@@ -603,6 +836,9 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
     // Summary keeps the warning's presence, not its sentence. The card's own Blocked badge already
     // says the loudest one, so it is not repeated here; a small triangle carries the rest.
     const summaryWarnings = attention(false).filter((warning) => !(blocked && warning.label === 'Blocked'))
+    // The foot is a band only when it has something to hold: an empty band on a lean card is
+    // chrome pretending to be information.
+    const summaryFoot = Boolean(item.dueDate) || assignees.length > 0
     const summaryTone = summaryWarnings.some((warning) => warning.tone === 'risk') ? 'risk' : 'watch'
     const summaryWarningLabel = summaryWarnings.map((warning) => warning.why ?? warning.label).join(' · ')
     return (
@@ -621,7 +857,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         onContextMenu={openOnContextMenu}
         className={cn(
           'group relative flex min-h-[76px] w-full flex-col overflow-hidden rounded-lg border text-left shadow-xs transition',
-          blocked ? 'bg-rose-50/70' : 'bg-white',
+          blocked ? 'bg-rose-50' : 'bg-white',
           cardEdges,
           summary.done && 'bg-slate-50',
           FOCUS_RING,
@@ -692,7 +928,13 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           {item.title}
         </div>
 
-        <div className="mt-auto flex items-end justify-between gap-2 px-2 pb-1.5 pt-1">
+        <div
+          data-card-footer={summaryFoot ? '' : undefined}
+          className={cn(
+            'mt-auto flex items-end justify-between gap-2 px-2 pb-1.5 pt-1',
+            summaryFoot && cn('border-t', footerSurface(blocked, Boolean(summary.done))),
+          )}
+        >
           {/* The due date sits at the foot, where the Full card puts it, and the people stay on
               the right, so scanning down the column reads the same shape at either level. Summary
               carries no warning words: a small triangle above marks their presence, and Full is
@@ -940,7 +1182,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           // `@container` lets the card shed detail as its column narrows (see the `@[Npx]:`
           // variants below) instead of overflowing a customised flow.
           '@container group relative flex w-full flex-col overflow-hidden rounded-lg border text-left shadow-sm transition',
-          blocked ? 'bg-rose-50/70' : 'bg-white',
+          blocked ? 'bg-rose-50' : 'bg-white',
           cardEdges,
           summary.done && 'bg-slate-50',
           FOCUS_RING,
@@ -1011,30 +1253,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
             {pips.length > 0 ? (
               <span className="flex items-center gap-1" title={`${pips.length} directly below: ${spread}`}>
                 {pips.slice(0, MAX_PIPS).map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    // A board carries one pip for every child of every initiative on it, so a tab
-                    // stop each would put hundreds of stops between the top of a board and the
-                    // cards below. The pip is a pointer shortcut; the keyboard path to a child is
-                    // the card's own panel, which already lists them.
-                    tabIndex={-1}
-                    aria-label={`${p.title} — ${STAGE_LABELS[p.bucket]}`}
-                    title={`${p.title} · ${STAGE_LABELS[p.bucket]}`}
-                    onClick={(e) => {
-                      // The pip is not the card: opening the child must not also open the
-                      // initiative whose face the pip sits on.
-                      e.stopPropagation()
-                      onOpen(p.id)
-                    }}
-                    className={cn(
-                      'h-4 w-4 shrink-0 rounded transition hover:brightness-90',
-                      // A finger needs a bigger square than a pointer does, and the square is the
-                      // hit area — so it grows, and the touch target is what you can see.
-                      'pointer-coarse:h-6 pointer-coarse:w-6',
-                      BUCKET_DOT[p.bucket],
-                    )}
-                  />
+                  <ChildPip key={p.id} symbol={p} onOpen={onOpen} users={users} />
                 ))}
                 {pips.length > MAX_PIPS && <span className="font-semibold text-slate-600">+{pips.length - MAX_PIPS}</span>}
               </span>
@@ -1109,7 +1328,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
             data-card-footer
             className={cn(
               'mt-auto flex items-center justify-between gap-2 border-t px-3 py-1.5',
-              blocked ? 'border-rose-200 bg-rose-100/70' : 'border-slate-100',
+              footerSurface(blocked, Boolean(summary.done)),
             )}
           >
             <div className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -1171,7 +1390,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         // row, not a rail: a coloured edge on every card competed with the one edge that matters,
         // the rose rail of a blocked card. What is loud on a card is its state, not its type.
         'group relative flex min-h-[116px] w-full flex-col overflow-hidden rounded-lg border text-left shadow-sm transition',
-        blocked ? 'bg-rose-50/70' : 'bg-white',
+        blocked ? 'bg-rose-50' : 'bg-white',
         cardEdges,
         summary.done && 'bg-slate-50',
         FOCUS_RING,
@@ -1260,7 +1479,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
             data-card-footer
             className={cn(
               'mt-auto flex items-center justify-between gap-2 border-t px-3 py-1.5',
-              blocked ? 'border-rose-200 bg-rose-100/70' : 'border-slate-100',
+              footerSurface(blocked, Boolean(summary.done)),
             )}
           >
             <div className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -1349,7 +1568,9 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
   if (a.tags?.length !== b.tags?.length) return false
   if (a.tags && b.tags && a.tags.some((t, i) => t.id !== b.tags![i].id || t.name !== b.tags![i].name || t.color !== b.tags![i].color)) return false
   if (a.symbols?.length !== b.symbols?.length) return false
-  if (a.symbols && b.symbols && a.symbols.some((sym, i) => sym.id !== b.symbols![i].id || sym.bucket !== b.symbols![i].bucket || sym.title !== b.symbols![i].title)) return false
+  // A symbol now carries the child's own reading — people, dates, placement — so a change to the
+  // child has to redraw the initiative's pips, not only a change to its title or stage.
+  if (a.symbols && b.symbols && JSON.stringify(a.symbols) !== JSON.stringify(b.symbols)) return false
   if (a.flags?.length !== b.flags?.length) return false
   if (a.flags && b.flags && a.flags.some((f, i) => f.flag !== b.flags![i].flag || f.label !== b.flags![i].label || f.tone !== b.flags![i].tone)) return false
   return summaryEqual(a.summary, b.summary)
@@ -1440,6 +1661,20 @@ function TagChips({ tags }: { tags?: Tag[] }) {
       )}
     </>
   )
+}
+
+/**
+ * The foot of a card: one band at the bottom for the facts a reader acts on.
+ *
+ * The promise, the link, the checklist, the finished stamp and the people sit there, so the same
+ * information is found in the same place on every card, at every detail level. The band is opaque —
+ * the drag layer renders the card's own markup, and a translucent card shows the lane through it
+ * the moment it is lifted — and it is one step deeper than the card's own surface, so a blocked
+ * card's foot is rose and a done card's is a shade of grey.
+ */
+function footerSurface(blocked: boolean, done: boolean): string {
+  if (blocked) return 'border-rose-200 bg-rose-100'
+  return done ? 'border-slate-200 bg-slate-100' : 'border-slate-200 bg-slate-50'
 }
 
 /** A card that does not re-render when nothing about it changed. See `cardPropsEqual`. */

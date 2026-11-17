@@ -105,6 +105,35 @@ test('an initiative wears its due date and Done stamp in the footer, like a card
   await expect(done).toContainText('Done')
 })
 
+test('hovering a child pip reads the child without opening it', async ({ page }) => {
+  await openBoard(page)
+  const pip = page.locator('[data-card-id="init-signup-redesign"] [data-pip-for="st-signup-validation"]')
+  await expect(pip).toBeVisible()
+  await pip.hover()
+
+  const preview = page.locator('[data-pip-preview]')
+  await expect(preview).toBeVisible()
+  // The stage in words, then the child's own facts — not only an id and a colour.
+  await expect(preview).toContainText('A child card currently in progress')
+  await expect(preview).toContainText('Signup validation on retry')
+  await expect(preview).toContainText('Bug')
+  await expect(preview).toContainText('High')
+  await expect(preview).toContainText('Maya Blake')
+  await expect(preview).toContainText('customer-facing')
+  await expect(preview.locator('[data-due]')).toBeVisible()
+  await expect(preview).toContainText('Team Atlas')
+  await expect(preview).toContainText('Cards')
+  await expect(preview).toContainText('In Progress / Test')
+
+  // Visual only: moving away closes it, and the pip is still the way in.
+  await page.mouse.move(600, 120)
+  await expect(preview).toHaveCount(0)
+  await pip.click()
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel).toBeVisible()
+  await expect(panel.getByLabel('Title')).toHaveValue('Signup validation on retry')
+})
+
 test('a discarded child is out of the progress on the card and in the drawer', async ({ page }) => {
   await openBoard(page)
 
@@ -133,6 +162,62 @@ test('a discarded child is out of the progress on the card and in the drawer', a
   await expect(progress).toContainText('1 of 2 done')
   await expect(progress).toContainText('2 leaves below it')
   await expect(panel.locator('[data-hierarchy-flag="discarded"]')).toContainText('1 discarded')
+})
+
+test('a card becomes an initiative from its menu, keeping the item and its history', async ({ page }) => {
+  await openBoard(page)
+  const id = 'st-usage-billing'
+  const cards = page.locator('[data-workflow="cards"]')
+  const initiatives = page.locator('[data-workflow="initiatives"]')
+  const card = cards.locator(`[data-card-id="${id}"]`)
+  await expect(card).toBeVisible()
+
+  await card.click({ button: 'right' })
+  await page.locator('[data-card-menu][role="menu"]').first().getByRole('button', { name: 'Convert to initiative' }).click()
+  const dialog = page.locator('[data-confirm-dialog]')
+  await expect(dialog).toContainText('Convert')
+  await dialog.getByRole('button', { name: 'Convert', exact: true }).click()
+
+  // It leaves the cards flow and reads as an initiative in the section of the stage it was in.
+  await expect(cards.locator(`[data-card-id="${id}"]`)).toHaveCount(0)
+  const converted = initiatives.locator(`[data-card-id="${id}"]`)
+  await expect(converted).toBeVisible()
+  await expect(page.locator('[data-announcer]')).toContainText(
+    'Converted “Add usage-based billing events” to an initiative.',
+  )
+
+  // The same item: its title, people, type label in the history and every earlier entry survive.
+  await converted.click()
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel).toBeVisible()
+  await expect(panel.getByLabel('Title')).toHaveValue('Add usage-based billing events')
+  await panel.getByRole('button', { name: 'History', exact: true }).click()
+  await expect(panel).toContainText('Converted from a card (was User Story)')
+  await page.keyboard.press('Escape')
+
+  // It is an initiative now, so it is not offered again.
+  await converted.click({ button: 'right' })
+  await expect(page.locator('[data-card-menu][role="menu"]')).not.toContainText('Convert to initiative')
+  await page.keyboard.press('Escape')
+
+  // Content and design, not view state: a reload keeps the new reading.
+  await page.reload()
+  await expect(page.locator('[data-workflow="initiatives"]').locator(`[data-card-id="${id}"]`)).toBeVisible()
+  await expect(page.locator('[data-workflow="cards"]').locator(`[data-card-id="${id}"]`)).toHaveCount(0)
+})
+
+test('the conversion is one card at a time, never a group', async ({ page }) => {
+  await openBoard(page)
+  const cards = page.locator('[data-workflow="cards"]')
+  await cards.locator('[data-card-id="st-usage-billing"]').click({ modifiers: ['Shift'] })
+  await cards.locator('[data-card-id="st-pricing-experiment"]').click({ modifiers: ['Shift'] })
+  await expect(page.locator('[data-bulk-actions]')).toContainText('2 selected')
+
+  await cards.locator('[data-card-id="st-pricing-experiment"]').click({ button: 'right' })
+  const menu = page.getByRole('menu', { name: 'Card actions' })
+  await expect(menu).toBeVisible()
+  // Each conversion has its own stage and its own old type to record; a group has no single answer.
+  await expect(menu).not.toContainText('Convert to initiative')
 })
 
 test('points are gone: no card carries one, and the drawer has no estimate to enter', async ({ page }) => {

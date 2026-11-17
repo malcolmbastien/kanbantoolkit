@@ -25,6 +25,7 @@ import {
   listObjectives,
   listPeople,
   moveItem,
+  promoteItem,
   search,
   setParentItem,
   updateItem,
@@ -192,6 +193,25 @@ export const TOOLS: ToolSpec[] = [
     run: (caller, args) => {
       const { boardId, itemId, ...body } = args
       return moveItem(caller, String(boardId ?? ''), String(itemId ?? ''), body)
+    },
+  },
+  {
+    name: 'convert_to_initiative',
+    description:
+      'Turn one card into an initiative on its board. The same item keeps its id, title, people, tags, links, comments, dependencies, parent and history; it wears the Initiative type, records the old type in its history, and moves from its cards-flow cell to the initiatives section of the same stage. Refused for an initiative, an archived card, a portfolio board, a card not on the board, or a board with no initiatives cell.',
+    scope: 'items:write',
+    action: 'item.write',
+    inputSchema: object(
+      {
+        boardId: id('The board the card is on.'),
+        itemId: id('The card to convert.'),
+        baseRev: { type: 'integer', description: 'Optional: refuse if the card moved since you read it.' },
+      },
+      ['boardId', 'itemId'],
+    ),
+    run: (caller, args) => {
+      const { boardId, itemId, ...body } = args
+      return promoteItem(caller, String(boardId ?? ''), String(itemId ?? ''), body)
     },
   },
   {

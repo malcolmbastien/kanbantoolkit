@@ -696,6 +696,61 @@ describe('a move is the domain’s move', () => {
   })
 })
 
+describe('a card becomes an initiative', () => {
+  it('keeps the item, moves it to the stage section, and refuses a second conversion', async () => {
+    const { signIn, token, db } = await world()
+    const person = await signIn('editor@example.com', 'editor')
+    const writer = await token(person, ['boards:read', 'items:read', 'items:write'], 'writer')
+    const before = (await (await writer.call('/items/i-1')).json()) as { rev: number }
+
+    const converted = await writer.call('/boards/b-1/items/i-1/promote', {
+      method: 'POST',
+      headers: { 'idempotency-key': 'promote-1' },
+      body: body({}),
+    })
+    expect(converted.status).toBe(200)
+    const after = (await converted.json()) as {
+      item: { id: string; title: string; typeId: string; rev: number; laneId: string; rank: number }
+    }
+    // The same item, wearing the reserved type, in the initiatives section of its stage.
+    expect(after.item).toMatchObject({ id: 'i-1', title: 'Card i-1', typeId: 't-init', laneId: 'l-cell-backlog', rank: 0 })
+    expect(after.item.rev).toBe(before.rev + 1)
+    const read = (await (await writer.call('/items/i-1')).json()) as { log: Array<{ note?: string }> }
+    expect(read.log.at(-1)?.note).toBe('Converted from a card (was Card)')
+    expect(await db.get('SELECT lane_id FROM placements WHERE item_id = ?1 AND board_id = ?2', ['i-1', 'b-1'])).toEqual({
+      lane_id: 'l-cell-backlog',
+    })
+    expect(await db.all("SELECT lane_id FROM placements WHERE item_id = 'i-1'")).toHaveLength(1)
+
+    // A retry with the key that made it is answered, not applied again.
+    const replay = await writer.call('/boards/b-1/items/i-1/promote', {
+      method: 'POST',
+      headers: { 'idempotency-key': 'promote-1' },
+      body: body({}),
+    })
+    expect(replay.status).toBe(200)
+    expect(((await replay.json()) as { item: { rev: number } }).item.rev).toBe(after.item.rev)
+
+    // Without the key, the domain says what is already true.
+    const again = await writer.call('/boards/b-1/items/i-1/promote', { method: 'POST', body: body({}) })
+    expect(again.status).toBe(422)
+    expect(((await again.json()) as { error: { message: string } }).error.message).toMatch(/already an initiative/)
+
+    // A credential that may read cannot convert.
+    const reader = await token(person, ['boards:read', 'items:read'], 'reader')
+    expect((await reader.call('/boards/b-1/items/i-2/promote', { method: 'POST', body: body({}) })).status).toBe(403)
+
+    // The shortcut stays refused: a bare type change does not become an initiative.
+    const card = (await (await writer.call('/items/i-2')).json()) as { rev: number }
+    const retype = await writer.call('/items/i-2', {
+      method: 'PATCH',
+      body: body({ baseRev: card.rev, typeId: 't-init' }),
+    })
+    expect(retype.status).toBe(422)
+    expect(((await retype.json()) as { error: { message: string } }).error.message).toMatch(/not retyped into or out of/)
+  })
+})
+
 describe('the answers a client depends on', () => {
   it('puts the rate-limit headers on success and refusal, and answers 429 when spent', async () => {
     const { signIn, token } = await world({ API_RATE_LIMIT: '3' })

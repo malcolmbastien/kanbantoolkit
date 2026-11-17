@@ -19,6 +19,7 @@ import { searchHits } from '../src/domain/search'
 import { mentionedIds } from '../src/domain/mentions'
 import { safeExternalUrl } from '../src/domain/externalLink'
 import { moveCard, moveInitiative } from '../src/domain/move'
+import { promoteToInitiative } from '../src/domain/promote'
 import { can, type Role } from '../src/domain/roles'
 import type { Scope } from '../src/domain/scopes'
 import { statement } from './audit'
@@ -922,6 +923,73 @@ export async function updateItem(caller: OpCaller, itemId: string, body: ItemPat
   )
 
   return ok({ item: compactItem(stored) })
+}
+
+export interface PromoteInputBody {
+  /** Optional: refuse if the card moved since the caller read it. */
+  baseRev?: unknown
+}
+
+/**
+ * Turn one card into an initiative on the board that holds it.
+ *
+ * The rule is the domain's (`promoteToInitiative`), the same one the card menu asks; this adds
+ * only what needs a database: read the workspace, refuse a stale card, write the item and its new
+ * placement in one transaction, and record the trail. The item keeps its id and every field but
+ * the type it gives up; its history gains the old type's name.
+ */
+export async function promoteItem(caller: OpCaller, boardId: string, itemId: string, body: PromoteInputBody = {}, key?: string) {
+  const state = await readWorkspace(caller.db, caller.workspaceId)
+  const current = state.items.find((item) => item.id === itemId)
+  if (!current) return no(404, 'not_found', 'no such item')
+  if (!state.boards.some((board) => board.id === boardId)) return no(404, 'not_found', 'no such board')
+
+  // A retry after a lost response is answered with what is stored, not applied twice. Asked before
+  // the revision: the revision a retry carries is the one it was based on, which is stale exactly
+  // because the first attempt landed.
+  if (key) {
+    const applied = await appliedItemOf(caller.db, key)
+    if (applied && applied.itemId === itemId) {
+      const existing = await readItem(caller.db, itemId, caller.workspaceId)
+      if (existing) {
+        return ok({
+          item: compactItem(existing, state.placements.find((placement) => placement.itemId === itemId && placement.boardId === boardId)),
+          replayed: true,
+        })
+      }
+    }
+  }
+
+  // A conversion is content and arrangement at once; a caller that read first may send a revision,
+  // and a stale one is answered with the truth rather than applied over a newer card.
+  if (typeof body.baseRev === 'number' && (current.rev ?? 0) !== body.baseRev) {
+    return no(409, 'stale', 'this card has moved past the revision the conversion was based on', { item: compactItem(current) })
+  }
+
+  const placementBefore = state.placements.find((placement) => placement.itemId === itemId && placement.boardId === boardId)
+
+  const outcome = promoteToInitiative(itemId, boardId, state, {
+    at: Date.now(),
+    by: caller.user.id,
+    ...(caller.tokenName ? { via: caller.tokenName } : {}),
+    id: () => newId(),
+  })
+  if (outcome.kind === 'refused') return no(422, 'invalid', outcome.message)
+
+  const stored: Item = { ...outcome.item, rev: (current.rev ?? 0) + 1 }
+  await writeItemAndPlacements(
+    caller.db,
+    stored,
+    [outcome.placement],
+    caller.workspaceId,
+    key,
+    auditWrite(caller, 'item.promote', itemId, {
+      from: placementBefore?.laneId,
+      to: outcome.toLaneId,
+    }),
+  )
+  await emitItemChange(caller.db, caller.workspaceId, current, stored, state, caller.user.id)
+  return ok({ item: compactItem(stored, outcome.placement) })
 }
 
 export interface MoveInputBody {

@@ -1,5 +1,5 @@
 import { useEffect, useState, type KeyboardEvent } from 'react'
-import { ArrowLeft, History, RotateCcw } from 'lucide-react'
+import { History, RotateCcw } from 'lucide-react'
 import { PeoplePanel } from './PeoplePanel'
 import { MembersPanel } from './MembersPanel'
 import { InvitationsPanel } from './InvitationsPanel'
@@ -36,7 +36,6 @@ export function AdminView() {
   // The workspace's own administration is a different door: its administrators see it whether or
   // not they run the instance.
   const workspaceAdmin = useAuth((s) => s.user?.role === 'admin' || s.user?.instanceRole === 'admin')
-  const setView = useStore((s) => s.setView)
 
   const tabs: Array<{ id: TabId; label: string }> = [
     ...(workspaceAdmin ? [{ id: 'workspace' as const, label: 'Workspace' }] : []),
@@ -73,15 +72,9 @@ export function AdminView() {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-auto bg-slate-200 p-4">
       <div className="mx-auto flex w-full max-w-4xl min-h-0 flex-1 flex-col">
-        {/* Admin is entered from the workspace and only from there, so it says how to get back. */}
-        <button
-          onClick={() => setView('boards')}
-          className="flex items-center gap-1 self-start text-meta font-medium text-slate-600 transition hover:text-indigo-700"
-          title="Back to every board in the organisation"
-        >
-          <ArrowLeft size={13} /> Boards
-        </button>
-        <h1 className="mt-1 text-title font-semibold tracking-tight text-slate-900">Admin</h1>
+        {/* Admin is an organisation-level place, not a screen inside a board: opening it leaves
+            the board, so it has no board to go back to. The workspace home is the logo's job. */}
+        <h1 className="text-title font-semibold tracking-tight text-slate-900">Admin</h1>
 
         <nav
           role="tablist"

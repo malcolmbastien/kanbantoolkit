@@ -77,6 +77,55 @@ describe('store actions', () => {
     expect(decompositionParent('st-signup-form', s().edges)).toBe('init-signup')
   })
 
+  it('converts a card into an initiative, keeping the item and moving it to its stage section', () => {
+    // The fixture opens on the portfolio; the card being converted is on Team Atlas.
+    s().selectBoard('b-atlas')
+    const before = s().items.find((item) => item.id === 'st-email')!
+    const placementBefore = s().placements.find((placement) => placement.itemId === 'st-email' && placement.boardId === s().boardId)!
+    const stage = effectiveStage(s().lanes, placementBefore.laneId)!
+    const logBefore = before.log?.length ?? 0
+    const oldTypeName = s().issueTypes.find((type) => type.id === before.typeId)!.name
+
+    expect(s().promoteToInitiative('st-email')).toBe(true)
+
+    const after = s().items.find((item) => item.id === 'st-email')!
+    // The same item, not a copy: everything a person wrote is still there.
+    expect(after.id).toBe('st-email')
+    expect(after.title).toBe(before.title)
+    expect(after.description).toBe(before.description)
+    expect(after.assignees).toEqual(before.assignees)
+    expect(after.createdAt).toBe(before.createdAt)
+    expect(after.rev).toBe((before.rev ?? 0) + 1)
+    // It wears the reserved type, carries no kind, and names the type it gave up.
+    expect(after.typeId).toBe('t-initiative')
+    expect(after.initiativeTypeId).toBeUndefined()
+    expect(after.log?.length).toBe(logBefore + 1)
+    expect(after.log?.at(-1)?.note).toBe(`Converted from a card (was ${oldTypeName})`)
+
+    // Its placement left the cards flow for the initiatives section of the same stage.
+    const placementAfter = s().placements.find((placement) => placement.itemId === 'st-email' && placement.boardId === s().boardId)!
+    expect(placementAfter.id).toBe(placementBefore.id)
+    expect(placementAfter.laneId).not.toBe(placementBefore.laneId)
+    expect(effectiveStage(s().lanes, placementAfter.laneId)).toBe(stage)
+    expect(s().flows.find((flow) => flow.id === s().lanes.find((lane) => lane.id === placementAfter.laneId)!.flowId)!.kind).toBe(
+      'initiatives',
+    )
+  })
+
+  it('refuses to convert what is not a live card, and changes nothing', () => {
+    s().selectBoard('b-atlas')
+    // An initiative is already one; an archived card is read-only.
+    expect(s().promoteToInitiative('init-signup')).toBe(false)
+    expect(s().promoteToInitiative('missing')).toBe(false)
+    const card = s().items.find((item) => item.id === 'st-email')!
+    s().archiveItem('st-email')
+    expect(s().promoteToInitiative('st-email')).toBe(false)
+    expect(s().items.find((item) => item.id === 'st-email')).toMatchObject({
+      typeId: card.typeId,
+      rev: (card.rev ?? 0) + 1,
+    })
+  })
+
   it('refuses a parent or a dependency that has been filed away', () => {
     // Archiving an initiative takes its subtree with it; the store must not link new work to it.
     s().archiveItem('init-billing')

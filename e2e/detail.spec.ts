@@ -43,9 +43,19 @@ test('a blocked card wears its state on the card, not only in the badge row', as
   expect(
     await blocked.evaluate((el) => getComputedStyle(el).backgroundColor),
   ).not.toBe(await normal.evaluate((el) => getComputedStyle(el).backgroundColor))
-  expect(
-    await blocked.locator('[data-card-footer]').evaluate((el) => getComputedStyle(el).backgroundColor),
-  ).not.toBe('rgba(0, 0, 0, 0)')
+  // Opaque, not a tint over the lane: the drag layer renders the card's own markup, and a
+  // translucent blocked card lets the board show through it the moment it is lifted.
+  const surface = await blocked.evaluate((el) => getComputedStyle(el).backgroundColor)
+  const foot = await blocked.locator('[data-card-footer]').evaluate((el) => getComputedStyle(el).backgroundColor)
+  expect(surface).not.toContain('/')
+  expect(foot).not.toContain('/')
+  expect(foot).not.toBe('rgba(0, 0, 0, 0)')
+  // Every card's foot is a band, not only a blocked one's: the facts stay in one place to read.
+  const normalFoot = normal.locator('[data-card-footer]')
+  await expect(normalFoot).toBeVisible()
+  const normalBand = await normalFoot.evaluate((el) => getComputedStyle(el).backgroundColor)
+  expect(normalBand).not.toBe('rgba(0, 0, 0, 0)')
+  expect(normalBand).not.toBe(await normal.evaluate((el) => getComputedStyle(el).backgroundColor))
 })
 
 test('a blocked card with no reason keeps the badge, not an empty reason box', async ({ page }) => {

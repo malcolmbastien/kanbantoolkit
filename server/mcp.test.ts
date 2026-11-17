@@ -192,6 +192,7 @@ describe('the tool table', () => {
       'create_item',
       'update_item',
       'move_item',
+      'convert_to_initiative',
       'set_parent',
       'add_note',
     ])
@@ -212,6 +213,7 @@ describe('the tool table', () => {
       'create_item',
       'update_item',
       'move_item',
+      'convert_to_initiative',
       'set_parent',
     ])
   })

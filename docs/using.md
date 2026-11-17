@@ -43,8 +43,10 @@ already holds.
 **Board settings** is a tabbed dialog. **General** holds the board’s name and description, its WIP
 enforcement, the template a board design can be saved as and the board’s CSV export; **Cards** its card types and its
 initiative kinds, with the type new cards default to; **Tags** its tags; and **Boards** the
-boards a program or portfolio reads beneath it. Only the tabs a board can act on are shown, and
-changes are saved as you edit. A board’s type is fixed when it is made and is not a setting: the
+boards a program or portfolio reads beneath it. A type, kind or tag takes its colour from a named
+set of presets — Sky, Violet, Rose, Emerald and so on — rather than a colour wheel, so two words
+stay tellable apart on a card. Only the tabs a board can act on are shown, and changes are saved as
+you edit. A board’s type is fixed when it is made and is not a setting: the
 dialog’s header names it, and there is nothing to change.
 
 The **Detail** dial in the board’s secondary bar — beside **Archive done** and **Filters** — chooses
@@ -144,7 +146,12 @@ The drawer, card pips, initiative rollups and external dependencies are explaine
 A card is made in a **Backlog** column's footer (**Add card to …**) or from **Card** in the
 toolbar. When the board has more than one cards workflow, the arrow beside **Card** names the flow
 the card belongs to; choosing a flow also makes the card there. An initiative is made in the
-initiatives workflow's Backlog footer (**Initiative**) or from **Initiative** in the toolbar. Drag a card to
+initiatives workflow's Backlog footer (**Initiative**) or from **Initiative** in the toolbar. A card
+that turns out to be an outcome can be converted from its card menu (**Convert to initiative**):
+the same item is kept — its id, people, tags, links, comments, dependencies, parent and history —
+and it takes the Initiative type, with the old type recorded in its history. Its placement leaves
+the cards flow for the initiatives section of the same stage; its kind is left for you to choose.
+It is one card at a time, and offered only where the board has an initiatives cell. Drag a card to
 another cell to move it — including into another cards flow, where the target flow's WIP limit
 applies. A column can carry a **WIP limit**; **Settings** decides what a limit does — show a soft amber
 **At limit** line and count when full, and mark a breach with hazard tape (**visualize**),
@@ -297,5 +304,8 @@ this browser.
 **Saved filters** and **collapsed columns** stay on the device: they describe one person's screen, not
 the workspace, so neither is written back to it.
 
-Accounts, invitations and roles belong to the instance: they are managed on its **Admin** screen.
-[Install](install.md) and [configure](configure.md) are how the application is run in the first place.
+Accounts, invitations and roles belong to the instance: they are managed on its **Admin** screen,
+reached from the account menu or the workspace home. **Admin** is an organisation-level place, not a
+screen inside a board: opening it leaves the board, so the top bar shows no board navigation while
+it is open, and the logo is the way home. [Install](install.md) and [configure](configure.md) are how
+the application is run in the first place.

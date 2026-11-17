@@ -80,6 +80,7 @@ first is the token you chose, the second is the person you are.
 | `POST /items` | `items:write` | create a card or an initiative and place it |
 | `PATCH /items/{itemId}` | `items:write` | change its fields; `baseRev` is required |
 | `POST /boards/{boardId}/items/{itemId}/move` | `items:write` | move it into a cell, at a position |
+| `POST /boards/{boardId}/items/{itemId}/promote` | `items:write` | turn one card into an initiative: the same item, moved to the initiatives section of its stage |
 | `GET /objectives` | `boards:read` | objectives with their completeness and key results |
 | `POST /objectives/{objectiveId}/initiatives/{itemId}` | `items:write` | map a top-level initiative to an objective; one objective per initiative, so this moves it |
 | `DELETE /objectives/{objectiveId}/initiatives/{itemId}` | `items:write` | unmap it |
@@ -163,6 +164,12 @@ twice. It lives in the same table the app's own queue uses, and is pruned after 
 `justify` answers `reason_required` until a reason is given, and `block` refuses. A move into another
 workflow, or an initiative across a section, is refused in the same words the app uses: the same
 function (`src/domain/move.ts`) decides.
+
+**What a promotion refuses.** A card becomes an initiative only where the board has an initiatives
+cell for its stage; an item that is already an initiative, a filed-away card, a portfolio board, and
+a card that is not placed in a cards flow on that board are all refused (`422 invalid`, with the
+reason). The item keeps its id and history; the type it gives up is recorded in its history, and the
+conversion is one card at a time.
 
 **The trail.** Every write answers as the token's owner and is recorded as `api.write`, naming the
 operation, the item and the token. A script cannot write without a trail, and cannot write as somebody

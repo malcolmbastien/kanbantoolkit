@@ -46,7 +46,9 @@ test('the top bar stays one row as the window narrows', async ({ page }) => {
  * and the words come back when a resize frees that space again.
  */
 test('the views keep their words while the row has room for them', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 1000 })
+  // 1440 leaves well over a hundred pixels of slack: the assertion is about measuring the row,
+  // not about a boundary the browser's font metrics can tip either way.
+  await page.setViewportSize({ width: 1440, height: 1000 })
   await openBoard(page)
 
   const bar = page.locator('[data-top-bar]')
@@ -61,9 +63,27 @@ test('the views keep their words while the row has room for them', async ({ page
   await expect(dashboard.locator(':scope > span')).toHaveCSS('position', 'absolute')
   await expect(dashboard).toHaveAttribute('title', /Dashboard/)
 
-  await page.setViewportSize({ width: 1280, height: 1000 })
+  await page.setViewportSize({ width: 1440, height: 1000 })
   await expect.poll(async () => bar.getAttribute('data-bar-words')).toBe('views')
   await expect(dashboard.locator(':scope > span')).toHaveCSS('position', 'static')
+})
+
+/**
+ * The workspace home has no board navigation, so nothing pins the actions to the left. They still
+ * belong at the right edge, where a person reaches for search and their account.
+ */
+test('the workspace home keeps its actions at the right edge', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 1000 })
+  await page.goto('/app')
+  await expect(page.getByRole('heading', { name: 'Workspace Home' })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Board navigation' })).toHaveCount(0)
+
+  const bar = page.locator('[data-top-bar]')
+  const actions = page.locator('[data-bar-actions]')
+  const barBox = (await bar.boundingBox())!
+  const actionsBox = (await actions.boundingBox())!
+  // The header's own px-3 is the gap between the actions and the edge.
+  expect(Math.round(barBox.x + barBox.width - (actionsBox.x + actionsBox.width))).toBe(12)
 })
 
 /**

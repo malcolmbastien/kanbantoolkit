@@ -32,6 +32,14 @@ const props = (patch: Partial<CardProps> = {}): CardProps => ({
 })
 
 describe('card memo', () => {
+  it('redraws the pips when a child’s reading changes, not only its title', () => {
+    const symbol = { id: 'c', bucket: 'inProgress' as const, title: 'Child' }
+    expect(cardPropsEqual(props({ symbols: [symbol] }), props({ symbols: [{ ...symbol }] }))).toBe(true)
+    // The same child, a different owner: the hover reading would otherwise keep the old fact.
+    const owned = { ...symbol, assigneeIds: ['u-ada'] }
+    expect(cardPropsEqual(props({ symbols: [symbol] }), props({ symbols: [owned] }))).toBe(false)
+  })
+
   it('skips a card nothing has changed about', () => {
     // Fresh objects every time — the summaries and the parent labels are built per render — and
     // still equal, which is the case the board is made of.

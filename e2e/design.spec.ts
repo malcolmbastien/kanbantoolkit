@@ -217,7 +217,7 @@ test('a new type and kind start from colours the vocabulary is not using', async
   const dialog = page.locator('[data-board-settings]')
   await dialog.getByRole('tab', { name: 'Cards', exact: true }).click()
 
-  const typeColour = (title: string) => dialog.getByTitle(title).inputValue()
+  const typeColour = (title: string) => dialog.getByTitle(title).getAttribute('data-color')
   const newType = await typeColour('New type colour')
   expect(palette.types).not.toContain(newType)
 
@@ -235,7 +235,31 @@ test('a new type and kind start from colours the vocabulary is not using', async
   await page.getByRole('button', { name: 'Settings', exact: true }).click()
   const kinds = page.locator('[data-board-settings]')
   await kinds.getByRole('tab', { name: 'Cards', exact: true }).click()
-  expect(palette.kinds).not.toContain(await kinds.getByTitle('New kind colour').inputValue())
+  expect(palette.kinds).not.toContain(await kinds.getByTitle('New kind colour').getAttribute('data-color'))
+})
+
+test('a vocabulary colour is a preset, named for the reader', async ({ page }) => {
+  await openBoard(page)
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  const dialog = page.locator('[data-board-settings]')
+  await dialog.getByRole('tab', { name: 'Cards', exact: true }).click()
+
+  const trigger = dialog.getByTitle('New type colour')
+  await trigger.click()
+  const presets = dialog.getByRole('group', { name: 'New type colour presets' })
+  await expect(presets.getByRole('button')).toHaveCount(12)
+  // A swatch has a name a person can hear, not only a colour a person can see.
+  for (const name of ['Sky', 'Violet', 'Rose', 'Emerald']) {
+    await expect(presets.getByRole('button', { name })).toBeVisible()
+  }
+  await presets.getByRole('button', { name: 'Rose' }).click()
+  await expect(trigger).toHaveAttribute('data-color', '#f43f5e')
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  // Escape closes the picker, not the settings dialog it sits in.
+  await trigger.click()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeVisible()
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false')
 })
 
 test('a workflow can carry an optional sub-header, written in edit mode', async ({ page }) => {

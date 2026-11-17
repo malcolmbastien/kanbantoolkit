@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import { addLaneNode, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, laneHoldsCards, lanePath, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS } from '@/domain/lanes'
 import { moveCard as moveCardOperation, moveInitiative as moveInitiativeOperation, moveSentence, movedEntry } from '@/domain/move'
+import { promoteToInitiative as promoteCard } from '@/domain/promote'
 import { boardTags, canDesignBoard, canLinkBoard, canRetype, canServeObjective, canSetParent, defaultDropLane, isAggregating, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, itemsCarryingTag, lanesFromTemplate, NONE_TYPE, NONE_TYPE_ID, placementOn, templateFromBoard } from '@/domain/board'
 import { canDepend, canPlaceInSection, decompositionParent, descendants, isComplete, statusOf, uncommittedBelow, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
 import {
@@ -561,6 +562,16 @@ export interface Actions {
   setInitiativeKind: (itemId: string, kindId: string | undefined) => void
   /** The same for a whole selection — a kind is set on whatever in it is an initiative. */
   setItemsKind: (itemIds: string[], kindId: string | undefined) => void
+  /**
+   * Turn one card into an initiative on the board it is placed on.
+   *
+   * The item itself is converted — never copied — so its id, people, tags, links, dependencies,
+   * parent and history all survive; it wears the reserved Initiative type, and the type label it
+   * gives up is named in its history. Its placement leaves the cards flow for the initiatives
+   * section of the same stage, in the same write. One card at a time, because each conversion has
+   * its own section to land in and its own old type to record. Answers whether it happened.
+   */
+  promoteToInitiative: (itemId: string) => boolean
   /** A board's own vocabulary for its initiatives. None is not an entry here — it is absence. */
   addInitiativeType: (boardId: string, name: string, color: string) => void
   updateInitiativeType: (boardId: string, id: string, patch: Partial<InitiativeType>) => void
@@ -3148,6 +3159,46 @@ export const useStore = create<Store>()(
       },
 
       setInitiativeKind: (itemId, kindId) => get().setItemsKind([itemId], kindId),
+
+      promoteToInitiative: (itemId) => {
+        const state = get()
+        const outcome = promoteCard(
+          itemId,
+          state.boardId,
+          {
+            items: state.items,
+            boards: state.boards,
+            placements: state.placements,
+            lanes: state.lanes,
+            flows: state.flows,
+            issueTypes: state.issueTypes,
+          },
+          { at: Date.now(), ...(currentAuthor ? { by: currentAuthor } : {}), id: uid },
+        )
+        if (outcome.kind === 'refused') return false
+
+        // The item is one content change (a new revision, and one board event); the placement is
+        // arrangement, so it takes the same path a move does and both cells are renumbered cleanly.
+        const items = writeItems(state, (entry) => (entry.id === itemId ? outcome.item : entry))
+        const replaced = state.placements.map((placement) =>
+          placement.id === outcome.placement.id ? outcome.placement : placement,
+        )
+        const rankById = new Map<string, number>()
+        for (const laneId of new Set([outcome.fromLaneId, outcome.toLaneId])) {
+          placementsInOrder(replaced.filter((placement) => placement.laneId === laneId), laneId).forEach(
+            (placement, index) => rankById.set(placement.id, index),
+          )
+        }
+        set({
+          items,
+          placements: replaced.map((placement) =>
+            rankById.has(placement.id) ? { ...placement, rank: rankById.get(placement.id)! } : placement,
+          ),
+        })
+        announce(`Converted “${outcome.item.title}” to an initiative.`)
+        return true
+      },
+
 
       setItemsKind: (itemIds, kindId) => {
         const state = get()

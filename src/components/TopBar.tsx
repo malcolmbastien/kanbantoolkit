@@ -90,6 +90,15 @@ function useBarWords(barRef: RefObject<HTMLElement | null>, navRef: RefObject<HT
     }
     const measure = () => setWords(fits('all') ? 'all' : fits('views') ? 'views' : 'none')
     measure()
+    // The first measurement can beat the webfonts: fallback faces are not always the same width, so
+    // a row that will have room a moment later can read as tight. Ask again once the fonts used by
+    // the words are the fonts they will be drawn in.
+    let cancelled = false
+    if (document.fonts) {
+      void document.fonts.ready.then(() => {
+        if (!cancelled) measure()
+      })
+    }
     const observer = new ResizeObserver(measure)
     observer.observe(bar)
     if (navRef.current) observer.observe(navRef.current)
@@ -97,7 +106,10 @@ function useBarWords(barRef: RefObject<HTMLElement | null>, navRef: RefObject<HT
     // account menu signing in — each changes the room left for words without resizing the bar.
     const actions = bar.querySelector('[data-bar-actions]')
     if (actions) observer.observe(actions)
-    return () => observer.disconnect()
+    return () => {
+      cancelled = true
+      observer.disconnect()
+    }
   }, [barRef, navRef])
   return words
 }
@@ -194,7 +206,7 @@ export function TopBar(props: Props) {
         aria-label="Kanban Toolkit"
         className={cn(
           'flex shrink-0 items-center gap-2 rounded-md px-1.5 py-1 transition',
-          showBoards ? 'bg-white ring-1 ring-indigo-300' : 'hover:bg-white',
+          showBoards || showAdmin ? 'bg-white ring-1 ring-indigo-300' : 'hover:bg-white',
         )}
         title="Workspace home"
       >
@@ -204,11 +216,13 @@ export function TopBar(props: Props) {
         <span className="hidden text-title font-semibold tracking-tight text-slate-900 lg:inline">Kanban Toolkit</span>
       </button>
 
-      {/* The navigation is always here: where you can go does not depend on where you are.
-          What does depend on it is further right — a control that acts on the board shows only
-          when the board is the surface, because a view that *reports* on work (dashboard,
-          timeline, flow, archive, objectives) is not the place to make it. */}
-      {!showBoards && (
+      {/* The navigation is always here on a board: where you can go does not depend on where you
+          are. The workspace home and Admin are organisation-level places rather than surfaces of a
+          board, so neither shows a board's navigation. What does depend on the place is further
+          right — a control that acts on the board shows only when the board is the surface,
+          because a view that *reports* on work (dashboard, timeline, flow, archive, objectives) is
+          not the place to make it. */}
+      {!showBoards && !showAdmin && (
         <nav
           ref={navRef}
           aria-label="Board navigation"
@@ -315,7 +329,7 @@ export function TopBar(props: Props) {
         </nav>
       )}
 
-      <div data-bar-actions className="flex shrink-0 items-center gap-1.5">
+      <div data-bar-actions className="ml-auto flex shrink-0 items-center gap-1.5">
         {/* Making work is the board's business, so these show on the board and nowhere else. */}
         {boardActive && (
           <>

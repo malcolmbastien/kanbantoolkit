@@ -11,6 +11,7 @@ import { cardsFlows } from '@/domain/flows'
 import { boardCsv, csvFilename } from '@/domain/csv'
 import { downloadText } from '@/lib/download'
 import { VocabularySaveError } from './VocabularySaveError'
+import { ColorSwatches } from './ColorSwatches'
 
 type SettingsTab = 'general' | 'cards' | 'tags' | 'boards'
 
@@ -371,13 +372,7 @@ export function BoardSettings() {
                   // Editing a type is a workspace-wide act — every board that uses it sees
                   // the new name and colour — so it happens in place, deliberately.
                   <div key={t.id} className={cn(row, 'gap-1')}>
-                    <input
-                      type="color"
-                      value={editColor}
-                      onChange={(e) => setEditColor(e.target.value)}
-                      title="Type colour"
-                      className="h-6 w-6 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
-                    />
+                    <ColorSwatches value={editColor} onChange={setEditColor} label="Type colour" size="sm" />
                     <input
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
@@ -454,13 +449,7 @@ export function BoardSettings() {
               )}
             </div>
             <div className="mt-2 flex items-center gap-1">
-              <input
-                type="color"
-                value={newTypeColor}
-                onChange={(e) => setNewTypeColor(e.target.value)}
-                title="New type colour"
-                className="h-7 w-7 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
-              />
+              <ColorSwatches value={newTypeColor} onChange={setNewTypeColor} label="New type colour" />
               <input
                 value={newTypeName}
                 onChange={(e) => setNewTypeName(e.target.value)}
@@ -521,12 +510,11 @@ export function BoardSettings() {
                   const used = initiativesCarrying(items, k.id)
                   return (
                     <div key={k.id} className={row}>
-                      <input
-                        type="color"
+                      <ColorSwatches
                         value={k.color}
-                        onChange={(e) => updateInitiativeType(board.id, k.id, { color: e.target.value })}
-                        title={`${k.name} colour`}
-                        className="h-6 w-6 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
+                        onChange={(color) => updateInitiativeType(board.id, k.id, { color })}
+                        label={`${k.name} colour`}
+                        size="sm"
                       />
                       <input
                         value={k.name}
@@ -556,13 +544,7 @@ export function BoardSettings() {
                 })}
               </div>
               <div className="mt-2 flex items-center gap-1">
-                <input
-                  type="color"
-                  value={newKindColor}
-                  onChange={(e) => setNewKindColor(e.target.value)}
-                  title="New kind colour"
-                  className="h-7 w-7 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
-                />
+                <ColorSwatches value={newKindColor} onChange={setNewKindColor} label="New kind colour" />
                 <input
                   value={newKindName}
                   onChange={(e) => setNewKindName(e.target.value)}
@@ -611,12 +593,11 @@ export function BoardSettings() {
                   const used = itemsCarryingTag(items, t.id)
                   return (
                     <div key={t.id} className={row}>
-                      <input
-                        type="color"
+                      <ColorSwatches
                         value={t.color}
-                        onChange={(e) => updateTag(board.id, t.id, { color: e.target.value })}
-                        title={`${t.name} colour`}
-                        className="h-6 w-6 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
+                        onChange={(color) => updateTag(board.id, t.id, { color })}
+                        label={`${t.name} colour`}
+                        size="sm"
                       />
                       <input
                         value={t.name}
@@ -646,13 +627,7 @@ export function BoardSettings() {
                 })}
               </div>
               <div className="mt-2 flex items-center gap-1">
-                <input
-                  type="color"
-                  value={newTagColor}
-                  onChange={(e) => setNewTagColor(e.target.value)}
-                  title="New tag colour"
-                  className="h-7 w-7 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
-                />
+                <ColorSwatches value={newTagColor} onChange={setNewTagColor} label="New tag colour" />
                 <input
                   value={newTagName}
                   onChange={(e) => setNewTagName(e.target.value)}
