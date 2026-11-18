@@ -124,7 +124,7 @@ test('the initiative hierarchy has no barrier a machine can find', async ({ page
   await page.goto('/app?board=b-atlas&item=init-billing')
   const panel = page.locator('[data-item-panel]')
   await expect(panel).toBeVisible()
-  await panel.getByRole('button', { name: 'Hierarchy', exact: true }).click()
+  await panel.getByRole('button', { name: 'Relationships', exact: true }).click()
 
   await expect(panel.getByRole('heading', { name: 'Progress below' })).toBeVisible()
   await expect(panel.getByRole('heading', { name: 'Planned dates' })).toBeVisible()

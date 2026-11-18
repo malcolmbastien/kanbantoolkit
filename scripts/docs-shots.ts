@@ -188,7 +188,7 @@ async function main(): Promise<void> {
     await waitForApp(page, true)
     const initiativePanel = page.locator('[data-item-panel]')
     await initiativePanel.waitFor()
-    await initiativePanel.getByRole('button', { name: 'Hierarchy', exact: true }).click()
+    await initiativePanel.getByRole('button', { name: 'Relationships', exact: true }).click()
     await page.waitForTimeout(300)
     await save(page, 'hierarchy-reading', initiativePanel, 760)
 

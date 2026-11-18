@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { archiveOutcome, decompositionChildren, decompositionParent, checklistProgress, descendants, openDependenciesOf, rollupOf, statusOf } from './domain/derive'
 import { boardCardTypeId, boardInitiativeTypes, boardInitiatives, cardTypes, defaultDropLane, defaultCardTypeId, descendantBoards, initiativeCellOf, initiativeRanks, initiativeTypeById, initiativesCarrying, itemsCarryingTag, NONE_TYPE_ID, searchItems, tagsOf } from './domain/board'
 import { cardsFlows } from './domain/flows'
-import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placementsInOrder, rootLane, topLevelLanes } from './domain/lanes'
+import { ancestorsOf, childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placementsInOrder, rootLane, topLevelLanes } from './domain/lanes'
 import type { Board, FlowKind, Item, Lane, Placement, Stage } from './domain/types'
 import { activeFilterCount, ageDays, hasActiveFilters, matchesFilters, NO_FILTERS, type SavedFilter } from './domain/filters'
 import { cumulativeFlow, flowRecord, flowSummary, throughput, weeklyBuckets } from './domain/metrics'
@@ -124,6 +124,30 @@ describe('store actions', () => {
       typeId: card.typeId,
       rev: (card.rev ?? 0) + 1,
     })
+  })
+
+  it('reveals a card by unfolding its workflow and every column above it', () => {
+    s().selectBoard('b-atlas')
+    const placement = s().placements.find((p) => p.itemId === 'st-signup-form' && p.boardId === 'b-atlas')!
+    const lane = s().lanes.find((l) => l.id === placement.laneId)!
+    const folded = [lane.id, ...ancestorsOf(s().lanes, lane.id).map((l) => l.id)]
+    for (const id of folded) if (!s().collapsedLanes[id]) s().toggleCollapse(id)
+    s().toggleWorkflow(lane.flowId)
+    expect(folded.every((id) => s().collapsedLanes[id])).toBe(true)
+    expect(s().collapsedWorkflows[lane.flowId]).toBe(true)
+
+    s().revealItem('st-signup-form')
+    // The card is open, and the way to it is unfolded rather than left folded behind it.
+    expect(s().selectedItemId).toBe('st-signup-form')
+    expect(s().collapsedWorkflows[lane.flowId]).toBe(false)
+    for (const id of folded) expect(s().collapsedLanes[id]).toBe(false)
+  })
+
+  it('reveals a card on another board by opening that board first', () => {
+    s().selectBoard('b-nova')
+    s().revealItem('st-email')
+    expect(s().boardId).toBe('b-atlas')
+    expect(s().selectedItemId).toBe('st-email')
   })
 
   it('refuses a parent or a dependency that has been filed away', () => {

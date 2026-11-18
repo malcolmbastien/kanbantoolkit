@@ -41,6 +41,8 @@ import { useStore } from '@/store'
 import { useDrag } from '@/lib/drag'
 import type { IssueType, Item, Lane, Stage } from '@/domain/types'
 import { initiativesFlow } from '@/domain/flows'
+import { dueLabel, dueState, dueWhy, lateStartDay } from '@/domain/due'
+import { ageDays, STALE_AFTER_DAYS } from '@/domain/filters'
 
 /**
  * A lane header row: the name truly centred, with the WIP count and any edit controls pinned
@@ -105,6 +107,9 @@ export function BoardSummary({
   const editMode = useStore((s) => s.editMode)
   const boardDetail = useStore((s) => s.boardDetail)
   const moveInitiativeToIndex = useStore((s) => s.moveInitiativeToIndex)
+  // A pip opens its child through the board's own reveal: select it, unfold its band and cell,
+  // then let the drawer and the board's reveal hook bring it into view.
+  const revealItem = useStore((s) => s.revealItem)
 
   const graph: Graph = { items, edges, links, placements, lanes }
   // The board's derived facts, once for the render; each initiative card reads a map.
@@ -370,6 +375,45 @@ export function BoardSummary({
       const board = placement ? boards.find((b) => b.id === placement.boardId) : undefined
       const initiative = isInitiativeItem(ci, issueTypes)
       const kind = initiative ? initiativeTypeById(boards, ci.initiativeTypeId) : undefined
+      const complete = bucket === 'done'
+      // The same compact warning set the Mini tile wears, read from the child rather than copied
+      // from its face: a blockage, a promise that has passed, a start that is late, a lane that has
+      // stopped moving, nobody owning in-progress work, and an initiative's own health flags.
+      const flags = initiative ? (health.get(ci.id) ?? []).filter((flag) => flag.flag !== 'discarded') : []
+      const due = complete ? undefined : dueState(ci.dueDate, false)
+      const late = complete ? undefined : lateStartDay(ci.targetStartDate, bucket)
+      const age = complete ? undefined : ageDays(placement)
+      const unowned = !complete && bucket === 'inProgress' && !(ci.assignees?.length ?? 0)
+      // The reasons, in the card's own words. The blocked flag is not repeated here when the card
+      // is itself blocked — the rose callout carries that — but a child initiative blocked *below*
+      // has no other place to say why its pip is rose, so it joins the list.
+      const ownWarnings = !complete
+        ? [
+            ...(due && due.tone !== 'later'
+              ? [{ label: dueLabel(due), why: dueWhy(due), tone: due.tone === 'overdue' ? ('risk' as const) : ('watch' as const) }]
+              : []),
+            ...(late
+              ? [{ label: 'Late start', why: `Its planned start (${late}) passed and it has not started`, tone: 'watch' as const }]
+              : []),
+            ...(unowned
+              ? [{ label: 'Unowned', why: 'It is in progress and nobody is assigned', tone: 'watch' as const }]
+              : []),
+            ...(age !== undefined && age >= STALE_AFTER_DAYS
+              ? [{ label: `${age}d in lane`, why: `${age} days in this lane — work that has stopped moving`, tone: 'watch' as const }]
+              : []),
+            ...flags
+              .filter((flag) => flag.flag !== 'blocked')
+              .map((flag) => ({ label: flag.label, why: flag.why, tone: flag.tone })),
+          ]
+        : []
+      const warnings = [
+        ...ownWarnings,
+        ...flags
+          .filter((flag) => flag.flag === 'blocked')
+          .map((flag) => ({ label: flag.label, why: flag.why, tone: flag.tone })),
+      ]
+      const warned = ownWarnings.length > 0
+      const blocked = Boolean(ci.blocked && !complete) || flags.some((flag) => flag.flag === 'blocked')
       return {
         id: ci.id,
         bucket,
@@ -380,7 +424,9 @@ export function BoardSummary({
         dueDate: ci.dueDate,
         priority: ci.priority,
         tags: tagsOf(boards, ci),
-        blocked: Boolean(ci.blocked && bucket !== 'done'),
+        blocked,
+        warned,
+        ...(warnings.length ? { warnings } : {}),
         blockedReason: ci.blockedReason,
         ...(board ? { boardName: board.name } : {}),
         ...(flow ? { flowName: flow.name } : {}),
@@ -399,6 +445,7 @@ export function BoardSummary({
         wide
         users={users}
         symbols={symbols}
+        onOpenChild={revealItem}
         // The same health rules the dashboard's Health column reads, in the same words — except
         // that a discarded branch is filed history, not a card-face warning. The drawer still
         // names every discarded child; the card does not repeat the count.

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
-import { addLaneNode, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, laneHoldsCards, lanePath, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS } from '@/domain/lanes'
+import { addLaneNode, ancestorsOf, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, laneHoldsCards, lanePath, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS } from '@/domain/lanes'
 import { moveCard as moveCardOperation, moveInitiative as moveInitiativeOperation, moveSentence, movedEntry } from '@/domain/move'
 import { promoteToInitiative as promoteCard } from '@/domain/promote'
 import { boardTags, canDesignBoard, canLinkBoard, canRetype, canServeObjective, canSetParent, defaultDropLane, isAggregating, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, itemsCarryingTag, lanesFromTemplate, NONE_TYPE, NONE_TYPE_ID, placementOn, templateFromBoard } from '@/domain/board'
@@ -222,6 +222,8 @@ export interface ViewState {
   recentBoards: BoardVisit[]
   /** Collapsed top-level columns, keyed by lane id. Persisted. */
   collapsedLanes: Record<string, boolean>
+  /** Folded workflow bands, keyed by flow id (or `initiatives:<board>`). View state, not persisted. */
+  collapsedWorkflows: Record<string, boolean>
   /** Card filters panel open (a right-side panel, like the item panel). */
   showFilters: boolean
   /** The board activity drawer open. One side panel at a time, like the card and filter drawers. */
@@ -291,6 +293,14 @@ export interface Actions {
    * Open an item's drawer. Reading an item does not change the board behind it.
    */
   openItem: (id: string | null) => void
+  /**
+   * Open a card, navigating to it: select its board when it is elsewhere, unfold its workflow band
+   * and every folded column above its cell, then open the drawer. The board's reveal hook scrolls
+   * the card into view after the drawer has taken its room.
+   */
+  revealItem: (id: string) => void
+  /** Fold or unfold a workflow band, by the key `BoardView` gives it. */
+  toggleWorkflow: (key: string) => void
   /**
    * Open an item at its dependencies: the drawer's Hierarchy face, and the Connections lens
    * narrowed to that one item. The badge on a card is the door.
@@ -1273,6 +1283,7 @@ const initialView: ViewState = {
   favouriteBoardIds: [],
   recentBoards: [],
   collapsedLanes: {},
+  collapsedWorkflows: {},
   showFilters: false,
   showBoardActivity: false,
   showSearch: false,
@@ -1951,6 +1962,44 @@ export const useStore = create<Store>()(
         if (!state.boards.some((board) => board.id === boardId)) return
         set({ favouriteBoardIds: toggleFavourite(state.favouriteBoardIds, boardId) })
       },
+      revealItem: (itemId) => {
+        const state = get()
+        const placement =
+          state.placements.find((p) => p.itemId === itemId && p.boardId === state.boardId) ??
+          state.placements.find((p) => p.itemId === itemId)
+        const lane = placement ? state.lanes.find((l) => l.id === placement.laneId) : undefined
+        // A filed-away child has no cell to reveal: open it, and let the drawer say it is archived.
+        if (!placement || !lane) {
+          get().openItem(itemId)
+          return
+        }
+        if (placement.boardId !== state.boardId) {
+          if (state.editMode) {
+            // A board design is an unsaved draft; switching is refused by the one board door.
+            get().openItem(itemId)
+            return
+          }
+          get().selectBoard(placement.boardId)
+        }
+        const now = get()
+        const collapsedLanes = { ...now.collapsedLanes }
+        // The cell and every container above it: fold a split column and its section's ancestor,
+        // and opening the card is a request to see it, not to hunt for the unfolded one.
+        for (const folded of [lane, ...ancestorsOf(now.lanes, lane.id)]) collapsedLanes[folded.id] = false
+        const flow = now.flows.find((f) => f.id === lane.flowId)
+        const workflowKey = flow?.kind === 'initiatives' ? `initiatives:${placement.boardId}` : lane.flowId
+        set({
+          collapsedLanes,
+          collapsedWorkflows: { ...now.collapsedWorkflows, [workflowKey]: false },
+        })
+        get().openItem(itemId)
+      },
+
+      toggleWorkflow: (key) =>
+        set({
+          collapsedWorkflows: { ...get().collapsedWorkflows, [key]: !get().collapsedWorkflows[key] },
+        }),
+
       openItem: (selectedItemId) => {
         const s = get()
         set({

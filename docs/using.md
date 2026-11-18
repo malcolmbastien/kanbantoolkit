@@ -78,7 +78,7 @@ control first.
 
 **Activity** in the same bar opens the board's own stream in that drawer: cards made, changed and
 deleted, and changes to the board's design and workflows, with who and when. It is not a second
-card History — a card still on the board links into its drawer, and a deleted card is never named.
+card record — a card still on the board links into its drawer, and a deleted card is never named.
 [Reading a board](reading-a-board.md#board-activity) has the reading in full.
 
 The same secondary bar has a **Connections** toggle. When it is on, every hierarchy edge (parent →
@@ -89,7 +89,7 @@ dependency whose circle sits on the card here and whose arrow points at the exte
 is a reading aid: off by default, remembered in this browser per board, and it does not change the
 work or intercept a click. A card's drawer adds a **Connections** button that narrows the same lens
 to that item's own strings until the drawer closes or the board changes. The chain-link badge on a
-waiting card is the shortcut: it opens that item's **Hierarchy** tab and turns the scoped lens on in
+waiting card is the shortcut: it opens that item's **Relationships** tab and turns the scoped lens on in
 one press. An initiative card carries that door when it has child work or a dependency to read,
 even with a count of zero; an empty initiative is left quiet.
 
@@ -182,16 +182,15 @@ Select words in the description and the toolbar formats them in place — bold, 
 link, a list or a heading — while the field still stores Markdown. Markdown shortcuts work as you
 type too: `# ` starts a heading, `- ` or `1. ` a list, and `**bold**`, `*italic*` and `` `code` ``
 are recognised as they close. **Comments** is the conversation about the card, with the composer at
-the bottom of that tab; **Hierarchy** shows the parent and the work below; **History** is the card's
-record of changes — every move, edit, block and link, with who and when. A **Flow** card below the
-fields reduces the card's own time to three numbers — open or lead, cycle, and the current cell or
-delivery day — with a short note only when it has been blocked or moved backwards. **Breakdown**
-opens the stage-by-stage reading at the top of History.
+the bottom of that tab; **Relationships** shows the parent, the work below and dependencies; **Flow & History** is the
+card's record of changes — every move, edit, block and link, with who and when. At the top of
+**Flow & History**, a **Flow** section reduces the card's own time to three numbers — open or lead, cycle, and the current
+cell or delivery day — then draws the stage-by-stage reading and the board comparison beside it.
 
-<img src="img/guide/card-drawer.webp" alt="The card drawer for Rebuild the signup form: type, title, Overview, Comments, Hierarchy and History tabs, status, priority, people, the Flow reading and the parent initiative" width="420">
+<img src="img/guide/card-drawer.webp" alt="The card drawer for Rebuild the signup form: type, title, Overview, Comments, Relationships and Flow & History tabs, status, priority, people and the parent initiative" width="420">
 
-*The side drawer, with the board still behind it: the fields and Flow in Overview, the conversation
-in Comments, the parent in Hierarchy and the changes in History.*
+*The side drawer, with the board still behind it: the fields in Overview, the conversation in
+Comments, the parent in Relationships, and the Flow reading and changes in Flow & History.*
 
 A comment is written at the bottom of **Comments**, and typing `@` offers a teammate to mention.
 Mentions are flat: there are no replies and no threads. The person is recorded on the comment and
@@ -209,7 +208,7 @@ the two ends, so it clears when the blocker reaches Done — there is nothing to
 
 The bell in **Overview** watches the card. A watch is one person's interest in one piece of work —
 the creator, each person assigned and whoever writes a comment join without asking. A watch starts
-when you make it: the card's earlier record stays in **History**, not in the inbox; only what happens
+when you make it: the card's earlier record stays in **Flow & History**, not in the inbox; only what happens
 next is news. Watching is not a permission: a Viewer can watch
 too. The **bell in the top bar** opens the inbox, newest first: what changed on the work you watch,
 with the board and column, and a row opens the card where it lives. **Mark all read** moves the

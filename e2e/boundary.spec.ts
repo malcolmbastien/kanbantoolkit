@@ -78,7 +78,7 @@ test('the count includes work this board waits on itself, not only its external 
   await expect(count).toHaveAttribute('aria-label', /^1 open dependency/)
 })
 
-test('the dependency badge opens the Hierarchy tab with this item’s connections showing', async ({ page }) => {
+test('the dependency badge opens the Relationships tab with this item’s connections showing', async ({ page }) => {
   await openBoard(page)
 
   const sso = page.locator('[data-card-id="st-enterprise-sso"]')
@@ -89,7 +89,7 @@ test('the dependency badge opens the Hierarchy tab with this item’s connection
   const panel = page.locator('[data-item-panel]')
   await expect(panel).toHaveAttribute('aria-label', 'Card details: Add SSO for enterprise tenants')
   // The face asked for is Hierarchy, not the Overview every other door opens on.
-  await expect(panel.getByRole('button', { name: 'Hierarchy' })).toHaveClass(/text-indigo-600/)
+  await expect(panel.getByRole('button', { name: 'Relationships', exact: true })).toHaveClass(/text-indigo-600/)
   await expect(panel.getByRole('button', { name: 'Add a dependency' })).toBeVisible()
   // The Connections lens is scoped to this item, and its strings are on the board behind it.
   await expect(panel.getByTitle(/Hide this item.s connections/)).toBeVisible()

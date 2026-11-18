@@ -50,6 +50,7 @@ export function DetailDial({
   return (
     <div
       ref={ref}
+      data-detail-dial
       role="radiogroup"
       aria-label="Level of detail"
       aria-disabled={editMode || undefined}

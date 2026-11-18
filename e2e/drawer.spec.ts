@@ -344,10 +344,23 @@ test('a pip on an initiative opens the child and brings it into view', async ({ 
   }).toBe(true)
 })
 
+test('Overview keeps a compact parent line that opens Relationships', async ({ page }) => {
+  await openBoard(page)
+  await page.locator('[data-card-id="st-signup-rebuild"]').click()
+  const panel = page.locator('[data-item-panel]')
+
+  const line = panel.getByTitle('Parent and relationships')
+  await expect(line).toContainText('Signup redesign')
+  await line.click()
+  await expect(panel.getByRole('button', { name: 'Relationships', exact: true })).toHaveClass(/text-indigo-600/)
+  await expect(panel.getByRole('heading', { name: 'Parent' })).toBeVisible()
+})
+
 test('a parent set in the drawer is the card’s lineage', async ({ page }) => {
   await openBoard(page)
   const id = await openFirstBacklogCard(page)
 
+  await page.getByRole('button', { name: 'Relationships', exact: true }).click()
   await page.getByRole('button', { name: 'Change parent' }).click()
   // The parent editor is the last select in the panel; the only other one is the type.
   await page.locator('select').last().selectOption({ label: 'Trial experience' })
@@ -370,7 +383,7 @@ test('the dependency picker leaves filed-away work out', async ({ page }) => {
   // An active card's picker does not offer it, even by its own title.
   await page.locator('[data-card-id="st-payment-retries"]').click()
   const other = page.locator('[data-item-panel]')
-  await other.getByRole('button', { name: 'Hierarchy' }).click()
+  await other.getByRole('button', { name: 'Relationships', exact: true }).click()
   await other.getByRole('button', { name: 'Add a dependency' }).click()
   const picker = page.locator('[data-item-picker]')
   await picker.getByLabel('Search items').fill('signup')
@@ -384,7 +397,7 @@ test('the dependency picker offers only links across the hierarchy', async ({ pa
   await page.locator('[data-card-id="st-payment-retries"]').click()
   const panel = page.locator('[data-item-panel]')
   await expect(panel).toHaveAttribute('aria-label', 'Card details: Payment retries on soft decline')
-  await panel.getByRole('button', { name: 'Hierarchy' }).click()
+  await panel.getByRole('button', { name: 'Relationships', exact: true }).click()
 
   await panel.getByRole('button', { name: 'Add a dependency' }).click()
   const picker = page.locator('[data-item-picker]')

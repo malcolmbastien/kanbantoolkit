@@ -14,7 +14,7 @@ import type { HealthFlagInfo } from '@/domain/health'
 import type { InitiativeType, Tag } from '@/domain/types'
 import { PersonAvatar } from './PersonAvatar'
 import { PROGRESS_STAGE_ORDER, StageProgressBar, type StageCounts } from './StageProgressBar'
-import { PriorityBadge, PRIORITY_META } from './PriorityBadge'
+import { PriorityBadge } from './PriorityBadge'
 import { DueChip } from './DueChip'
 import { heldByOther, usePresence } from '@/lib/presence'
 import { MiniHoverCard, MiniHoverReasons } from './MiniHoverCard'
@@ -72,32 +72,16 @@ export interface CardSymbol {
   priority?: Item['priority']
   tags?: Tag[]
   blocked?: boolean
+  /** Something to watch that is not the blockage itself: due, age, owner, a health flag. */
+  warned?: boolean
+  /** The reasons behind the amber marker, in the card's own warning vocabulary. */
+  warnings?: Array<{ label: string; why?: string; tone: 'risk' | 'watch' }>
   blockedReason?: string
   boardName?: string
   flowName?: string
   laneName?: string
   /** For an initiative child: the work below it, as the count the child's own card reads. */
   below?: { total: number; percent?: number }
-}
-
-/**
- * The sentence over a pip's hover reading.
- *
- * The stage is said in words as well as shown as a dot, because the panel is a reading rather than
- * a colour key — and "A child card currently in progress" is the fact the pip's colour stands for.
- */
-function pipSentence(bucket: Stage, initiative: boolean): string {
-  const noun = initiative ? 'initiative' : 'card'
-  switch (bucket) {
-    case 'backlog':
-      return `A child ${noun} in the backlog`
-    case 'notStarted':
-      return `A child ${noun} not started`
-    case 'inProgress':
-      return `A child ${noun} currently in progress`
-    case 'done':
-      return `A child ${noun} that is done`
-  }
 }
 
 /**
@@ -144,15 +128,6 @@ function PipPreview({ symbol, anchor, users }: { symbol: CardSymbol; anchor: DOM
       style={{ left: at?.left ?? -9999, top: at?.top ?? -9999 }}
       className="pointer-events-none fixed z-40 w-72 overflow-hidden rounded-lg border border-slate-300 bg-white text-meta shadow-xl"
     >
-      <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2">
-        <span className={cn('grid h-5 w-5 shrink-0 place-items-center rounded-full text-white', BUCKET_DOT[symbol.bucket])}>
-          <CornerDownRight size={11} aria-hidden />
-        </span>
-        <span className="min-w-0 text-micro font-semibold text-slate-700">
-          {pipSentence(symbol.bucket, Boolean(kind) || Boolean(type?.name === 'Initiative'))}
-        </span>
-      </div>
-
       <div className="space-y-2 px-3 py-2.5">
         <p className="line-clamp-2 break-words text-body font-semibold leading-snug text-slate-900">{symbol.title}</p>
 
@@ -160,6 +135,24 @@ function PipPreview({ symbol, anchor, users }: { symbol: CardSymbol; anchor: DOM
           <p className="rounded border border-rose-200 bg-rose-50 px-2 py-1 text-micro font-medium text-rose-800">
             Blocked{symbol.blockedReason ? `: ${symbol.blockedReason}` : ''}
           </p>
+        )}
+
+        {symbol.warnings && symbol.warnings.length > 0 && (
+          <div data-pip-warnings className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5">
+            <p className="text-micro font-bold uppercase tracking-wide text-amber-800">
+              {symbol.warnings.length === 1 ? 'Warning' : 'Warnings'}
+            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-1">
+              {symbol.warnings.map((warning) => (
+                <WarningBadge
+                  key={warning.label}
+                  label={warning.label}
+                  why={warning.why ?? warning.label}
+                  tone={warning.tone}
+                />
+              ))}
+            </div>
+          </div>
         )}
 
         {(type || kind || symbol.priority) && (
@@ -181,11 +174,7 @@ function PipPreview({ symbol, anchor, users }: { symbol: CardSymbol; anchor: DOM
                 {kind.name}
               </span>
             )}
-            {symbol.priority && (
-              <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-px text-micro font-medium text-slate-700">
-                {PRIORITY_META[symbol.priority].label}
-              </span>
-            )}
+            {symbol.priority && <PriorityBadge priority={symbol.priority} />}
           </div>
         )}
 
@@ -218,6 +207,13 @@ function PipPreview({ symbol, anchor, users }: { symbol: CardSymbol; anchor: DOM
 
         <div className="border-t border-slate-100 pt-1.5">
           <dl className="space-y-1">
+            {row(
+              'Status',
+              <span data-pip-status className="inline-flex items-center gap-1">
+                <span className={cn('h-2 w-2 shrink-0 rounded-full', BUCKET_DOT[symbol.bucket])} />
+                {STAGE_LABELS[symbol.bucket]}
+              </span>,
+            )}
             {symbol.boardName && row('Board', <span className="block truncate" title={symbol.boardName}>{symbol.boardName}</span>)}
             {symbol.flowName && row('Workflow', <span className="block truncate" title={symbol.flowName}>{symbol.flowName}</span>)}
             {symbol.laneName && row('Column', <span className="block truncate" title={symbol.laneName}>{symbol.laneName}</span>)}
@@ -260,12 +256,14 @@ function ChildPip({ symbol, onOpen, users }: { symbol: CardSymbol; onOpen: (id: 
         type="button"
         data-child-pip
         data-pip-for={symbol.id}
+        data-pip-stage={symbol.bucket}
         // A board carries one pip for every child of every initiative on it, so a tab stop each
         // would put hundreds of stops between the top of a board and the cards below. The pip is a
         // pointer shortcut; the keyboard path to a child is the card's own panel.
         tabIndex={-1}
-        aria-label={`${symbol.title} — ${STAGE_LABELS[symbol.bucket]}`}
-        title={`${symbol.title} · ${STAGE_LABELS[symbol.bucket]}`}
+        aria-label={`${symbol.title} — ${STAGE_LABELS[symbol.bucket]}${
+          symbol.blocked ? ', blocked' : ''
+        }${symbol.warned ? ', has a warning' : ''}`}
         onPointerEnter={(event) => {
           if (event.pointerType !== 'mouse') return
           setAnchor(event.currentTarget.getBoundingClientRect())
@@ -280,14 +278,25 @@ function ChildPip({ symbol, onOpen, users }: { symbol: CardSymbol; onOpen: (id: 
           e.stopPropagation()
           onOpen(symbol.id)
         }}
+        // Risk supersedes the stage: a pip with a blockage or a warning *becomes* the alert,
+        // rather than wearing a dot in a corner of a stage-coloured square. Two boxes, not four
+        // decorations — the shape says "look here" before the stage colour can.
+        data-pip-marker={symbol.blocked ? 'blocked' : symbol.warned ? 'warning' : undefined}
         className={cn(
-          'h-4 w-4 shrink-0 rounded transition hover:brightness-90',
+          'relative grid h-4 w-4 shrink-0 place-items-center rounded border transition hover:brightness-95',
           // A finger needs a bigger square than a pointer does, and the square is the hit area —
           // so it grows, and the touch target is what you can see.
           'pointer-coarse:h-6 pointer-coarse:w-6',
-          BUCKET_DOT[symbol.bucket],
+          symbol.blocked
+            ? 'border-rose-600 bg-rose-100 text-rose-700'
+            : symbol.warned
+              ? 'border-amber-500 bg-amber-100 text-amber-700'
+              : cn('border-transparent', BUCKET_DOT[symbol.bucket]),
         )}
-      />
+      >
+        {symbol.blocked && <Ban size={11} aria-hidden className="pointer-events-none" />}
+        {!symbol.blocked && symbol.warned && <TriangleAlert size={11} aria-hidden className="pointer-events-none" />}
+      </button>
       {anchor && <PipPreview symbol={symbol} anchor={anchor} users={users} />}
     </>
   )
@@ -327,6 +336,11 @@ interface Props {
   /** Wide "summary" card for management/initiative boards: progress bar + symbols. */
   wide?: boolean
   symbols?: CardSymbol[]
+  /**
+   * A pip opens its child through this rather than the card's own `onOpen`, so the surface can
+   * navigate to the child's board and unfold its workflow and column before opening it.
+   */
+  onOpenChild?: (id: string) => void
   /**
    * The initiative's health flags, as `initiativeHealth` finds them — the same rules, the same
    * words and the same tones the dashboard's Health column reads. Given only on the initiatives
@@ -626,7 +640,7 @@ const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset f
 /** The one badge that is allowed to shout: a card's own blockage, in the header's top-right. */
 const BLOCKED_BADGE = 'shrink-0 rounded bg-rose-600 px-1.5 py-0.5 text-micro font-bold uppercase tracking-wide text-white shadow-sm'
 
-function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', draggable, onDragStateChange, locked, selected, boundary, openDependencies, hasDependencies, onOpenDependencies, connectionsOpen = false, showConnections = true, lateStart, multi, dimmed, filterDimmed, inert, connectRoot, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, summary, completed = false, parent, wide, symbols, onOpenChild, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', draggable, onDragStateChange, locked, selected, boundary, openDependencies, hasDependencies, onOpenDependencies, connectionsOpen = false, showConnections = true, lateStart, multi, dimmed, filterDimmed, inert, connectRoot, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const complete = summary.done || completed
   const held = heldByOther(usePresence((state) => state.locks), item.id)
 
@@ -841,6 +855,10 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
     const summaryFoot = Boolean(item.dueDate) || assignees.length > 0
     const summaryTone = summaryWarnings.some((warning) => warning.tone === 'risk') ? 'risk' : 'watch'
     const summaryWarningLabel = summaryWarnings.map((warning) => warning.why ?? warning.label).join(' · ')
+    // An initiative's progress is not a detail of its full face: the bar and its number are the
+    // reading a summary is for. A card has no rollup, so this appears only on the wide card.
+    const summaryStages = wide && summary.rollupStages && summary.rollupStages.total > 0 ? summary.rollupStages : undefined
+    const summaryPercent = summaryStages ? summary.rollupPercent : undefined
     return (
       <div
         {...dragProps}
@@ -927,6 +945,26 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         >
           {item.title}
         </div>
+
+        {summaryStages && (
+          <div className="px-2 pt-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-micro text-slate-500">
+                {summaryStages.total} {summaryStages.total === 1 ? 'leaf' : 'leaves'} below
+              </span>
+              {summaryPercent !== undefined && (
+                <span
+                  className="text-body font-bold tabular-nums"
+                  style={{ color: summaryPercent >= 100 ? '#047857' : summaryPercent > 0 ? '#4338ca' : '#475569' }}
+                  title="Share of the work below that is done"
+                >
+                  {summaryPercent}%
+                </span>
+              )}
+            </div>
+            <StageProgressBar counts={summaryStages} />
+          </div>
+        )}
 
         <div
           data-card-footer={summaryFoot ? '' : undefined}
@@ -1112,11 +1150,6 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
     // The children's own stages, in the progress bar's order — delivered, under way, not begun,
     // backlog. The pips and the bar beside them are the same reading at two sizes.
     const pips = [...(symbols ?? [])].sort((a, b) => PROGRESS_STAGE_ORDER.indexOf(a.bucket) - PROGRESS_STAGE_ORDER.indexOf(b.bucket))
-    const spread = PROGRESS_STAGE_ORDER
-      .map((stage) => ({ stage, n: pips.filter((p) => p.bucket === stage).length }))
-      .filter((s) => s.n > 0)
-      .map((s) => `${s.n} ${STAGE_LABELS[s.stage].toLowerCase()}`)
-      .join(', ')
     const MAX_PIPS = 12
     // One set, one place. The health rules are the source — the same words and tones the
     // dashboard reads — with one exception the card is responsible for: a blockage rolled up from
@@ -1251,9 +1284,9 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
               colours already show. The bar underneath is the same number, wider. */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-micro text-slate-600">
             {pips.length > 0 ? (
-              <span className="flex items-center gap-1" title={`${pips.length} directly below: ${spread}`}>
+              <span data-child-pips className="flex items-center gap-1">
                 {pips.slice(0, MAX_PIPS).map((p) => (
-                  <ChildPip key={p.id} symbol={p} onOpen={onOpen} users={users} />
+                  <ChildPip key={p.id} symbol={p} onOpen={onOpenChild ?? onOpen} users={users} />
                 ))}
                 {pips.length > MAX_PIPS && <span className="font-semibold text-slate-600">+{pips.length - MAX_PIPS}</span>}
               </span>

@@ -16,6 +16,20 @@ async function onNova(page: import('@playwright/test').Page): Promise<void> {
   await expect(page.locator('[data-workflow="cards"] [data-card-id]').first()).toBeVisible()
 }
 
+test('turning the lens on or off does not dismiss an open card', async ({ page }) => {
+  await onNova(page)
+  await page.locator('[data-workflow="cards"] [data-card-id]').first().click()
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel).toBeVisible()
+
+  // The sub-nav's lens is a reading of the board, not a click away from the card being read.
+  const toggle = page.locator('[data-connections-toggle]')
+  await toggle.click()
+  await expect(panel).toBeVisible()
+  await toggle.click()
+  await expect(panel).toBeVisible()
+})
+
 test('the lens is off at rest, and the button draws and clears every edge', async ({ page }) => {
   await onNova(page)
   const toggle = page.getByRole('button', { name: 'Connections', exact: true })

@@ -61,7 +61,7 @@ test('a card in play is discarded, and the archive says so without keeping its c
   // Read-only fields, but the one action that brings it back is still there.
   await expect(drawer.getByRole('button', { name: 'Restore' })).toBeVisible()
   // The optional reason travels with the discard into the record.
-  await drawer.getByRole('button', { name: 'History' }).click()
+  await drawer.getByRole('button', { name: 'Flow & History' }).click()
   await expect(drawer.getByText('Discarded — Superseded by usage-based billing')).toBeVisible()
 
   // Pressing on another row is not a click on the backdrop: the drawer must not close before the
@@ -101,7 +101,7 @@ test('a discarded child stays in the drawer, not as a warning on the initiative 
   const drawer = page.locator('[data-item-panel]')
   await expect(drawer).toHaveAttribute('aria-label', 'Card details: Billing migration')
   await expect(drawer.getByText('1 discarded')).toBeVisible()
-  await drawer.getByRole('button', { name: 'Hierarchy' }).click()
+  await drawer.getByRole('button', { name: 'Relationships', exact: true }).click()
   await expect(drawer.getByText('Add usage-based billing events')).toBeVisible()
   await expect(drawer.getByText('discarded', { exact: true })).toBeVisible()
 })

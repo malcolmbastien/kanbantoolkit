@@ -72,8 +72,11 @@ export function BoardView({ requestMove }: Props) {
   useRevealSelection(pan.ref)
   // Which workflow bands are folded away. A band is folded on its own, so a reader can keep the
   // initiatives and the boundary in view while one cards flow takes the room; a board switch starts
-  // fresh because the initiatives key carries the board and a flow id belongs to one board.
-  const [collapsedWorkflows, setCollapsedWorkflows] = useState<Record<string, boolean>>({})
+  // fresh because the initiatives key carries the board and a flow id belongs to one board. The
+  // choice lives in the store rather than here because a card's pip can ask for a band to unfold
+  // while navigating to the child (`revealItem`).
+  const collapsedWorkflows = useStore((s) => s.collapsedWorkflows)
+  const toggleWorkflowInStore = useStore((s) => s.toggleWorkflow)
   const toggleWorkflow = (key: string, from?: HTMLButtonElement) => {
     const expanding = collapsedWorkflows[key] === true
     if (expanding) {
@@ -84,7 +87,7 @@ export function BoardView({ requestMove }: Props) {
       stillScrolling()
       from?.closest('section')?.scrollIntoView({ block: 'start', inline: 'nearest' })
     }
-    setCollapsedWorkflows((current) => ({ ...current, [key]: !current[key] }))
+    toggleWorkflowInStore(key)
   }
 
   // Coordination/strategic boards aggregate; operational boards render the flow.

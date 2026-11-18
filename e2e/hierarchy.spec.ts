@@ -12,7 +12,7 @@ async function hierarchyOf(page: import('@playwright/test').Page, url: string) {
   await page.goto(url)
   const panel = page.locator('[data-item-panel]')
   await expect(panel).toBeVisible()
-  await panel.getByRole('button', { name: 'Hierarchy', exact: true }).click()
+  await panel.getByRole('button', { name: 'Relationships', exact: true }).click()
   return panel
 }
 
@@ -28,6 +28,19 @@ test('an initiative reads its progress, risks and dates above its children', asy
   await expect(panel.locator('[data-hierarchy-stage="notStarted"]')).toContainText('2')
   await expect(panel.locator('[data-hierarchy-stage="inProgress"]')).toContainText('2')
   await expect(panel.locator('[data-hierarchy-stage="done"]')).toContainText('0')
+
+  // The bar is the card face's bar: done → in progress → not started → backlog, in the board's
+  // stage colours. The old chart stack drew it the other way round in a second palette.
+  const bar = progress.locator('[data-stage-progress]')
+  await expect(bar).toBeVisible()
+  expect(
+    await bar.locator('[data-stage-segment]').evaluateAll((elements) =>
+      elements.map((element) => element.getAttribute('data-stage-segment')),
+    ),
+  ).toEqual(['inProgress', 'notStarted', 'backlog'])
+  expect(
+    await bar.locator('[data-stage-segment]').evaluateAll((elements) => elements.map((element) => (element as HTMLElement).style.backgroundColor)),
+  ).toEqual(['rgb(124, 58, 237)', 'rgb(59, 130, 246)', 'rgb(203, 213, 225)'])
 
   // The flags are the work below, with the rules' own words and the count in the text.
   for (const flag of ['blocked', 'unowned', 'stale', 'overdue', 'dueSoon', 'lateStart', 'uncommitted']) {
@@ -74,7 +87,7 @@ test('a flag narrows the child list, and All children restores it', async ({ pag
   await expect(reopened.getByLabel('Title')).toHaveValue('Retire the legacy coupon service')
 })
 
-test('an initiative with nothing below it says so, and a card’s Hierarchy is unchanged', async ({ page }) => {
+test('an initiative with nothing below it says so, and a card’s Relationships is unchanged', async ({ page }) => {
   const empty = await hierarchyOf(page, '/app?board=b-nova&item=init-data-quality')
   await expect(empty.locator('[data-hierarchy-empty]')).toContainText('Nothing below it yet')
   await expect(empty.locator('[data-hierarchy-progress]')).toHaveCount(0)

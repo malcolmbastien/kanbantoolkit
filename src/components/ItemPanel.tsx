@@ -33,6 +33,7 @@ import { chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, STAGE_DOT, STAGE_STACK, stage
 import { cn } from '@/lib/utils'
 import { useReturnFocus } from '@/lib/useDialogFocus'
 import { usePresence, heldByOther } from '@/lib/presence'
+import { StageProgressBar } from './StageProgressBar'
 import { dropLease, takeLease } from '@/lib/lease'
 import { useAuth } from '@/lib/auth'
 import { useMay } from '@/lib/permissions'
@@ -318,7 +319,7 @@ export function ItemPanel({ itemId }: Props) {
     }
   }, [itemId, recordHistory])
 
-  // A read that stopped part-way leaves a cursor, and the History tab still offers the rest.
+  // A read that stopped part-way leaves a cursor, and the Flow & History tab still offers the rest.
   // This is the manual continuation, not the normal path.
   const loadEarlier = async () => {
     if (!historyPage?.nextCursor || historyBusy) return
@@ -733,9 +734,10 @@ export function ItemPanel({ itemId }: Props) {
   // A dependency is a link across the decomposition, never along it, and never one that closes a
   // loop — the same rule the store enforces (`canDepend`). The picker therefore offers only the
   // cards the link would actually be made to: not the item itself, not a parent or a descendant.
-  // Likewise memoised, and empty until the Hierarchy tab is open.
-  // Initiative is reserved for the Initiatives workflow — a card can't be promoted to it.
-  // Every card type is offered; the item's current type is always among them.
+  // Likewise memoised, and empty until the Relationships tab is open.
+  // Initiative is reserved for the Initiatives workflow: a card becomes one through the card
+  // menu's Convert to initiative, not through this picker. Every card type is offered; the
+  // item's current type is always among them.
   const typeOptions = cardTypes(issueTypes)
   const doneBelow = children.length > 0 ? `${roll.done} of ${roll.total} done` : undefined
 
@@ -776,8 +778,8 @@ export function ItemPanel({ itemId }: Props) {
   const tabs: { id: ItemPanelTab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
     { id: 'comments', label: 'Comments' },
-    { id: 'hierarchy', label: 'Hierarchy' },
-    { id: 'history', label: 'History' },
+    { id: 'hierarchy', label: 'Relationships' },
+    { id: 'history', label: 'Flow & History' },
   ]
 
   /**
@@ -959,9 +961,9 @@ export function ItemPanel({ itemId }: Props) {
   )
 
   /* ---- Flow ---------------------------------------------------------------------------
-     One reading, two depths. Overview carries the compact card — what state the clocks are in
-     and the two or three facts a person asks for — and History carries the stage breakdown.
-     Neither invents a number: both are the moves this card's log holds. --------------------- */
+     The drawer's reading of time, in Flow & History rather than Overview: the summary numbers and the
+     stage breakdown are one section, so a busy Overview stays about the card's fields. Neither
+     invents a number: both are the moves this card's log holds. ----------------------------- */
 
   const flowScopeText = scoped ? `On ${flowScope}` : 'All boards'
   const stopped = cardReading !== undefined && cardReading.stop < now
@@ -990,16 +992,6 @@ export function ItemPanel({ itemId }: Props) {
     : stopped
       ? 'The day it was delivered.'
       : 'Time in the current position.'
-  const cardNote = cardReading
-    ? [
-        cardReading.blockedMs > 0 ? `Blocked ${spanLabel(cardReading.blockedMs)}` : null,
-        cardReading.backwardMoves > 0
-          ? `${cardReading.backwardMoves} backward move${cardReading.backwardMoves === 1 ? '' : 's'}`
-          : null,
-      ]
-        .filter(Boolean)
-        .join(' · ')
-    : ''
   const detailNote = cardReading
     ? [
         cardReading.blockedMs > 0 ? `Blocked ${spanLabel(cardReading.blockedMs)} in total` : null,
@@ -1114,80 +1106,46 @@ export function ItemPanel({ itemId }: Props) {
     </section>
   ) : null
 
-  const cardFlow =
-    historyPage === undefined ? (
-      <section data-card-flow aria-busy="true" className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
-        <h3 className="text-micro font-semibold uppercase tracking-wide text-slate-600">Flow</h3>
-        <p className="mt-1 text-meta text-slate-500" data-flow-loading>
-          Reading this card&apos;s history…
-        </p>
-      </section>
-    ) : cardReading ? (
-      <section data-card-flow aria-label="Flow" className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-micro font-semibold uppercase tracking-wide text-slate-600">Flow</h3>
-          <button
-            type="button"
-            data-flow-breakdown
-            onClick={() => setTab('history')}
-            className="text-micro font-medium text-indigo-600 transition hover:text-indigo-500"
-          >
-            Breakdown
-          </button>
-        </div>
-        <div className="mt-2 grid grid-cols-3 gap-2" data-flow-stats>
-          <div
-            data-flow-stat="open"
-            className="min-w-0"
-            title={archivedFirst ? 'Created to the day it was filed.' : stopped ? 'Created to delivery.' : 'Creation to now.'}
-          >
-            <p className="truncate text-meta font-semibold tabular-nums text-slate-800">
-              {spanLabel(stopped ? cardReading.leadMs : cardReading.openMs)}
-            </p>
-            <p className="truncate text-micro text-slate-500">{stopped ? 'Lead' : 'Open'}</p>
-          </div>
-          <div
-            data-flow-stat="cycle"
-            className="min-w-0"
-            title={
-              cardReading.cycleMs === undefined
-                ? 'No cycle yet: the card has not left Backlog.'
-                : 'First commitment to now, or to delivery.'
-            }
-          >
-            <p
-              className={cn(
-                'truncate text-meta font-semibold tabular-nums',
-                cardReading.cycleMs === undefined ? 'text-slate-500' : 'text-slate-800',
-              )}
-            >
-              {cardReading.cycleMs === undefined ? (stopped ? '—' : 'Not yet') : spanLabel(cardReading.cycleMs)}
-            </p>
-            <p className="truncate text-micro text-slate-500">Cycle</p>
-          </div>
-          <div
-            data-flow-stat="position"
-            className="min-w-0"
-            title={thirdTitle}
-          >
-            <p className="truncate text-meta font-semibold tabular-nums text-slate-800">{thirdValue}</p>
-            <p className="truncate text-micro text-slate-500">{thirdLabel}</p>
-          </div>
-        </div>
-        {(cardNote || !scoped) && (
-          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-micro text-slate-600">
-            {!scoped && <span data-flow-scope className="text-slate-500">All boards</span>}
-            {cardNote && <span data-flow-note>{cardNote}</span>}
-          </p>
-        )}
-      </section>
-    ) : null
-
   const flowDetail = cardReading ? (
     <section data-flow-detail aria-label="Flow" className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-micro font-semibold uppercase tracking-wide text-slate-600">Flow</h3>
         <span className="text-micro text-slate-600">{flowScopeText}</span>
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-2" data-flow-stats>
+        <div
+          data-flow-stat="open"
+          className="min-w-0"
+          title={archivedFirst ? 'Created to the day it was filed.' : stopped ? 'Created to delivery.' : 'Creation to now.'}
+        >
+          <p className="truncate text-meta font-semibold tabular-nums text-slate-800">
+            {spanLabel(stopped ? cardReading.leadMs : cardReading.openMs)}
+          </p>
+          <p className="truncate text-micro text-slate-500">{stopped ? 'Lead' : 'Open'}</p>
+        </div>
+        <div
+          data-flow-stat="cycle"
+          className="min-w-0"
+          title={
+            cardReading.cycleMs === undefined
+              ? 'No cycle yet: the card has not left Backlog.'
+              : 'First commitment to now, or to delivery.'
+          }
+        >
+          <p
+            className={cn(
+              'truncate text-meta font-semibold tabular-nums',
+              cardReading.cycleMs === undefined ? 'text-slate-500' : 'text-slate-800',
+            )}
+          >
+            {cardReading.cycleMs === undefined ? (stopped ? '—' : 'Not yet') : spanLabel(cardReading.cycleMs)}
+          </p>
+          <p className="truncate text-micro text-slate-500">Cycle</p>
+        </div>
+        <div data-flow-stat="position" className="min-w-0" title={thirdTitle}>
+          <p className="truncate text-meta font-semibold tabular-nums text-slate-800">{thirdValue}</p>
+          <p className="truncate text-micro text-slate-500">{thirdLabel}</p>
+        </div>
       </div>
       <p className="mt-1 text-meta font-medium text-slate-800">
         Created {dayLabel(cardReading.start)} · {stopped ? 'Lead' : 'Open'} {spanLabel(cardReading.total)} ·{' '}
@@ -2012,11 +1970,122 @@ export function ItemPanel({ itemId }: Props) {
               </div>
             </section>
 
-            {/* The Flow reading. It sits after the properties because it is read the way they
-                are — a fact about the card — and before the description, which is the card's
-                own words rather than the record's. */}
-            {isInitiative ? initiativeFlow : cardFlow}
+            {parent && (
+              <button
+                type="button"
+                onClick={() => setTab('hierarchy')}
+                title="Parent and relationships"
+                className="flex w-full items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-left ring-1 ring-slate-200 transition hover:bg-slate-100"
+              >
+                <CornerLeftUp size={14} className="shrink-0 text-slate-400" />
+                <span className="shrink-0 text-micro font-medium text-slate-500">Parent</span>
+                <span className="min-w-0 flex-1 truncate text-meta font-medium text-slate-800">{parent.title}</span>
+                <span className="shrink-0 text-micro font-medium text-indigo-600">Relationships</span>
+              </button>
+            )}
 
+            <Section label="Description">
+              <DescriptionEditor
+                key={item.id}
+                value={item.description ?? ''}
+                locked={locked}
+                onChange={(description) => setItemFields(item.id, { description })}
+                onFocus={() => startTextEdit(item.id, 'description', item.description ?? '')}
+                onBlur={() => endTextEdit('description')}
+              />
+            </Section>
+
+            {/* Checklist — a card's sub-tasks. They are not work of their own: no
+                placement, no WIP, no status beyond ticked. An initiative has children
+                instead, and they are listed under Hierarchy. */}
+            {!isInitiative && (
+              <Section
+                label="Checklist"
+                count={checklist.length}
+                aside={
+                  checklist.length > 0 ? (
+                    <span className="text-micro text-slate-600">{checklist.filter((c) => c.done).length} of {checklist.length} done</span>
+                  ) : undefined
+                }
+              >
+                <div className="space-y-0.5">
+                  {checklist.length === 0 && <p className="text-meta text-slate-600">No sub-tasks yet.</p>}
+                  {checklist.map((entry) => (
+                    <div key={entry.id} className="group flex items-center gap-2 rounded-lg px-1.5 py-1.5 transition hover:bg-slate-50">
+                      <button onClick={() => toggleChecklistEntry(item.id, entry.id)} title={entry.done ? 'Untick' : 'Tick'} className="shrink-0">
+                        <span
+                          className={cn(
+                            'flex h-4 w-4 items-center justify-center rounded border transition',
+                            entry.done ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300 bg-white',
+                          )}
+                        >
+                          {entry.done && <Check size={11} />}
+                        </span>
+                      </button>
+                      {editingEntry === entry.id ? (
+                        <input
+                          data-checklist-editor
+                          autoFocus
+                          value={entryDraft}
+                          onChange={(e) => setEntryDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveEntry(entry.id)
+                            if (e.key === 'Escape') {
+                              abandoned.current = true
+                              setEditingEntry(null)
+                            }
+                          }}
+                          onBlur={() => saveEntry(entry.id)}
+                          className="min-w-0 flex-1 rounded border border-indigo-300 bg-white px-1.5 py-0.5 text-meta outline-none focus:ring-2 focus:ring-indigo-400"
+                        />
+                      ) : (
+                        <button
+                          onClick={() => startEditingEntry(entry.id, entry.text)}
+                          title="Click to edit. Clearing it removes the line."
+                          className={cn(
+                            'min-w-0 flex-1 cursor-text truncate text-left text-meta',
+                            entry.done ? 'text-slate-600 line-through' : 'text-slate-700',
+                          )}
+                        >
+                          {entry.text}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => removeChecklistEntry(item.id, entry.id)}
+                        title="Remove"
+                        aria-label={`Remove ${entry.text}`}
+                        className="shrink-0 text-slate-500 opacity-0 transition group-hover:opacity-100 hover:text-rose-600"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 flex items-center gap-1.5">
+                  <input
+                    value={newSubtask}
+                    onChange={(e) => setNewSubtask(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') addSubtask()
+                    }}
+                    placeholder="Add a sub-task…"
+                    className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
+                  />
+                  <button
+                    disabled={newSubtask.trim().length === 0}
+                    onClick={addSubtask}
+                    className="flex shrink-0 items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-meta font-medium text-white transition hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
+                  >
+                    <Plus size={12} /> Add
+                  </button>
+                </div>
+              </Section>
+            )}
+          </>
+        )}
+
+        {tab === 'hierarchy' && (
+          <>
             {/* The direct parent, called out on its own rather than left to be read out of the
                 chain: it is the one relationship a card has, and the one thing about it you can
                 change. The whole chain is a tab away. */}
@@ -2153,112 +2222,12 @@ export function ItemPanel({ itemId }: Props) {
 
             {/* The description — the card's own words. The editor is the rendered description:
                 the toolbar formats in place, and the DOM is written back as markdown. */}
-            <Section label="Description">
-              <DescriptionEditor
-                key={item.id}
-                value={item.description ?? ''}
-                locked={locked}
-                onChange={(description) => setItemFields(item.id, { description })}
-                onFocus={() => startTextEdit(item.id, 'description', item.description ?? '')}
-                onBlur={() => endTextEdit('description')}
-              />
-            </Section>
 
-            {/* Checklist — a card's sub-tasks. They are not work of their own: no
-                placement, no WIP, no status beyond ticked. An initiative has children
-                instead, and they are listed under Hierarchy. */}
-            {!isInitiative && (
-              <Section
-                label="Checklist"
-                count={checklist.length}
-                aside={
-                  checklist.length > 0 ? (
-                    <span className="text-micro text-slate-600">{checklist.filter((c) => c.done).length} of {checklist.length} done</span>
-                  ) : undefined
-                }
-              >
-                <div className="space-y-0.5">
-                  {checklist.length === 0 && <p className="text-meta text-slate-600">No sub-tasks yet.</p>}
-                  {checklist.map((entry) => (
-                    <div key={entry.id} className="group flex items-center gap-2 rounded-lg px-1.5 py-1.5 transition hover:bg-slate-50">
-                      <button onClick={() => toggleChecklistEntry(item.id, entry.id)} title={entry.done ? 'Untick' : 'Tick'} className="shrink-0">
-                        <span
-                          className={cn(
-                            'flex h-4 w-4 items-center justify-center rounded border transition',
-                            entry.done ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300 bg-white',
-                          )}
-                        >
-                          {entry.done && <Check size={11} />}
-                        </span>
-                      </button>
-                      {editingEntry === entry.id ? (
-                        <input
-                          data-checklist-editor
-                          autoFocus
-                          value={entryDraft}
-                          onChange={(e) => setEntryDraft(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') saveEntry(entry.id)
-                            if (e.key === 'Escape') {
-                              abandoned.current = true
-                              setEditingEntry(null)
-                            }
-                          }}
-                          onBlur={() => saveEntry(entry.id)}
-                          className="min-w-0 flex-1 rounded border border-indigo-300 bg-white px-1.5 py-0.5 text-meta outline-none focus:ring-2 focus:ring-indigo-400"
-                        />
-                      ) : (
-                        <button
-                          onClick={() => startEditingEntry(entry.id, entry.text)}
-                          title="Click to edit. Clearing it removes the line."
-                          className={cn(
-                            'min-w-0 flex-1 cursor-text truncate text-left text-meta',
-                            entry.done ? 'text-slate-600 line-through' : 'text-slate-700',
-                          )}
-                        >
-                          {entry.text}
-                        </button>
-                      )}
-                      <button
-                        onClick={() => removeChecklistEntry(item.id, entry.id)}
-                        title="Remove"
-                        aria-label={`Remove ${entry.text}`}
-                        className="shrink-0 text-slate-500 opacity-0 transition group-hover:opacity-100 hover:text-rose-600"
-                      >
-                        <X size={13} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-2 flex items-center gap-1.5">
-                  <input
-                    value={newSubtask}
-                    onChange={(e) => setNewSubtask(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') addSubtask()
-                    }}
-                    placeholder="Add a sub-task…"
-                    className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
-                  />
-                  <button
-                    disabled={newSubtask.trim().length === 0}
-                    onClick={addSubtask}
-                    className="flex shrink-0 items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-meta font-medium text-white transition hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
-                  >
-                    <Plus size={12} /> Add
-                  </button>
-                </div>
-              </Section>
-            )}
-          </>
-        )}
-
-        {tab === 'hierarchy' && (
-          <>
-            {/* The whole chain, from the objective down to this item — read here, changed on the
-                Overview. Each row names the board the item sits on rather than what kind of thing
-                it is: the type is already the dot's colour, while the board is where the reader
-                has to go, and clicking the row takes them there. */}
+            {/* The whole chain, from the objective down to this item, read here; the immediate
+                parent is the section above, where it can also be changed. Each row names the board
+                the item sits on rather than what kind of thing it is: the type is already the
+                dot's colour, while the board is where the reader has to go, and clicking the row
+                takes them there. */}
             <Section label="Rolls up to">
               <div className="divide-y divide-slate-100 overflow-hidden rounded-xl ring-1 ring-slate-200">
                   {/* The objectives this work serves, at the top of the chain — they are the
@@ -2344,18 +2313,16 @@ export function ItemPanel({ itemId }: Props) {
                           {hierarchy.progress.total} {hierarchy.progress.total === 1 ? 'leaf' : 'leaves'} below it
                         </span>
                       </div>
-                      <div aria-hidden className="mt-2 flex h-2 overflow-hidden rounded-full bg-slate-100">
-                        {STAGE_ORDER.map((stage) => {
-                          const count = stageCount(hierarchy.progress, stage)
-                          if (count === 0) return null
-                          return (
-                            <span
-                              key={stage}
-                              style={{ width: `${(count / hierarchy.progress.total) * 100}%`, backgroundColor: STAGE_STACK[stage] }}
-                            />
-                          )
-                        })}
-                      </div>
+                      <StageProgressBar
+                        className="mt-2"
+                        counts={{
+                          total: hierarchy.progress.total,
+                          backlog: hierarchy.progress.backlog,
+                          notStarted: hierarchy.progress.notStarted,
+                          inProgress: hierarchy.progress.inProgress,
+                          done: hierarchy.progress.done,
+                        }}
+                      />
                       <div className="mt-2 grid grid-cols-4 gap-1">
                         {STAGE_ORDER.map((stage) => (
                           <div key={stage} data-hierarchy-stage={stage} className="min-w-0 text-center" title={`${STAGE_LABELS[stage]}: ${stageCount(hierarchy.progress, stage)}`}>
@@ -2617,7 +2584,7 @@ export function ItemPanel({ itemId }: Props) {
 
         {tab === 'history' && (
           <>
-            {flowDetail}
+            {isInitiative ? initiativeFlow : flowDetail}
             <Section label="History" count={historyEntries.length} aside={<span className="text-micro text-slate-600">Newest first</span>}>
               {historyLoading ? (
                 <p className="text-meta text-slate-600" data-history-loading>

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { openBoard } from './support'
+import { laneRegion, openBoard } from './support'
 
 /**
  * An initiative's progress is a count of issues (task 174's neighbour, and a rule of its own).
@@ -74,12 +74,13 @@ test('the progress bar is the children by stage, not a single fill', async ({ pa
   // A leaf whose planned start has passed is a warning on the initiative's face, not only in the drawer.
   await expect(billing).toContainText('1 late start')
 
-  // The pips read in the bar's order too: in progress, not started, backlog.
+  // The pips read in the bar's order too: in progress, not started, backlog. The stage is its own
+  // attribute, so a marker added to the pip's name does not change the order being read.
   expect(
     await billing
-      .locator('button[aria-label*=" — "]')
-      .evaluateAll((elements) => elements.map((element) => element.getAttribute('aria-label')?.split(' — ')[1])),
-  ).toEqual(['In Progress', 'In Progress', 'Not Started', 'Not Started', 'Backlog'])
+      .locator('[data-child-pip]')
+      .evaluateAll((elements) => elements.map((element) => element.getAttribute('data-pip-stage'))),
+  ).toEqual(['inProgress', 'inProgress', 'notStarted', 'notStarted', 'backlog'])
 
   // A finished leaf is the first segment, and the rest of the work is still its own share.
   const signup = page.locator('[data-card-id="init-signup-redesign"]')
@@ -113,11 +114,24 @@ test('hovering a child pip reads the child without opening it', async ({ page })
 
   const preview = page.locator('[data-pip-preview]')
   await expect(preview).toBeVisible()
-  // The stage in words, then the child's own facts — not only an id and a colour.
-  await expect(preview).toContainText('A child card currently in progress')
+  // The stage is a field of its own rather than a sentence over the panel.
+  await expect(preview.locator('[data-pip-status]')).toHaveText('In Progress')
   await expect(preview).toContainText('Signup validation on retry')
   await expect(preview).toContainText('Bug')
-  await expect(preview).toContainText('High')
+  // Priority wears the same icon the card does, not a grey word.
+  await expect(preview.locator('[aria-label="Priority: High"]')).toBeVisible()
+  // The amber marker's reason is named, in the card's own warning words.
+  const warnings = preview.locator('[data-pip-warnings]')
+  await expect(warnings).toBeVisible()
+  await expect(warnings).toContainText(/overdue/i)
+  // It sits directly under the title, above the metadata, so a warning is read before the facts.
+  const warningsBox = (await warnings.boundingBox())!
+  const peopleBox = (await preview.getByText('People', { exact: true }).boundingBox())!
+  expect(warningsBox.y).toBeLessThan(peopleBox.y)
+  // The native title that used to sit on the pip and its row would draw a second tooltip over
+  // this one; the pip's accessible name and the panel are the reading now.
+  await expect(pip).not.toHaveAttribute('title')
+  await expect(page.locator('[data-child-pips]').first()).not.toHaveAttribute('title')
   await expect(preview).toContainText('Maya Blake')
   await expect(preview).toContainText('customer-facing')
   await expect(preview.locator('[data-due]')).toBeVisible()
@@ -132,6 +146,49 @@ test('hovering a child pip reads the child without opening it', async ({ page })
   const panel = page.locator('[data-item-panel]')
   await expect(panel).toBeVisible()
   await expect(panel.getByLabel('Title')).toHaveValue('Signup validation on retry')
+})
+
+test('opening a pip unfolds a folded workflow and column and selects the card', async ({ page }) => {
+  await openBoard(page)
+  // Fold the child's column, then the whole Cards workflow that holds it.
+  await laneRegion(page, 'Test').getByTitle('Collapse column').first().click()
+  await page.getByRole('button', { name: 'Collapse Cards' }).click()
+  await expect(page.getByRole('button', { name: 'Expand Cards' })).toBeVisible()
+
+  // The pip lives in the initiatives flow, which is still open above the folded band.
+  const pip = page.locator('[data-card-id="init-signup-redesign"] [data-pip-for="st-signup-validation"]')
+  await pip.click()
+
+  // The pip's request is to see the child: the band and the cell unfold, the drawer opens, and
+  // the board's reveal brings the card itself into view.
+  await expect(page.getByRole('button', { name: 'Collapse Cards' })).toBeVisible()
+  const card = page.locator('[data-workflow="cards"] [data-card-id="st-signup-validation"]')
+  await expect(card).toBeVisible()
+  await expect(card).toBeInViewport()
+  await expect(page.locator('[data-item-panel]')).toBeVisible()
+  await expect(page.getByLabel('Title')).toHaveValue('Signup validation on retry')
+})
+
+test('a pip marks a blocked child and a child that needs attention', async ({ page }) => {
+  await openBoard(page)
+  const billing = page.locator('[data-card-id="init-billing"]')
+  const blocked = billing.locator('[data-pip-for="st-coupon-retire"]')
+  // The whole pip becomes the alert, with the ban mark centred in it.
+  await expect(blocked).toHaveAttribute('data-pip-marker', 'blocked')
+  await expect(blocked).toHaveClass(/border-rose-600/)
+  await expect(blocked.locator('svg')).toHaveCount(1)
+  await expect(blocked).toHaveAttribute('aria-label', /blocked/)
+
+  const warned = billing.locator('[data-pip-for="st-pricing-cache"]')
+  await expect(warned).toHaveAttribute('data-pip-marker', 'warning')
+  await expect(warned).toHaveClass(/border-amber-500/)
+  await expect(warned.locator('svg')).toHaveCount(1)
+  await expect(warned).toHaveAttribute('aria-label', /has a warning/)
+
+  // A finished child has nothing to raise, and stays a plain stage pip with no icon.
+  const clean = page.locator('[data-card-id="init-signup-redesign"] [data-pip-for="st-signup-screens"]')
+  await expect(clean).not.toHaveAttribute('data-pip-marker')
+  await expect(clean.locator('svg')).toHaveCount(0)
 })
 
 test('a discarded child is out of the progress on the card and in the drawer', async ({ page }) => {
@@ -156,7 +213,7 @@ test('a discarded child is out of the progress on the card and in the drawer', a
   await card.click()
   const panel = page.locator('[data-item-panel]')
   await expect(panel).toBeVisible()
-  await panel.getByRole('button', { name: 'Hierarchy', exact: true }).click()
+  await panel.getByRole('button', { name: 'Relationships', exact: true }).click()
   const progress = panel.locator('[data-hierarchy-progress]')
   await expect(progress).toContainText('50%')
   await expect(progress).toContainText('1 of 2 done')
@@ -191,7 +248,7 @@ test('a card becomes an initiative from its menu, keeping the item and its histo
   const panel = page.locator('[data-item-panel]')
   await expect(panel).toBeVisible()
   await expect(panel.getByLabel('Title')).toHaveValue('Add usage-based billing events')
-  await panel.getByRole('button', { name: 'History', exact: true }).click()
+  await panel.getByRole('button', { name: 'Flow & History', exact: true }).click()
   await expect(panel).toContainText('Converted from a card (was User Story)')
   await page.keyboard.press('Escape')
 
@@ -261,7 +318,7 @@ test('a new initiative is offered only in the Backlog column of the initiatives 
   await expect(card).toBeVisible()
 })
 
-test('an initiative card counts its dependencies, and the count opens Hierarchy with connections', async ({ page }) => {
+test('an initiative card counts its dependencies, and the count opens Relationships with connections', async ({ page }) => {
   await openBoard(page)
   const initiative = page.locator('[data-workflow="initiatives"] [data-card-id="init-billing"]')
   await expect(initiative).toBeVisible()
@@ -274,7 +331,7 @@ test('an initiative card counts its dependencies, and the count opens Hierarchy 
   await door.click()
   const panel = page.locator('[data-item-panel]')
   await expect(panel).toHaveAttribute('aria-label', 'Card details: Billing migration')
-  await expect(panel.getByRole('button', { name: 'Hierarchy' })).toHaveClass(/text-indigo-600/)
+  await expect(panel.getByRole('button', { name: 'Relationships', exact: true })).toHaveClass(/text-indigo-600/)
   await expect(panel.getByTitle(/Hide this item.s connections/)).toBeVisible()
   await expect(page.locator('[data-connection-link]').first()).toBeVisible()
   await expect(door).toHaveAttribute('aria-pressed', 'true')
@@ -290,7 +347,7 @@ test('an initiative card counts its dependencies, and the count opens Hierarchy 
   // another initiative, so the link is allowed.
   await initiative.click()
   await expect(panel).toHaveAttribute('aria-label', 'Card details: Billing migration')
-  await panel.getByRole('button', { name: 'Hierarchy' }).click()
+  await panel.getByRole('button', { name: 'Relationships', exact: true }).click()
   await panel.getByRole('button', { name: 'Add a dependency' }).click()
   const picker = page.locator('[data-item-picker]')
   await picker.getByLabel('Search items').fill('rebuild')
@@ -304,7 +361,7 @@ test('an initiative card counts its dependencies, and the count opens Hierarchy 
   await expect(badge).toHaveAttribute('data-open-dependencies', '1')
   await badge.click()
   await expect(panel).toHaveAttribute('aria-label', 'Card details: Billing migration')
-  await expect(panel.getByRole('button', { name: 'Hierarchy' })).toHaveClass(/text-indigo-600/)
+  await expect(panel.getByRole('button', { name: 'Relationships', exact: true })).toHaveClass(/text-indigo-600/)
   await expect(panel.getByTitle(/Hide this item.s connections/)).toBeVisible()
   await expect(page.locator('[data-connection-link]').first()).toBeVisible()
 })

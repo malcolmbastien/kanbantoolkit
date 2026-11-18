@@ -150,7 +150,9 @@ export default function App() {
         target?.closest('[data-filters-toggle]') ||
         target?.closest('[data-filter-clear]') ||
         target?.closest('[data-board-activity-toggle]') ||
-        target?.closest('[data-board-search]')
+        target?.closest('[data-board-search]') ||
+        target?.closest('[data-detail-dial]') ||
+        target?.closest('[data-connections-toggle]')
       ) {
         return
       }

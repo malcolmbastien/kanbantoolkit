@@ -16,7 +16,7 @@ test('a change made while signed in names its author in the History', async ({ p
   const [id] = await cardsIn(page, 'Backlog')
   await page.locator(`[data-card-id="${id}"]`).click()
   await page.getByLabel('Title').fill('Edited by someone')
-  await page.getByRole('button', { name: 'History' }).click()
+  await page.getByRole('button', { name: 'Flow & History' }).click()
 
   // The newest entry names who did it, beside when.
   const newest = page.locator('[data-item-panel]').getByText(/edited/i).first()

@@ -58,6 +58,39 @@ test('a blocked card wears its state on the card, not only in the badge row', as
   expect(normalBand).not.toBe(await normal.evaluate((el) => getComputedStyle(el).backgroundColor))
 })
 
+test('changing the level of detail keeps an open card and an active selection', async ({ page }) => {
+  await openBoard(page)
+  await page.locator('[data-card-id="st-signup-rebuild"]').click()
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel).toBeVisible()
+
+  // The dial commands the board beneath it; it is not a click away from the card.
+  await choose(page, 'Summary')
+  await expect(panel).toBeVisible()
+  await expect(page.getByLabel('Title')).toHaveValue('Rebuild the signup form')
+  await choose(page, 'Mini')
+  await expect(panel).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  // A multi-select is a selection too, not something a change of reading clears.
+  await page.locator('[data-card-id="st-signup-rebuild"]').click({ modifiers: ['Shift'] })
+  await page.locator('[data-card-id="st-signup-validation"]').click({ modifiers: ['Shift'] })
+  await expect(page.locator('[data-bulk-actions]')).toContainText('2 selected')
+  await choose(page, 'Summary')
+  await expect(page.locator('[data-bulk-actions]')).toContainText('2 selected')
+})
+
+test('Summary keeps an initiative’s progress bar', async ({ page }) => {
+  await openBoard(page)
+  await choose(page, 'Summary')
+  const initiative = page.locator('[data-card-id="init-billing"]')
+  await expect(initiative).toHaveAttribute('data-card-detail', 'summary')
+  const bar = initiative.locator('[data-stage-progress]')
+  await expect(bar).toBeVisible()
+  await expect(bar).toHaveAttribute('aria-label', /0 of 5 leaves done/)
+  await expect(initiative).toContainText('0%')
+})
+
 test('a blocked card with no reason keeps the badge, not an empty reason box', async ({ page }) => {
   await openBoard(page)
   const card = page.locator('[data-card-id="st-pricing-experiment"]')

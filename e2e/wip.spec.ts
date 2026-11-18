@@ -104,7 +104,7 @@ test('a reason lands the card where it was dropped, and is recorded on it', asyn
 
   // On the card's History...
   await page.locator(`[data-card-id="${moved}"]`).click()
-  await page.getByRole('button', { name: 'History' }).click()
+  await page.getByRole('button', { name: 'Flow & History' }).click()
   await expect(page.getByText(reason)).toBeVisible()
 
   // ...and on the card itself, as the workspace holds it.
