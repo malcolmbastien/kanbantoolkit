@@ -15,6 +15,7 @@
  */
 
 import type { Item } from '@/domain/types'
+import { useStorageStatus } from './storage'
 
 export interface QueuedWrite {
   /** Names this change, not this attempt. */
@@ -52,11 +53,21 @@ function read(): QueuedWrite[] {
   }
 }
 
-function write(list: QueuedWrite[]): void {
+/**
+ * Store the queue, and publish what happened.
+ *
+ * A failed **add** is news: the change exists only in memory and a reload would lose it. A failed
+ * removal or clear is not: the entry stays and is retried with the same key, which the server
+ * answers idempotently, so nothing is at risk and nothing should be said.
+ */
+function write(list: QueuedWrite[], removal = false): boolean {
   try {
     localStorage.setItem(KEY, JSON.stringify(list))
+    useStorageStatus.setState({ queueFailed: false })
+    return true
   } catch {
-    // A full disk is reported by `useSync`, which the store already watches.
+    if (!removal) useStorageStatus.setState({ queueFailed: true })
+    return false
   }
 }
 
@@ -67,18 +78,18 @@ export const queue = {
   size(): number {
     return read().length
   },
-  /** `false` when the queue is full, so the caller can say so rather than pretend it is held. */
+  /** `false` when the queue is full or cannot be stored, so the caller can say so rather than
+   * pretend the change is held. */
   add(entry: QueuedWrite): boolean {
     const list = read()
     if (list.length >= QUEUE_LIMIT) return false
-    write([...list, entry])
-    return true
+    return write([...list, entry])
   },
   remove(key: string): void {
-    write(read().filter((entry) => entry.key !== key))
+    write(read().filter((entry) => entry.key !== key), true)
   },
   clear(): void {
-    write([])
+    write([], true)
   },
 }
 

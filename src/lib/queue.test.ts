@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Item } from '@/domain/types'
 import { QUEUE_LIMIT, newKey, queue } from './queue'
+import { useStorageStatus } from './storage'
 
 const data = new Map<string, string>()
+/** The browser refuses to store anything, as a full disk or a locked-down private window does. */
+let refusing = false
 
 vi.stubGlobal('localStorage', {
   getItem: (key: string) => data.get(key) ?? null,
   setItem: (key: string, value: string) => {
+    if (refusing) throw new Error('no room')
     data.set(key, value)
   },
   removeItem: (key: string) => {
@@ -20,6 +24,8 @@ const entry = (id: string, baseRev = 0) => ({ key: newKey(), item: card(id), bas
 describe('the queue of changes that have not been sent', () => {
   beforeEach(() => {
     data.clear()
+    refusing = false
+    useStorageStatus.setState({ failed: false, queueFailed: false })
   })
 
   it('keeps them in the order they were made, across a reload', () => {
@@ -45,6 +51,19 @@ describe('the queue of changes that have not been sent', () => {
     expect(queue.size()).toBe(QUEUE_LIMIT)
     expect(queue.add(entry('i-one-too-many'))).toBe(false)
     expect(queue.size()).toBe(QUEUE_LIMIT)
+  })
+
+  it('says when a change could not be stored, and stops saying it when one can', () => {
+    refusing = true
+    // Not held is the answer the caller needs: the change lives only in memory.
+    expect(queue.add(entry('i-1'))).toBe(false)
+    expect(useStorageStatus.getState().queueFailed).toBe(true)
+    expect(queue.size()).toBe(0)
+
+    refusing = false
+    expect(queue.add(entry('i-2'))).toBe(true)
+    expect(useStorageStatus.getState().queueFailed).toBe(false)
+    expect(queue.size()).toBe(1)
   })
 
   it('is empty rather than broken when the stored value is not a queue', () => {

@@ -63,6 +63,18 @@ describe('the storage the workspace lives in', () => {
     expect(failed()).toBe(false)
   })
 
+  it('does not call another tab’s newer write a failure', () => {
+    const storage = guardedStorage()
+    storage.setItem('kanbantoolkit-state-v3', JSON.stringify({ state: { a: 1 }, version: 43, rev: 1 }))
+    verifyStorage()
+    expect(failed()).toBe(false)
+
+    // Another tab wrote the next revision: the workspace moved on, and this tab's write did land.
+    data.set('kanbantoolkit-state-v3', JSON.stringify({ state: { a: 2 }, version: 43, rev: 2 }))
+    verifyStorage()
+    expect(failed()).toBe(false)
+  })
+
   it('does not read back before anything has been written', () => {
     guardedStorage()
     useStorageStatus.setState({ failed: false })

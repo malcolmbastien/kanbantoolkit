@@ -9,8 +9,13 @@ import type { StateStorage } from 'zustand/middleware'
  * the only thing that writes it.
  */
 export interface StorageStatus {
-  /** A write failed, and none has succeeded since. */
+  /** A write of the workspace cache failed, and none has succeeded since. */
   failed: boolean
+  /**
+   * A change waiting to be sent could not be stored, so it exists only in memory. On an instance
+   * that is the one storage failure that can cost somebody work; the cache failing is not.
+   */
+  queueFailed: boolean
   /** Whether the browser has promised not to evict the origin. `null` until it is asked. */
   persisted: boolean | null
   /** Bytes used, from the browser's own estimate. */
@@ -21,6 +26,7 @@ export interface StorageStatus {
 
 export const useStorageStatus = create<StorageStatus>(() => ({
   failed: false,
+  queueFailed: false,
   persisted: null,
   usage: null,
   quota: null,
@@ -61,15 +67,37 @@ export function guardedStorage(): StateStorage {
   }
 }
 
+/** The revision a stored envelope carries, when it is one. */
+function revisionOf(value: string | null): number | undefined {
+  if (value === null) return undefined
+  try {
+    const parsed = JSON.parse(value) as { rev?: unknown }
+    return typeof parsed?.rev === 'number' ? parsed.rev : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * Read the workspace back and compare. A browser can accept a write and keep nothing — quota
  * accounting that lags, or a private-mode store that discards — so a write is only *known* to
  * have landed when it is read back. Called on a slow timer, never on a keystroke.
+ *
+ * Another tab writing the next revision is not a failure, and treating it as one used to raise the
+ * "changes are not being saved" alarm while the workspace was saved by somebody else. Only a value
+ * that is missing, older or unreadable is this tab's write going nowhere.
  */
 export function verifyStorage(): void {
   if (!lastWritten) return
   try {
-    setFailed(localStorage.getItem(lastWritten.name) !== lastWritten.value)
+    const stored = localStorage.getItem(lastWritten.name)
+    if (stored === lastWritten.value) {
+      setFailed(false)
+      return
+    }
+    const written = revisionOf(lastWritten.value)
+    const kept = revisionOf(stored)
+    setFailed(!(written !== undefined && kept !== undefined && kept > written))
   } catch {
     setFailed(true)
   }
