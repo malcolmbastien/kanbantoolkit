@@ -1051,6 +1051,43 @@ describe('the lease on a card', () => {
     expect(body.locks.map((lock) => lock.itemId)).toContain('i-card')
     expect(body.locks[0].holderName).toBe('Ada')
   })
+
+  it('rings the live channel when the pen is taken and handed back, and not on a refusal', async () => {
+    const db = database()
+    const { cookie } = await signedIn(db)
+    const nudges: string[] = []
+    const app = createApp({
+      database: () => db,
+      clientIp: () => '203.0.113.7',
+      live: {
+        publish: (_env, workspaceId) => {
+          nudges.push(workspaceId)
+        },
+      },
+    })
+    const as = (tab: string, path: string, init: RequestInit = {}) =>
+      app.request(path, { ...init, headers: { ...init.headers, cookie, 'x-kanbantoolkit-tab': tab } }, {})
+
+    await as('tab-a', '/api/workspace/items/i-card', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ baseRev: 0, item: card() }),
+    })
+    // The card's creation rang the bell; the lease is what this test is counting.
+    const afterCreate = nudges.length
+
+    // A socket client reads the feed only when it is nudged, so the lease rides the doorbell too:
+    // without this the card's "somebody has it open" mark would wait for the next edit.
+    expect((await as('tab-a', '/api/workspace/items/i-card/lock', { method: 'POST' })).status).toBe(200)
+    expect(nudges).toHaveLength(afterCreate + 1)
+
+    // A refusal changes no state, so it is not news.
+    expect((await as('tab-b', '/api/workspace/items/i-card/lock', { method: 'POST' })).status).toBe(423)
+    expect(nudges).toHaveLength(afterCreate + 1)
+
+    expect((await as('tab-a', '/api/workspace/items/i-card/lock', { method: 'DELETE' })).status).toBe(204)
+    expect(nudges).toHaveLength(afterCreate + 2)
+  })
 })
 
 describe('what a role may do, at the door', () => {

@@ -243,10 +243,16 @@ export function ItemPanel({ itemId }: Props) {
   // Filing away is one act with two names: a card whose work is done is archived, and a card still
   // in play is discarded, which drops it from the board without claiming it was finished.
   const complete = Boolean(item) && model.rollup.get(itemId)?.bucket === 'done'
-  // The lease: somebody else's pen closes the fields, and this tab's own is taken on intent.
+  // The lease: a card somebody has open is locked to everybody else, so *opening* the drawer is
+  // what takes the pen. Somebody else's pen closes the fields; this tab's own is asked for here,
+  // with the edit-intent handlers below as the retry after a lapse.
   const locks = usePresence((s) => s.locks)
   const held = heldByOther(locks, itemId)
   const account = useAuth((s) => s.user)
+  // The lock route answers a refusal with the holder's name, which is fresher than the feed: the
+  // feed is a poll, and a drawer that turns read-only only on the next poll is a drawer that
+  // offered fields it was about to refuse.
+  const [penRefused, setPenRefused] = useState<{ holderName?: string; holderId?: string } | undefined>(undefined)
   // What this person may do here. A Viewer reads the card and leaves a note; everything that
   // changes it is closed rather than dropped, because a field that is missing says less than a
   // field that is closed and a sentence saying why.
@@ -255,8 +261,49 @@ export function ItemPanel({ itemId }: Props) {
   // The Archive reads filed work. Nothing there is edited: a completed or discarded item's fields
   // are closed until it is restored, and its warnings are not raised for work that has left play.
   const archived = Boolean(item?.archived)
-  const locked = Boolean(held) || !canWrite || archived
+  // Somebody else's pen: the presence feed when it has arrived, the lock route's refusal when it
+  // has not. `mine` is the same person's other tab, which is told rather than shut out.
+  const pen = held
+    ? { holderName: held.holderName, mine: held.userId === account?.id }
+    : penRefused
+      ? { holderName: penRefused.holderName, mine: penRefused.holderId === account?.id }
+      : undefined
+  const locked = Boolean(pen) || !canWrite || archived
   const refusal = useSync((s) => s.refusals[itemId])
+
+  // Opening a card takes its pen. A Viewer and an archived card take nothing — neither may write,
+  // and a reader must never lock an author out. `held` is a dependency so the drawer takes the pen
+  // by itself the moment the person who had it closes the card.
+  const present = Boolean(item)
+  useEffect(() => {
+    if (!account || !present || !canWrite || archived || held) return
+    let live = true
+    void takeLease(itemId).then((answer) => {
+      if (!live) return
+      // Unreachable is not a refusal: an offline drawer stays editable, and the queue holds it.
+      setPenRefused(
+        answer.ok || answer.unreachable
+          ? undefined
+          : { holderName: answer.holderName, holderId: answer.holderId },
+      )
+    })
+    return () => {
+      live = false
+    }
+  }, [account, present, itemId, canWrite, archived, held])
+
+  // A refusal is a snapshot, not a verdict. If the presence feed never shows the holder — a hidden
+  // tab that stopped polling, a lease that lapsed unseen — ask again rather than leaving the drawer
+  // closed to this person for as long as it stays open.
+  useEffect(() => {
+    if (!penRefused || held || !account || !canWrite || archived) return
+    const timer = setInterval(() => {
+      void takeLease(itemId).then((answer) => {
+        if (answer.ok) setPenRefused(undefined)
+      })
+    }, 10_000)
+    return () => clearInterval(timer)
+  }, [penRefused, held, account, itemId, canWrite, archived])
 
   // A card just made asks for its title once. The placeholder is selected so typing replaces it,
   // and the request is consumed even if the field cannot take focus (a reader, a held card).
@@ -295,10 +342,11 @@ export function ItemPanel({ itemId }: Props) {
   )
 
   // A refusal that was only a lease ends when the lease does: the card is editable again without
-  // anybody having to press anything.
+  // anybody having to press anything. This tab's own pen does not count — taking it back is the
+  // end of the conflict, not a continuation of it.
   useEffect(() => {
     if (refusal?.reason !== 'held') return
-    if (locks[itemId]) return
+    if (heldByOther(locks, itemId)) return
     useSync.getState().forget(itemId)
   }, [refusal?.reason, locks, itemId])
 
@@ -675,10 +723,12 @@ export function ItemPanel({ itemId }: Props) {
           : 'Not finished'
 
   /**
-   * Edit intent, not opening.
+   * The retry after a lapse.
    *
-   * A focus into something a person could type in, and the pointer press that leads there: a
-   * background tab is not always given the focus event, but a press is always a press.
+   * Opening the drawer is what takes the pen (above); this is the second door, for a lease the
+   * network or a long absence took away while the drawer stayed open. A focus into something a
+   * person could type in, and the pointer press that leads there: a background tab is not always
+   * given the focus event, but a press is always a press.
    */
   const editable = (target: HTMLElement) =>
     /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable
@@ -1245,7 +1295,7 @@ export function ItemPanel({ itemId }: Props) {
                 <ArrowLeftRight size={12} aria-hidden /> Connections
               </button>
             )}
-            {canWrite && !archived && (
+            {!locked && (
               <IconButton
                 title="More"
                 active={moreOpen}
@@ -1362,7 +1412,7 @@ export function ItemPanel({ itemId }: Props) {
               On {itemBoard.name}
             </span>
           )}
-          {canWrite && !archived && (item.blocked ? (
+          {!locked && (item.blocked ? (
             <button
               onClick={() => unblockItem(item.id)}
               className="ml-auto flex items-center gap-1 rounded-lg bg-rose-600 px-2 py-1 text-meta font-semibold text-white transition hover:bg-rose-700"
@@ -1454,7 +1504,7 @@ export function ItemPanel({ itemId }: Props) {
         <div className="shrink-0 border-b border-rose-200 bg-rose-50 px-4 py-2 text-meta text-rose-900">
           <p>
             {refusal.reason === 'held'
-              ? `${refusal.holderName ?? 'Someone else'} is editing this card, so this change was not saved.`
+              ? `${refusal.holderName ?? 'Someone else'} has this card open, so this change was not saved.`
               : refusal.reason === 'changed'
                 ? 'The card changed while you were editing, so this was not saved. Your words are still here.'
                 : 'This change could not be saved.'}
@@ -1487,12 +1537,12 @@ export function ItemPanel({ itemId }: Props) {
         </div>
       )}
 
-      {held && (
+      {pen && (
         <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-meta text-amber-900">
-          {held.userId === account?.id
-            ? 'This card is open in another tab.'
-            : `${held.holderName} is editing this card.`}{' '}
-          You can read and move it. The writing is theirs until they finish.
+          {pen.mine
+            ? 'This card is open in another tab, so it is locked for editing here.'
+            : `${pen.holderName ?? 'Somebody else'} has this card open, so it is locked for editing.`}{' '}
+          You can still read it and move it; the writing is theirs until they close it.
         </div>
       )}
 
@@ -1512,8 +1562,9 @@ export function ItemPanel({ itemId }: Props) {
       {/* ---- Body ---------------------------------------------------------------- */}
       {/* The panel is the one place a card's own words are worth copying, so it opts back in.
           A lease somebody else holds disables every control inside, without hiding a word of it:
-          reading is free, and a reader must never be shown a field that would refuse them. The
-          same is true of a Viewer's role, which closes the fields and not the tab bar above them. */}
+          a card somebody has open still opens here, and a reader must never be shown a field that
+          would refuse them. The same is true of a Viewer's role, which closes the fields and not
+          the tab bar above them. */}
       <fieldset
         disabled={locked}
         className="m-0 flex min-h-0 min-w-0 flex-1 flex-col border-0 p-0"

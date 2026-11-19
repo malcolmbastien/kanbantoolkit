@@ -182,18 +182,29 @@ describe('the tool table', () => {
   it('names only acts a person has, and no generative one', () => {
     const names = TOOLS.map((tool) => tool.name)
     expect(names).toEqual([
+      'whoami',
       'list_boards',
       'get_board',
       'search_items',
+      'list_items',
+      'list_attention',
       'get_item',
       'list_objectives',
+      'get_vocabulary',
+      'list_activity',
       'list_people',
       'workspace_summary',
       'create_item',
       'update_item',
+      'block_item',
+      'unblock_item',
       'move_item',
       'convert_to_initiative',
       'set_parent',
+      'add_dependency',
+      'remove_dependency',
+      'map_initiative',
+      'unmap_initiative',
       'add_note',
     ])
     // R6, spelled out: a tool that invented words would be the app writing what nobody wrote.
@@ -208,13 +219,19 @@ describe('the tool table', () => {
       expect(tool.inputSchema).toMatchObject({ type: 'object' })
       expect(['boards:read', 'items:read', 'people:read', 'items:write', 'items:comment']).toContain(tool.scope)
     }
-    // The four writes are the four acts; nothing else in the table writes.
+    // The writes are the acts a person has; nothing else in the table writes.
     expect(TOOLS.filter((tool) => tool.scope === 'items:write').map((tool) => tool.name)).toEqual([
       'create_item',
       'update_item',
+      'block_item',
+      'unblock_item',
       'move_item',
       'convert_to_initiative',
       'set_parent',
+      'add_dependency',
+      'remove_dependency',
+      'map_initiative',
+      'unmap_initiative',
     ])
   })
 
@@ -224,6 +241,8 @@ describe('the tool table', () => {
     expect(readOnly).not.toContain('move_item')
     expect(readOnly).not.toContain('set_parent')
     expect(readOnly).toContain('get_board')
+    // The planner's reads are read-only too: who am I, what is mine, what changed, what may a card be.
+    expect(readOnly).toEqual(expect.arrayContaining(['whoami', 'list_items', 'list_attention', 'list_activity', 'get_vocabulary']))
 
     const writer = toolsFor(['boards:read', 'items:read', 'items:write']).map((tool) => tool.name)
     expect(writer).toContain('move_item')
@@ -391,6 +410,171 @@ describe('the tools do what the doors do', () => {
       // Every cards flow the summary reports is named, so an agent does not plan against the first.
       flows: [{ name: 'Cards' }],
     })
+  })
+})
+
+describe('the planner’s questions', () => {
+  /** The structured content of a tool answer, or an empty object when the call refused. */
+  const dataOf = <T,>(result: Awaited<ReturnType<typeof call>>): T => (result.result?.structuredContent ?? {}) as T
+  const ids = (result: Awaited<ReturnType<typeof call>>) =>
+    dataOf<{ data: Array<{ id: string }> }>(result).data.map((entry) => entry.id)
+
+  it('answers "my open work" from whoami and the item filters', async () => {
+    const { signIn, token, db } = await world()
+    const person = await signIn('editor@example.com', 'editor')
+    // The roster is the workspace's copy of the account, and an assignee has to be on it.
+    await db.run("INSERT OR REPLACE INTO people (id, name, workspace_id) VALUES (?1, 'Editor', 'workspace')", [person.id])
+    const agent = await token(person, ['boards:read', 'items:read', 'items:write'], 'planner')
+
+    const me = await call(agent.rpc, 'whoami')
+    expect(me.result?.structuredContent).toMatchObject({
+      user: { id: person.id, email: 'editor@example.com' },
+      role: 'editor',
+      token: { name: 'planner' },
+    })
+
+    // A card of this person's own, promised for a day that has passed.
+    await call(agent.rpc, 'update_item', { itemId: 'i-1', baseRev: 1, assignees: [person.id], dueDate: '2020-01-31' })
+
+    expect(ids(await call(agent.rpc, 'list_items', { assignee: 'me' }))).toEqual(['i-1'])
+    expect(ids(await call(agent.rpc, 'list_items', { unassigned: true }))).toEqual(['i-2', 'i-3', 'i-init', 'i-kid'])
+    // The stage is the column's, inherited by its cells — not a word in a title.
+    expect(ids(await call(agent.rpc, 'list_items', { stage: 'done' }))).toEqual(['i-3'])
+    expect(ids(await call(agent.rpc, 'list_items', { dueBefore: '2020-02-01' }))).toEqual(['i-1'])
+    // Filters compose: the board's backlog cards are not its backlog initiatives.
+    expect(ids(await call(agent.rpc, 'list_items', { boardId: 'b-1', stage: 'backlog', typeId: 't-card' }))).toEqual(['i-1', 'i-2'])
+
+    // A filter that is not a stage is refused with the sentence, not silently empty.
+    expect((await call(agent.rpc, 'list_items', { stage: 'nowhere' })).result?.isError).toBe(true)
+
+    const vocabulary = await call(agent.rpc, 'get_vocabulary')
+    const document = vocabulary.result?.structuredContent as { issueTypes: Array<{ id: string }> }
+    expect(document.issueTypes.map((type) => type.id)).toEqual(['t-card', 't-init'])
+  })
+
+  it('reports what became blocked, and when, from the event stream', async () => {
+    const { signIn, token } = await world()
+    const person = await signIn('editor@example.com', 'editor')
+    const agent = await token(person, ['boards:read', 'items:read', 'items:write'], 'triage')
+
+    const blocked = await call(agent.rpc, 'block_item', { itemId: 'i-2', baseRev: 1, reason: 'Waiting on legal' })
+    expect(blocked.result?.isError).toBeUndefined()
+
+    const only = await call(agent.rpc, 'list_items', { blocked: true })
+    expect(dataOf<{ data: Array<Record<string, unknown>> }>(only).data[0]).toMatchObject({
+      id: 'i-2',
+      blocked: true,
+      blockedReason: 'Waiting on legal',
+    })
+
+    // The block is its own history entry, written through the token.
+    const read = await call(agent.rpc, 'get_item', { itemId: 'i-2' })
+    const item = dataOf<{ log: Array<{ kind: string; note?: string; via?: string }> }>(read)
+    expect(item.log.find((entry) => entry.kind === 'blocked')).toMatchObject({ note: 'Waiting on legal', via: 'triage' })
+
+    // And it is on the stream, so "what appeared since yesterday?" is one call rather than a read
+    // of every card's history.
+    const stream = await call(agent.rpc, 'list_activity', { since: 0 })
+    const events = dataOf<{ data: Array<{ type: string; itemId?: string }> }>(stream).data
+    expect(events.some((event) => event.type === 'item.blocked' && event.itemId === 'i-2')).toBe(true)
+
+    const typed = await call(agent.rpc, 'list_activity', { type: 'item.blocked' })
+    const onlyBlocked = dataOf<{ data: Array<{ type: string }> }>(typed).data
+    expect(onlyBlocked).toHaveLength(1)
+    expect(onlyBlocked[0].type).toBe('item.blocked')
+
+    const later = await call(agent.rpc, 'list_activity', { since: Date.now() + 60_000 })
+    expect(dataOf<{ data: unknown[] }>(later).data).toEqual([])
+
+    // Clearing it is the other act, and the item is open work again.
+    const cleared = await call(agent.rpc, 'unblock_item', { itemId: 'i-2', baseRev: 2 })
+    expect(cleared.result?.isError).toBeUndefined()
+    expect((await call(agent.rpc, 'get_item', { itemId: 'i-2' })).result?.structuredContent).toMatchObject({ rev: 3 })
+    expect(dataOf<{ data: unknown[] }>(await call(agent.rpc, 'list_items', { blocked: true })).data).toEqual([])
+  })
+
+  it('links the work that waits, and refuses a link that runs along the hierarchy', async () => {
+    const { signIn, token } = await world()
+    const person = await signIn('editor@example.com', 'editor')
+    const agent = await token(person, ['boards:read', 'items:read', 'items:write'], 'planner')
+
+    const linked = await call(agent.rpc, 'add_dependency', { itemId: 'i-3', dependsOn: 'i-1', reason: 'Ships with it' })
+    expect(linked.result?.isError).toBeUndefined()
+    expect(linked.result?.structuredContent).toMatchObject({ itemId: 'i-3', dependsOn: 'i-1', linked: true })
+
+    // The dependent's history says what it now waits on, and its revision moved.
+    const read = await call(agent.rpc, 'get_item', { itemId: 'i-3' })
+    expect(dataOf<{ rev: number; log: Array<{ kind: string; note?: string }> }>(read)).toMatchObject({ rev: 2 })
+    expect(dataOf<{ log: Array<{ kind: string; note?: string }> }>(read).log).toContainEqual(
+      expect.objectContaining({ kind: 'linked', note: 'waits on Card i-1' }),
+    )
+
+    // A link that would close a loop is refused in the domain's words.
+    expect((await call(agent.rpc, 'add_dependency', { itemId: 'i-1', dependsOn: 'i-3' })).result?.isError).toBe(true)
+    // So is one along the decomposition: the rollup already orders a parent and its child.
+    expect((await call(agent.rpc, 'add_dependency', { itemId: 'i-kid', dependsOn: 'i-init' })).result?.isError).toBe(true)
+
+    const removed = await call(agent.rpc, 'remove_dependency', { itemId: 'i-3', dependsOn: 'i-1' })
+    expect(removed.result?.structuredContent).toMatchObject({ linked: false })
+    expect((await call(agent.rpc, 'remove_dependency', { itemId: 'i-3', dependsOn: 'i-1' })).result?.isError).toBe(true)
+  })
+
+  it('asks for attention within a scope: every board, one board, or mine', async () => {
+    const { signIn, token, db } = await world()
+    const person = await signIn('editor@example.com', 'editor')
+    await db.run("INSERT OR REPLACE INTO people (id, name, workspace_id) VALUES (?1, 'Editor', 'workspace')", [person.id])
+    const agent = await token(person, ['boards:read', 'items:read', 'items:write'], 'planner')
+
+    // One owned card that is late, and one blocked card nobody owns.
+    await call(agent.rpc, 'update_item', { itemId: 'i-1', baseRev: 1, assignees: [person.id], dueDate: '2020-01-31' })
+    await call(agent.rpc, 'block_item', { itemId: 'i-2', baseRev: 1, reason: 'Waiting on legal' })
+
+    const all = await call(agent.rpc, 'list_attention')
+    const everything = dataOf<{
+      scope: { boardId: string | null; boards: number }
+      counts: Record<string, number>
+      data: Array<{ item: { id: string }; boardId: string; boardName: string; signals: Array<{ key: string; label: string }> }>
+    }>(all)
+    expect(everything.scope).toMatchObject({ boardId: null, boards: 1 })
+    expect(everything.data.map((row) => row.item.id)).toEqual(['i-1', 'i-2'])
+    expect(everything.counts).toMatchObject({ overdue: 1, blocked: 1 })
+    expect(everything.data.find((row) => row.item.id === 'i-2')).toMatchObject({
+      boardId: 'b-1',
+      boardName: 'Atlas',
+      signals: [{ key: 'blocked', label: 'Blocked' }],
+    })
+
+    // One board is the same board here; the scope is echoed so a report can say what it read.
+    const one = await call(agent.rpc, 'list_attention', { boardId: 'b-1' })
+    expect(dataOf<{ scope: { boardId: string | null } }>(one).scope.boardId).toBe('b-1')
+    expect((await call(agent.rpc, 'list_attention', { boardId: 'b-missing' })).result?.isError).toBe(true)
+
+    // Mine is the token owner's own work, not the unowned card.
+    const mine = await call(agent.rpc, 'list_attention', { assignee: 'me' })
+    expect(dataOf<{ data: Array<{ item: { id: string } }> }>(mine).data.map((row) => row.item.id)).toEqual(['i-1'])
+
+    // One tile, while the counts still describe the scope.
+    const blocked = await call(agent.rpc, 'list_attention', { signal: 'blocked' })
+    expect(dataOf<{ data: Array<{ item: { id: string } }> }>(blocked).data.map((row) => row.item.id)).toEqual(['i-2'])
+    expect(dataOf<{ counts: Record<string, number> }>(blocked).counts).toMatchObject({ overdue: 1, blocked: 1 })
+    expect((await call(agent.rpc, 'list_attention', { signal: 'nope' })).result?.isError).toBe(true)
+  })
+
+  it('maps an initiative to an objective, and refuses one that is part of another', async () => {
+    const { signIn, token, db } = await world()
+    await db.run("INSERT INTO objectives (id, title, status, workspace_id) VALUES ('o-1', 'Grow', 'active', 'workspace')")
+    const person = await signIn('editor@example.com', 'editor')
+    const agent = await token(person, ['boards:read', 'items:read', 'items:write'], 'strategy')
+
+    const mapped = await call(agent.rpc, 'map_initiative', { objectiveId: 'o-1', itemId: 'i-init' })
+    expect(mapped.result?.structuredContent).toMatchObject({ objectiveId: 'o-1', itemId: 'i-init', mapped: true })
+
+    // A nested initiative inherits its parent's objective; it is not an outcome of its own.
+    const nested = await call(agent.rpc, 'map_initiative', { objectiveId: 'o-1', itemId: 'i-kid' })
+    expect(nested.result?.isError).toBe(true)
+
+    const unmapped = await call(agent.rpc, 'unmap_initiative', { objectiveId: 'o-1', itemId: 'i-init' })
+    expect(unmapped.result?.structuredContent).toMatchObject({ mapped: false })
   })
 })
 

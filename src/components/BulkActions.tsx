@@ -145,7 +145,7 @@ export function BulkActions() {
 
       {held && (
         <span className="max-w-[280px] truncate text-meta text-amber-900" title="Moving is still allowed; changing what these cards say is not">
-          {held.holderName} is editing one of these — it can still be moved
+          {held.holderName} has one of these open — it can still be moved
         </span>
       )}
 

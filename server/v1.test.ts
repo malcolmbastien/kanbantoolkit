@@ -320,6 +320,234 @@ describe('reading', () => {
     expect(body.data).toHaveLength(1)
     expect(body.data[0]).toMatchObject({ id: 'i-2', match: { field: 'description', matched: 'retries' } })
   })
+
+  it('says who the token speaks for, so "my" has an id', async () => {
+    const { signIn, token } = await world()
+    const person = await signIn('editor@example.com', 'editor')
+    const agent = await token(person, ['items:read'], 'planner')
+
+    const answer = await agent.call('/me')
+    expect(answer.status).toBe(200)
+    expect(await answer.json()).toMatchObject({
+      user: { id: person.id, email: 'editor@example.com' },
+      role: 'editor',
+      scopes: ['items:read'],
+      token: { name: 'planner' },
+      workspaceId: 'workspace',
+    })
+  })
+
+  it('filters by assignee, block, due date and the stage the cell inherits', async () => {
+    const { signIn, token, db } = await world()
+    const person = await signIn('editor@example.com', 'editor')
+    // The roster is the workspace's copy of the account, and an assignee must be on it.
+    await db.run("INSERT OR REPLACE INTO people (id, name, workspace_id) VALUES (?1, 'Editor', 'workspace')", [person.id])
+    const agent = await token(person, ['boards:read', 'items:read', 'items:write'], 'planner')
+
+    // One card of the person's own, promised for a day that has passed; one blocked.
+    expect(
+      (await agent.call('/items/i-1', { method: 'PATCH', body: body({ baseRev: 1, assignees: [person.id], dueDate: '2020-01-31' }) }))
+        .status,
+    ).toBe(200)
+    expect(
+      (await agent.call('/items/i-2', { method: 'PATCH', body: body({ baseRev: 1, blocked: true, blockedReason: 'Waiting on legal' }) }))
+        .status,
+    ).toBe(200)
+
+    const ids = async (query: string) => {
+      const answer = await agent.call(`/items?${query}`)
+      expect(answer.status).toBe(200)
+      return ((await answer.json()) as { data: Array<{ id: string }> }).data.map((entry) => entry.id)
+    }
+
+    expect(await ids('assignee=me')).toEqual(['i-1'])
+    expect(await ids('unassigned=true')).toEqual(['i-2', 'i-3'])
+    expect(await ids('blocked=true')).toEqual(['i-2'])
+    expect(await ids('blocked=false')).toEqual(['i-1', 'i-3'])
+    expect(await ids('dueBefore=2020-02-01')).toEqual(['i-1'])
+    // A cell inherits its column's stage: In Progress is not "the word progress in a title".
+    expect(await ids('stage=inProgress')).toEqual(['i-3'])
+    expect(await ids('stage=done')).toEqual([])
+    expect(await ids('stage=backlog,inProgress')).toEqual(['i-1', 'i-2', 'i-3'])
+
+    // A filter that is not a stage is refused in words, rather than silently answering nothing.
+    expect((await agent.call('/items?stage=nowhere')).status).toBe(422)
+    expect((await agent.call('/items?dueBefore=tomorrow')).status).toBe(422)
+  })
+
+  it('reads attention within a scope, with the counts that scope carries', async () => {
+    const { signIn, token, db } = await world()
+    const person = await signIn('editor@example.com', 'editor')
+    await db.run("INSERT OR REPLACE INTO people (id, name, workspace_id) VALUES (?1, 'Editor', 'workspace')", [person.id])
+    const agent = await token(person, ['boards:read', 'items:read', 'items:write'], 'planner')
+
+    // One owned card that is late, one blocked card nobody owns, and one committed card that has
+    // stopped moving and has no owner.
+    await agent.call('/items/i-1', { method: 'PATCH', body: body({ baseRev: 1, assignees: [person.id], dueDate: '2020-01-31' }) })
+    await agent.call('/items/i-2', { method: 'PATCH', body: body({ baseRev: 1, blocked: true, blockedReason: 'Waiting on legal' }) })
+
+    const answer = await agent.call('/attention')
+    expect(answer.status).toBe(200)
+    const all = (await answer.json()) as {
+      scope: { boardId: string | null; boards: number }
+      counts: Record<string, number>
+      total: number
+      nextCursor: string | null
+      data: Array<{ item: { id: string }; boardId: string; boardName: string; status: string; signals: Array<{ key: string }> }>
+    }
+    // The scope is every board, and it is echoed so a report can say what it read.
+    expect(all.scope).toMatchObject({ boardId: null, boards: 1 })
+    // Loudest first: the two-signal row leads, then the two one-signal rows by title.
+    expect(all.data.map((row) => row.item.id)).toEqual(['i-3', 'i-1', 'i-2'])
+    expect(all.counts).toMatchObject({ blocked: 1, overdue: 1, stale: 1, unassigned: 1, waiting: 0 })
+    expect(all.data.find((row) => row.item.id === 'i-2')).toMatchObject({
+      boardId: 'b-1',
+      boardName: 'Atlas',
+      signals: [expect.objectContaining({ key: 'blocked' })],
+    })
+
+    // One board is the scope; a board that does not exist is a refusal.
+    const one = (await (await agent.call('/attention?boardId=b-1')).json()) as { scope: { boardId: string } }
+    expect(one.scope.boardId).toBe('b-1')
+    expect((await agent.call('/attention?boardId=b-nope')).status).toBe(404)
+
+    // Mine is the token owner's own work, not the unowned card.
+    const mine = (await (await agent.call('/attention?assignee=me')).json()) as { data: Array<{ item: { id: string } }> }
+    expect(mine.data.map((row) => row.item.id)).toEqual(['i-1'])
+
+    // One tile narrows the rows; the counts still describe the scope.
+    const blocked = (await (await agent.call('/attention?signal=blocked')).json()) as {
+      counts: Record<string, number>
+      data: Array<{ item: { id: string } }>
+    }
+    expect(blocked.data.map((row) => row.item.id)).toEqual(['i-2'])
+    expect(blocked.counts).toMatchObject({ blocked: 1, overdue: 1, stale: 1 })
+    expect((await agent.call('/attention?signal=nope')).status).toBe(422)
+
+    // A page is a page: the order is the dashboard's, and the cursor continues it.
+    const first = (await (await agent.call('/attention?limit=1')).json()) as {
+      data: Array<{ item: { id: string } }>
+      total: number
+      nextCursor: string | null
+    }
+    expect(first.data.map((row) => row.item.id)).toEqual(['i-3'])
+    expect(first.total).toBe(3)
+    expect(first.nextCursor).toBeTruthy()
+    const second = (await (await agent.call(`/attention?limit=1&cursor=${first.nextCursor}`)).json()) as {
+      data: Array<{ item: { id: string } }>
+    }
+    expect(second.data.map((row) => row.item.id)).toEqual(['i-1'])
+  })
+
+  it('reads the event stream as a timeline, filtered by time and type', async () => {
+    const { signIn, token } = await world()
+    const person = await signIn('editor@example.com', 'editor')
+    const agent = await token(person, ['boards:read', 'items:read', 'items:write'], 'planner')
+
+    await agent.call('/items/i-1', { method: 'PATCH', body: body({ baseRev: 1, title: 'Renamed' }) })
+    await agent.call('/items/i-2', { method: 'PATCH', body: body({ baseRev: 1, blocked: true, blockedReason: 'Waiting on legal' }) })
+
+    const all = (await (await agent.call('/activity?since=0')).json()) as {
+      data: Array<{ type: string; at: number; seq: number; itemId?: string }>
+      nextCursor: string | null
+    }
+    expect(all.data.map((event) => event.type)).toEqual(expect.arrayContaining(['item.updated', 'item.blocked']))
+    // Oldest first: seq is the order, and a story reads in order.
+    expect(all.data[0].seq).toBeLessThan(all.data[1].seq)
+    expect(all.nextCursor).toBeNull()
+
+    const blocked = (await (await agent.call('/activity?type=item.blocked')).json()) as {
+      data: Array<{ type: string; itemId?: string }>
+    }
+    expect(blocked.data).toHaveLength(1)
+    expect(blocked.data[0]).toMatchObject({ type: 'item.blocked', itemId: 'i-2' })
+
+    // A window can be a timestamp or epoch milliseconds, and it excludes what came before it.
+    const future = Date.now() + 60_000
+    expect(((await (await agent.call(`/activity?since=${future}`)).json()) as { data: unknown[] }).data).toEqual([])
+    expect(((await (await agent.call(`/activity?until=${encodeURIComponent(new Date(0).toISOString())}`)).json()) as { data: unknown[] }).data).toEqual([])
+    expect((await agent.call('/activity?since=not-a-time')).status).toBe(422)
+    expect((await agent.call('/activity?type=nope')).status).toBe(422)
+  })
+
+  it('blocks a card as its own act, with a history entry and an event', async () => {
+    const { signIn, token } = await world()
+    const person = await signIn('editor@example.com', 'editor')
+    const agent = await token(person, ['boards:read', 'items:read', 'items:write'], 'planner')
+
+    const blocked = await agent.call('/items/i-2', {
+      method: 'PATCH',
+      body: body({ baseRev: 1, blocked: true, blockedReason: 'Waiting on legal' }),
+    })
+    expect(blocked.status).toBe(200)
+    expect(((await blocked.json()) as { item: Record<string, unknown> }).item).toMatchObject({
+      blocked: true,
+      blockedReason: 'Waiting on legal',
+      rev: 2,
+    })
+
+    const read = (await (await agent.call('/items/i-2')).json()) as { log: Array<{ kind: string; note?: string }> }
+    expect(read.log).toContainEqual(expect.objectContaining({ kind: 'blocked', note: 'Waiting on legal' }))
+
+    // A reason without `blocked` is a mistake with a sentence, not a silent edit.
+    expect(
+      (await agent.call('/items/i-2', { method: 'PATCH', body: body({ baseRev: 2, blockedReason: 'Waiting' }) })).status,
+    ).toBe(422)
+    expect(
+      (await agent.call('/items/i-2', { method: 'PATCH', body: body({ baseRev: 2, blocked: false, blockedReason: 'x' }) })).status,
+    ).toBe(422)
+
+    const cleared = await agent.call('/items/i-2', { method: 'PATCH', body: body({ baseRev: 2, blocked: false }) })
+    expect(cleared.status).toBe(200)
+    expect(((await cleared.json()) as { item: Record<string, unknown> }).item.blocked).toBeUndefined()
+  })
+
+  it('links the work that waits, and shows both directions on the item', async () => {
+    const { signIn, token } = await world()
+    const person = await signIn('editor@example.com', 'editor')
+    const agent = await token(person, ['boards:read', 'items:read', 'items:write'], 'planner')
+
+    const linked = await agent.call('/items/i-3/dependencies', { method: 'POST', body: body({ dependsOn: 'i-1' }) })
+    expect(linked.status).toBe(200)
+    expect(((await linked.json()) as { itemId: string; dependsOn: string; linked: boolean })).toMatchObject({
+      itemId: 'i-3',
+      dependsOn: 'i-1',
+      linked: true,
+    })
+
+    const read = (await (await agent.call('/items/i-3')).json()) as { dependsOn: string[]; blocks: string[]; rev: number }
+    expect(read).toMatchObject({ dependsOn: ['i-1'], blocks: [], rev: 2 })
+    expect(((await (await agent.call('/items/i-1')).json()) as { blocks: string[] }).blocks).toEqual(['i-3'])
+
+    // A loop is refused in the domain's words.
+    expect((await agent.call('/items/i-1/dependencies', { method: 'POST', body: body({ dependsOn: 'i-3' }) })).status).toBe(422)
+
+    expect((await agent.call('/items/i-3/dependencies/i-1', { method: 'DELETE' })).status).toBe(200)
+    expect((await agent.call('/items/i-3/dependencies/i-1', { method: 'DELETE' })).status).toBe(404)
+  })
+
+  it('leaves a card a person has open to that person', async () => {
+    const { signIn, token } = await world()
+    const person = await signIn('editor@example.com', 'editor')
+    const agent = await token(person, ['boards:read', 'items:read', 'items:write'], 'planner')
+
+    // Opening the card in the app is the lease; the same route the drawer calls.
+    const pen = await person.call('/api/workspace/items/i-1/lock', {
+      method: 'POST',
+      headers: { 'x-kanbantoolkit-tab': 'tab-a' },
+    })
+    expect(pen.status).toBe(200)
+
+    const refused = await agent.call('/items/i-1', { method: 'PATCH', body: body({ baseRev: 1, title: 'Mine' }) })
+    expect(refused.status).toBe(423)
+    const error = (await refused.json()) as { error: { code: string; details: { holder: { sessionId: string } } } }
+    expect(error.error.code).toBe('locked')
+    expect(error.error.details.holder.sessionId).toBe('tab-a')
+
+    // Arrangement is not the lease's business: the card can still be moved while a person reads it.
+    const moved = await agent.call('/boards/b-1/items/i-1/move', { method: 'POST', body: body({ laneId: 'l-doing' }) })
+    expect(moved.status).toBe(200)
+  })
 })
 
 describe('listing parity', () => {

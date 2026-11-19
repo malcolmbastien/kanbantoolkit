@@ -480,8 +480,8 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
 
         {held && (
           <p className="mx-2.5 mb-1 rounded-md bg-amber-50 px-2 py-1 text-meta text-amber-900">
-            {held.holderName} is editing {single ? 'this card' : 'one of these cards'}. Everything
-            except moving it is theirs until they are done.
+            {held.holderName} has {single ? 'this card' : 'one of these cards'} open. Everything
+            except moving it is theirs until they close it.
           </p>
         )}
 

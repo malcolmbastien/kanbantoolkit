@@ -29,6 +29,9 @@ import {
   getBoard,
   getItem,
   importFile,
+  linkItems,
+  listActivity,
+  listAttention,
   listBoards,
   listItems,
   listObjectives,
@@ -38,7 +41,9 @@ import {
   ok,
   promoteItem,
   search,
+  unlinkItems,
   updateItem,
+  whoami,
   type ApiFailure,
   type Op,
   type OpCaller,
@@ -223,6 +228,14 @@ export function v1Routes(runtime: Runtime) {
     },
     {
       method: 'GET',
+      path: '/me',
+      summary: 'Who this token speaks for: the person, their role, the token’s name and the scopes it carries.',
+      scope: 'items:read',
+      responses: { '200': { description: '{ user, role, scopes, token, workspaceId }' } },
+      handler: async (c, caller) => respond(c, await whoami(caller)),
+    },
+    {
+      method: 'GET',
       path: '/items',
       summary: 'Items — cards and initiatives alike — filtered and paged.',
       scope: 'items:read',
@@ -232,6 +245,14 @@ export function v1Routes(runtime: Runtime) {
         { name: 'typeId', description: 'Only items of this type.' },
         { name: 'q', description: 'The app’s own search over titles, descriptions and notes.' },
         { name: 'updatedSince', description: 'ISO timestamp: only items changed after it.' },
+        { name: 'assignee', description: 'A person id, or `me`: only items assigned to them.' },
+        { name: 'unassigned', description: '`true`: only items nobody is assigned to.' },
+        { name: 'blocked', description: '`true` for blocked items, `false` for the rest.' },
+        { name: 'dueBefore', description: '`YYYY-MM-DD`: only items due that day or earlier.' },
+        {
+          name: 'stage',
+          description: 'One or more of `backlog,notStarted,inProgress,done`, comma-separated. A cell inherits its column’s stage.',
+        },
         { name: 'includeArchived', description: '`true` to include filed-away items.' },
         { name: 'limit', description: 'Default 50, max 200.' },
         { name: 'cursor', description: 'From a previous answer’s `nextCursor`.' },
@@ -246,6 +267,11 @@ export function v1Routes(runtime: Runtime) {
             typeId: c.req.query('typeId'),
             q: c.req.query('q'),
             updatedSince: c.req.query('updatedSince'),
+            assignee: c.req.query('assignee'),
+            unassigned: c.req.query('unassigned') === 'true',
+            blocked: c.req.query('blocked') === undefined ? undefined : c.req.query('blocked') === 'true',
+            dueBefore: c.req.query('dueBefore'),
+            stage: c.req.query('stage'),
             includeArchived: c.req.query('includeArchived') === 'true',
             limit: c.req.query('limit'),
             cursor: c.req.query('cursor'),
@@ -259,6 +285,62 @@ export function v1Routes(runtime: Runtime) {
       scope: 'items:read',
       responses: { '200': { description: 'The item' }, '404': { description: 'No such item' } },
       handler: async (c, caller) => respond(c, await getItem(caller, c.req.param('itemId') ?? '')),
+    },
+    {
+      method: 'GET',
+      path: '/attention',
+      summary: 'Work that needs a look — the dashboard’s signals — scoped to every board, one board, or one person.',
+      scope: 'items:read',
+      query: [
+        { name: 'boardId', description: 'One board. Omit for every board on the instance.' },
+        { name: 'assignee', description: 'A person id, or `me`: only the work assigned to them.' },
+        { name: 'signal', description: 'blocked, waiting, overdue, dueSoon, lateStart, stale or unassigned.' },
+        { name: 'limit', description: 'Default 50, max 200.' },
+        { name: 'cursor', description: 'From a previous answer’s `nextCursor`.' },
+      ],
+      responses: {
+        '200': { description: 'The scope, the counts per signal, rows with their signals, and `nextCursor`' },
+        '404': { description: 'No such board' },
+        '422': { description: 'An unknown signal, or an empty assignee' },
+      },
+      handler: async (c, caller) =>
+        respond(
+          c,
+          await listAttention(caller, {
+            boardId: c.req.query('boardId'),
+            assignee: c.req.query('assignee'),
+            signal: c.req.query('signal'),
+            limit: c.req.query('limit'),
+            cursor: c.req.query('cursor'),
+          }),
+        ),
+    },
+    {
+      method: 'GET',
+      path: '/activity',
+      summary: 'The workspace’s event stream — what changed, when and by whom — oldest first.',
+      scope: 'items:read',
+      query: [
+        { name: 'since', description: 'ISO timestamp or epoch milliseconds: only events at or after it.' },
+        { name: 'until', description: 'ISO timestamp or epoch milliseconds: only events at or before it.' },
+        { name: 'type', description: 'One event type, or a comma-separated list from the webhook contract.' },
+        { name: 'itemId', description: 'Only events about this item.' },
+        { name: 'limit', description: 'Default 50, max 200.' },
+        { name: 'cursor', description: 'From a previous answer’s `nextCursor`.' },
+      ],
+      responses: { '200': { description: '{ data, nextCursor } — each event with `type`, `at`, `itemId`, `actorId` and `data`' } },
+      handler: async (c, caller) =>
+        respond(
+          c,
+          await listActivity(caller, {
+            since: c.req.query('since'),
+            until: c.req.query('until'),
+            type: c.req.query('type'),
+            itemId: c.req.query('itemId'),
+            limit: c.req.query('limit'),
+            cursor: c.req.query('cursor'),
+          }),
+        ),
     },
     {
       method: 'POST',
@@ -296,6 +378,7 @@ export function v1Routes(runtime: Runtime) {
         '404': { description: 'No such item' },
         '409': { description: 'The item moved past the revision the change was based on' },
         '422': { description: 'Refused by the domain' },
+        '423': { description: 'A person has the card open: the lease refuses the write, with `details.holder`' },
       },
       handler: async (c, caller) => {
         const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null
@@ -307,6 +390,46 @@ export function v1Routes(runtime: Runtime) {
         }
         return respond(c, result)
       },
+    },
+    {
+      method: 'POST',
+      path: '/items/:itemId/dependencies',
+      summary: 'Make an item wait on another. A dependency runs across the decomposition, never along it.',
+      scope: 'items:write',
+      action: 'item.write',
+      body: {
+        type: 'object',
+        required: ['dependsOn'],
+        properties: {
+          dependsOn: { type: 'string', description: 'The item this one waits on.' },
+          reason: { type: 'string', description: 'Optional: why it waits, kept with the link.' },
+        },
+      },
+      responses: {
+        '200': { description: 'The link, and the dependent item with its new revision' },
+        '404': { description: 'No such item' },
+        '422': { description: 'The domain refused it: a self-link, a parent or descendant, or a loop' },
+        '423': { description: 'A person has the dependent item open: the lease refuses the change' },
+      },
+      handler: async (c, caller) => {
+        const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null
+        if (!body) return failure(c, 400, 'invalid_body', 'a JSON body is required')
+        return respond(c, await linkItems(caller, c.req.param('itemId') ?? '', body))
+      },
+    },
+    {
+      method: 'DELETE',
+      path: '/items/:itemId/dependencies/:dependsOnId',
+      summary: 'Remove a dependency from an item.',
+      scope: 'items:write',
+      action: 'item.write',
+      responses: {
+        '200': { description: 'The dependent item without the link, at its new revision' },
+        '404': { description: 'No such item, or the two are not linked' },
+        '423': { description: 'A person has the dependent item open: the lease refuses the change' },
+      },
+      handler: async (c, caller) =>
+        respond(c, await unlinkItems(caller, c.req.param('itemId') ?? '', c.req.param('dependsOnId') ?? '')),
     },
     {
       method: 'POST',
@@ -339,6 +462,7 @@ export function v1Routes(runtime: Runtime) {
         '404': { description: 'No such item or board' },
         '409': { description: 'The card moved past the revision the conversion was based on' },
         '422': { description: 'The domain refused it: an initiative, an archived card, a portfolio, or no initiatives cell' },
+        '423': { description: 'A person has the card open: the lease refuses the conversion' },
       },
       handler: async (c, caller) => {
         const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown> | null
@@ -374,6 +498,7 @@ export function v1Routes(runtime: Runtime) {
         '200': { description: 'The mapping, and the objective it moved from when there was one' },
         '404': { description: 'No such objective or item' },
         '422': { description: 'The item is not a strategic initiative' },
+        '423': { description: 'A person has the initiative open: the lease refuses the change' },
       },
       handler: async (c, caller) =>
         respond(c, await mapInitiative(caller, c.req.param('objectiveId') ?? '', c.req.param('itemId') ?? '', true)),
@@ -384,7 +509,11 @@ export function v1Routes(runtime: Runtime) {
       summary: 'Unmap a strategic initiative from an objective.',
       scope: 'items:write',
       action: 'item.attribute',
-      responses: { '200': { description: 'The mapping is gone' }, '404': { description: 'No such objective or item' } },
+      responses: {
+        '200': { description: 'The mapping is gone' },
+        '404': { description: 'No such objective or item' },
+        '423': { description: 'A person has the initiative open: the lease refuses the change' },
+      },
       handler: async (c, caller) =>
         respond(c, await mapInitiative(caller, c.req.param('objectiveId') ?? '', c.req.param('itemId') ?? '', false)),
     },
@@ -515,6 +644,7 @@ const itemSchema = {
     archived: { type: 'boolean' },
     discarded: { type: 'boolean', description: 'Filed away unfinished: archived work that nobody completed.' },
     blocked: { type: 'boolean' },
+    blockedReason: { type: 'string', description: 'Why it is blocked, when it is.' },
   },
 } as const
 
@@ -597,6 +727,8 @@ const schemas = {
       externalLabel: { type: ['string', 'null'], description: 'The label the card shows for its link, or null to clear it.' },
       externalUrl: { type: ['string', 'null'], format: 'uri', description: 'The address the link opens — http or https — or null to clear the link.' },
       parentId: { type: ['string', 'null'] },
+      blocked: { type: 'boolean', description: 'Block the item, or clear its block. A block is its own act with its own history entry.' },
+      blockedReason: { type: ['string', 'null'], description: 'Why it is blocked, when blocking. Refused without `blocked: true`.' },
     },
   },
   Move: {

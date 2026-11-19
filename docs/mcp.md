@@ -132,16 +132,38 @@ history are the instance's own.
 
 A reasonable order for an agent:
 
-1. `list_boards`: which boards exist, and whether each one is archived or read-only.
-2. `workspace_summary`: counts and the columns of your team board, without paging through every card.
-3. `get_board`: one board, its columns and cells, and the items on it. The `laneId` values you need to
-   move a card come from here.
-4. `search_items`: find an item by part of its title. It returns ids.
-5. `get_item`: one item, with its `rev`. A write has to say which revision it was based on.
-6. `update_item` or `move_item`: make the change, passing the `rev` from step 5 as `baseRev`. A
-   move and a note take no revision — an append cannot be stale.
-7. `add_note`: say what you did or what you need. It is the one write that changes nothing but the
+1. `whoami`: whose token this is. "My work", "my review" and "mine" all need the person's id.
+2. `list_boards`: which boards exist, and whether each one is archived or read-only.
+3. `workspace_summary`: counts and the columns of your team board, without paging through every card.
+4. `get_board`: one board, its columns and cells, and the items on it. The `laneId` values you need to
+   move a card come from here. `get_vocabulary` has the issue types a new item can wear.
+5. `list_items` or `search_items`: find the work. `list_items` filters by board, lane, type, person,
+   block, due date, stage and the time it last changed; `search_items` finds a title by its words.
+6. `get_item`: one item, with its `rev`. A write has to say which revision it was based on.
+7. `update_item`, `block_item` or `move_item`: make the change, passing the `rev` from step 6 as
+   `baseRev`. A move and a note take no revision — an append cannot be stale.
+8. `add_note`: say what you did or what you need. It is the one write that changes nothing but the
    card's history, and it is how an agent reports back.
+
+For "what changed since yesterday", call `list_activity` with `since` — it is the same event record the
+webhooks read, so a report does not have to open every card's history.
+
+## Questions this answers
+
+| Question | Calls |
+| --- | --- |
+| "What is on my plate?" | `whoami`, then `list_items` with `assignee: "me"` and the stages that mean open |
+| "What did I finish this week?" | `list_items` with `assignee: "me"`, `stage: "done"`, `updatedSince` |
+| "What blockers appeared since yesterday?" | `list_activity` with `since` and `type: "item.blocked"`, or `list_items` with `blocked: true` and `updatedSince` |
+| "What needs attention?" | `list_attention` — every board, or one `boardId`; `assignee: "me"` for your own |
+| "What is overdue?" | `list_items` with `dueBefore` (today) and the open stages, or `list_attention` with `signal: "overdue"` |
+| "What has nobody picked up?" | `list_items` with `unassigned: true` |
+| "How is the objective doing?" | `list_objectives`, then `get_item`/`get_board` for the initiatives serving it |
+| "Put this card under that objective" | `map_initiative` (one objective per initiative, so this moves it) |
+| "Block this card until legal answers" | `block_item` with `baseRev` and the reason; `unblock_item` clears it |
+| "Move it to Done" | `get_board` for the cell, then `move_item`; a WIP policy may refuse it |
+| "What is this waiting on, and what waits on it?" | `get_item` — `dependsOn` and `blocks` |
+| "Make this wait on that" | `add_dependency`; `remove_dependency` takes it away |
 
 ## The tools
 
@@ -149,10 +171,15 @@ Reads:
 
 | Tool | Scope | What it returns |
 | --- | --- | --- |
+| `whoami` | `items:read` | the person, their role, the token's name and its scopes |
 | `list_boards` | `boards:read` | every board: id, name, band, archived, WIP enforcement |
 | `get_board` | `boards:read` | one board with its lane trees (one initiatives flow and one or more cards flows, each named), its placements, and the items on it |
 | `search_items` | `items:read` | items whose title contains your text. It is a plain substring search, not a query language |
-| `get_item` | `items:read` | one item: fields, parent, placements, revision, rollup and history |
+| `list_items` | `items:read` | items filtered by board, lane, type, text, person (`me` or an id), unassigned, blocked, due date, stage and `updatedSince` |
+| `list_activity` | `items:read` | the event stream — created, moved, blocked, unblocked, noted, edited, health and mapping events — oldest first |
+| `list_attention` | `items:read` | work needing a look — Blocked, Waiting on, Overdue, Due soon, Late start, Stale, Unowned — with counts, scoped by board or person |
+| `get_vocabulary` | `boards:read` | the issue types a new item can wear, board templates, periods, objectives and key results |
+| `get_item` | `items:read` | one item: fields, parent, placements, revision, rollup, history, `dependsOn` and `blocks` |
 | `list_objectives` | `boards:read` | objectives, with the completeness their work gives them (`null` when no work serves one), and their key results |
 | `list_people` | `people:read` | ids and names, so an assignee is a person, not a guess |
 | `workspace_summary` | `boards:read` | counts, the board list, and the columns of the first team board with how many items each holds |
@@ -162,13 +189,21 @@ Writes:
 | Tool | Scope | What it refuses |
 | --- | --- | --- |
 | `create_item` | `items:write` | a board, lane, type, parent, tag or assignee that does not exist; a lane of the wrong kind of flow; a `size`, because boards count issues, not points; a `createdById`, because the server records the creator |
-| `update_item` | `items:write` | a missing or stale `baseRev`, returning the current item; a change of type into or out of Initiative or Sub-task (`invalid`); a `size`; a `createdById`; a parent that is not an initiative, or would make a cycle |
+| `update_item` | `items:write` | a missing or stale `baseRev`, returning the current item; a change of type into or out of Initiative or Sub-task (`invalid`); a `size`; a `createdById`; a parent that is not an initiative, or would make a cycle; a card a person has open (`423`) |
 | `move_item` | `items:write` | a `block` lane at its limit; a `justify` lane without a reason; a card into an initiatives cell, or an initiative into a cards cell; an initiative across its section |
 | `convert_to_initiative` | `items:write` | an item that is already an initiative; a filed-away card; a portfolio board; a card not placed on that board; a board with no initiatives cell for the card's stage |
 | `set_parent` | `items:write` | a parent that is not an initiative, the item itself, or one of its own descendants |
+| `add_dependency` | `items:write` | a self-link, a link along the decomposition (parent or descendant), a link that would close a loop, or a dependent item a person has open (`423`) |
+| `remove_dependency` | `items:write` | two items that are not linked; a dependent item a person has open (`423`) |
+| `block_item` | `items:write` | a missing or stale `baseRev`; a card a person has open (`423`) |
+| `unblock_item` | `items:write` | a missing or stale `baseRev`; a reason given while unblocking; a card a person has open (`423`) |
+| `map_initiative` | `items:write` | an item that is not a top-level initiative, or an initiative a person has open (`423`) |
+| `unmap_initiative` | `items:write` | the same refusals as `map_initiative` |
 | `add_note` | `items:comment` | an empty note, or one over 2000 characters. It changes no field and takes no revision, so a move by somebody else cannot block it; the note lands in the card's Comments with its mentions, and the entry says which token wrote it |
 
-Reads are paged. A page holds 50 items by default and never more than 200. A list answer includes a
+A card somebody has open in the app belongs to that person while they read it: content, block and
+relationship writes answer `423 locked` and name the holder, while a move and a note are still allowed.
+Read the card first; the lock is a different answer from a stale revision. A list answer includes a
 `nextCursor` when there is another page. Pass it back to continue.
 
 **There is no tool that generates work.** No tool fills a board with plausible cards, rewrites it from a

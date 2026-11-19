@@ -73,12 +73,17 @@ first is the token you chose, the second is the person you are.
 
 | Route | Scope | What it does |
 | --- | --- | --- |
+| `GET /me` | `items:read` | who the token speaks for: the person, their role, the token's name and its scopes |
 | `GET /boards` | `boards:read` | every board, with its band |
 | `GET /boards/{boardId}` | `boards:read` | one board: its cards flows and its initiatives flow, its placements, the items on it |
-| `GET /items` | `items:read` | items, filtered by `boardId`, `laneId` (with its subtree), `typeId`, `q`, `updatedSince` |
-| `GET /items/{itemId}` | `items:read` | one item, with its parent, placements, rollup and history |
+| `GET /items` | `items:read` | items, filtered by `boardId`, `laneId` (with its subtree), `typeId`, `q`, `updatedSince`, `assignee` (an id or `me`), `unassigned`, `blocked`, `dueBefore` and `stage` |
+| `GET /items/{itemId}` | `items:read` | one item, with its parent, placements, rollup, history, `dependsOn` and `blocks` |
+| `GET /activity` | `items:read` | the event stream — what changed, when and by whom — oldest first, with `since`, `until`, `type` and `itemId` |
+| `GET /attention` | `items:read` | work that needs a look — the board’s own signals — scoped to every board, one board, or one person |
 | `POST /items` | `items:write` | create a card or an initiative and place it |
-| `PATCH /items/{itemId}` | `items:write` | change its fields; `baseRev` is required |
+| `PATCH /items/{itemId}` | `items:write` | change its fields, or block and unblock it; `baseRev` is required |
+| `POST /items/{itemId}/dependencies` | `items:write` | make it wait on another item; the domain refuses a self-link, a parent or descendant, and a loop |
+| `DELETE /items/{itemId}/dependencies/{dependsOnId}` | `items:write` | remove the link |
 | `POST /boards/{boardId}/items/{itemId}/move` | `items:write` | move it into a cell, at a position |
 | `POST /boards/{boardId}/items/{itemId}/promote` | `items:write` | turn one card into an initiative: the same item, moved to the initiatives section of its stage |
 | `GET /objectives` | `boards:read` | objectives with their completeness and key results |
@@ -90,6 +95,37 @@ first is the token you chose, the second is the person you are.
 | `GET /search?q=` | `items:read` | the app's own search over titles, descriptions and notes, not a query language; each result carries the clipped matching line |
 | `GET /workspace` | `boards:read` | the workspace file, for a backup |
 | `POST /workspace` | `workspace:admin` | restore a file into an empty instance |
+
+`assignee=me` turns "my work" into one call: `GET /me` gives the person id the token acts as, and
+the filter takes either that id or the word `me`. `stage` accepts one or more of `backlog`,
+`notStarted`, `inProgress` and `done`, comma-separated; a cell inherits its column's stage, so the
+filter is the board's own reading rather than a word in a title. `dueBefore` takes `YYYY-MM-DD` and
+leaves out items with no due date, because a card with no promise is not late.
+
+**Attention** is a reading, not a stored flag: `GET /attention` answers the same signals the dashboard
+shows — Blocked, Waiting on, Overdue, Due soon, Late start, Stale and Unowned — derived from the card,
+its cell, its links and its dates. The **scope is part of the question**:
+
+- no `boardId` reads every board on the instance;
+- `boardId=…` reads that board;
+- `assignee=me` (or a person id) narrows to that person's work.
+
+`counts` always describes the scope, including when `signal=blocked` narrows the rows to one tile. A
+card placed on more than one board is one row carrying the signals every board raises, with the board
+it was read from named. The rows are ordered the dashboard orders them — loudest first, then priority
+and age — and `limit`/`cursor` page that order.
+
+`blocked` is written through `PATCH /items/{itemId}`: `{ "baseRev": 3, "blocked": true, "blockedReason": "Waiting on legal" }`.
+A block is its own act, not a field edit — its own history entry and its own `item.blocked` event —
+and `blocked: false` clears it. A `blockedReason` without `blocked` is refused rather than ignored.
+
+A **dependency** says one item waits on another: `POST /items/{id}/dependencies` with
+`{ "dependsOn": "i-…", "reason": "Ships with it" }`. It runs **across** the decomposition, never along
+it — the same rule the picker and the drop preview read (`canDepend`), so a self-link, a link to a
+parent or descendant, and any link that would close a loop are refused rather than half-applied. The
+dependent item's history records the link and its revision moves; `GET /items/{id}` answers both
+directions as `dependsOn` (what it waits for) and `blocks` (what waits on it). Adding a link twice is
+the same link, not a second one.
 
 A note is an item-log entry of kind `noted`. It may carry `mentions`, a list of user ids beside the
 note text; a mention is part of the note, not a thread, and the typed `@Name` stays in `note`.
@@ -128,7 +164,14 @@ flows. Moving between cards flows is a move. A route that tries to cross the two
 `nextCursor` is `null` on the last page. The cursor is opaque — send it back, do not parse it.
 
 **Incremental reads.** `?updatedSince=<ISO timestamp>` returns only items whose content changed after
-that moment. Note the time *before* your read, then ask again with it.
+that moment. Note the time *before* your read, then ask again with it. For *what happened* rather than
+*what is now*, use `GET /activity?since=`: it reads the same event record webhooks are delivered from,
+oldest first, and `since` takes an ISO timestamp or epoch milliseconds.
+
+**A card somebody has open.** Opening a card in the app takes its lease, and content or relationship
+writes are refused with `423 locked` while it stands, with `details.holder` naming the person. A move
+is arrangement and is still allowed. Read the card before writing; the refusal is a different
+sentence from a stale revision's `409`.
 
 **Revisions.** A `PATCH` carries `baseRev`: the revision you read. If the item has moved past it the
 answer is `409 stale`, and `details.item` is the current item. A move does not need one (it is

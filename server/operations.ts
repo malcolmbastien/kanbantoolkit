@@ -12,8 +12,9 @@
  * recording the trail with the token that acted.
  */
 
-import { decompositionParent, objectiveRollup, rollupOf } from '../src/domain/derive'
+import { canDepend, decompositionParent, objectiveRollup, rollupOf, type Graph } from '../src/domain/derive'
 import { cardsFlows, initiativesFlow, kindOf } from '../src/domain/flows'
+import { ATTENTION_TILES, boardAttention, orderRows, type AttentionCounts, type AttentionRow } from '../src/domain/attention'
 import { boardCardTypeId, boardTags, canRetype, canServeObjective, canSetParent, defaultDropLane, isInitiativeItem } from '../src/domain/board'
 import { searchHits } from '../src/domain/search'
 import { mentionedIds } from '../src/domain/mentions'
@@ -28,7 +29,10 @@ import { randomToken } from './auth/oauth'
 import type { AuthUser } from './auth/session'
 import { boardFromRow, itemBelongsElsewhere, itemFromRow, readItem, readWorkspace } from './workspace/read'
 import { appendHistory, appliedItemOf, writeItemAndPlacements, writeWorkspace } from './workspace/write'
+import { heldByOther } from './workspace/locks'
+import { readVocabulary } from './workspace/vocabulary'
 import { emitItemChange, emitObjectiveMapping } from './events'
+import { WEBHOOK_EVENT_TYPES, type WebhookEventType } from '../src/domain/webhooks'
 import { parseItem, parseWorkspace } from './workspace/validate'
 import type { Board, BoardFlow, Item, ItemLogEntry, Lane, Placement } from '../src/domain/types'
 import type { Workspace } from './workspace/types'
@@ -48,7 +52,7 @@ export interface OpCaller {
 }
 
 export interface ApiFailure {
-  status: 400 | 401 | 403 | 404 | 409 | 422 | 429 | 503
+  status: 400 | 401 | 403 | 404 | 409 | 422 | 423 | 429 | 503
   code: string
   message: string
   details?: Record<string, unknown>
@@ -86,6 +90,7 @@ export const compactItem = (item: Item, placement?: Placement) => ({
   // A filed-away item says whether its work was done; absence is the completed case.
   ...(item.discarded ? { discarded: true } : {}),
   ...(item.blocked ? { blocked: true } : {}),
+  ...(item.blockedReason ? { blockedReason: item.blockedReason } : {}),
 })
 
 export const boardView = (board: Board) => ({
@@ -196,6 +201,21 @@ const editedEntry = (context: { id: () => string; at: number; by: string }, what
   by: context.by,
 })
 
+/**
+ * A card somebody has open in the app.
+ *
+ * The lease is the app's, and a token has no tab of its own to hold one with, so any live lease is
+ * somebody else's pen. Content and relationships are refused while it stands; arrangement is not,
+ * which is why the move operation does not ask this.
+ */
+async function heldFromAgent(caller: OpCaller, itemId: string) {
+  const held = await heldByOther(caller.db, itemId, `token:${caller.tokenId}`)
+  if (!held) return undefined
+  return no(423, 'locked', `${held.holderName} has this card open, so this change was not saved`, {
+    holder: { name: held.holderName, userId: held.userId, sessionId: held.sessionId, expiresAt: held.expiresAt },
+  })
+}
+
 /* ---- Reads -------------------------------------------------------------------------------- */
 
 /**
@@ -230,8 +250,35 @@ export interface ItemFilters {
   q?: string
   updatedSince?: string
   includeArchived?: boolean
+  /** A person's id, or `me` for the token's owner. */
+  assignee?: string
+  /** Only items nobody is assigned to. */
+  unassigned?: boolean
+  /** Only blocked items, or only items that are not blocked. */
+  blocked?: boolean
+  /** `YYYY-MM-DD`: only items promised for that day or earlier. Items with no due date are left out. */
+  dueBefore?: string
+  /** One or more of `backlog`, `notStarted`, `inProgress`, `done` — the stage the cell inherits. */
+  stage?: string
   limit?: unknown
   cursor?: string
+}
+
+/** The four stages, in the order the board reads them. */
+const STAGES = ['backlog', 'notStarted', 'inProgress', 'done'] as const
+
+/** A stage list a caller asked for, or the sentence saying what the field takes. */
+function parseStages(value: string | undefined): Op<string[]> {
+  if (value === undefined || value.trim() === '') return ok([])
+  const asked = value
+    .split(',')
+    .map((stage) => stage.trim())
+    .filter(Boolean)
+  const unknown = asked.filter((stage) => !(STAGES as readonly string[]).includes(stage))
+  if (unknown.length) {
+    return no(422, 'invalid', `\`stage\` takes ${STAGES.join(', ')}`, { field: 'stage', unknown })
+  }
+  return ok(asked)
 }
 
 /**
@@ -244,15 +291,50 @@ export interface ItemFilters {
  * noted log entry; `updatedSince` keeps cards with a `changes.at` strictly after the ISO instant.
  * Order is item id, the cursor is the base64url of the last id, and the next cursor appears only
  * when another page exists.
+ *
+ * The planner filters are the questions an agent actually asks: `assignee` (a person's id, or
+ * `me`), `unassigned`, `blocked`, `dueBefore` and `stage`. `stage` follows the lane's inheritance:
+ * the four typed columns carry it, a split inherits it, so "in progress" means the column and
+ * every cell under it.
  */
 export async function listItems(caller: OpCaller, filters: ItemFilters): Promise<Op<{ data: ReturnType<typeof compactItem>[]; nextCursor: string | null }>> {
   const limit = boundedLimit(filters.limit)
   const cursor = decodeCursor(filters.cursor)
+  const stages = parseStages(filters.stage)
+  if (!stages.ok) return stages
+  if (filters.assignee !== undefined && filters.assignee !== 'me' && !filters.assignee.trim()) {
+    return no(422, 'invalid', '`assignee` must be a person id, or `me`', { field: 'assignee' })
+  }
   const params: unknown[] = [caller.workspaceId]
+  const ctes: string[] = []
   // A lane's subtree: "in Done" means the column, not one cell of a split. The recursive walk
   // stays in the database, scoped to this workspace, so the listing never loads the tree to filter
   // one page of cards.
-  if (filters.laneId) params.push(filters.laneId)
+  if (filters.laneId) {
+    params.push(filters.laneId)
+    ctes.push(`subtree(id) AS (
+         SELECT id FROM lanes WHERE workspace_id = ?1 AND id = ?${params.length}
+         UNION ALL
+         -- scoped by the workspace_id the CTE is seeded with and every step repeats
+         SELECT lane.id FROM lanes lane JOIN subtree ON lane.parent_id = subtree.id
+          WHERE lane.workspace_id = ?1
+       )`)
+  }
+  if (stages.value.length) {
+    // Every root column is typed; a cell under one inherits that stage, so seeding the roots that
+    // match and walking down is the `effectiveStage` rule in SQL.
+    const start = params.length + 1
+    for (const stage of stages.value) params.push(stage)
+    const marks = stages.value.map((_, index) => `?${start + index}`).join(', ')
+    ctes.push(`staged(id) AS (
+         SELECT id FROM lanes WHERE workspace_id = ?1 AND parent_id IS NULL AND stage IN (${marks})
+         UNION ALL
+         -- scoped by the workspace_id the CTE is seeded with and every step repeats
+         SELECT lane.id FROM lanes lane JOIN staged ON lane.parent_id = staged.id
+          WHERE lane.workspace_id = ?1
+       )`)
+  }
+
   const where: string[] = ['i.workspace_id = ?1']
   if (!filters.includeArchived) where.push('(i.archived IS NULL OR i.archived = 0)')
   if (filters.boardId) {
@@ -260,9 +342,27 @@ export async function listItems(caller: OpCaller, filters: ItemFilters): Promise
     where.push(`p.board_id = ?${params.length}`)
   }
   if (filters.laneId) where.push('p.lane_id IN (SELECT id FROM subtree)')
+  if (stages.value.length) where.push('p.lane_id IN (SELECT id FROM staged)')
   if (filters.typeId) {
     params.push(filters.typeId)
     where.push(`i.type_id = ?${params.length}`)
+  }
+  if (filters.assignee !== undefined) {
+    const assignee = filters.assignee === 'me' ? caller.user.id : filters.assignee
+    params.push(assignee)
+    // The column is the item's own list, written as JSON; `json_each` asks the array rather than a
+    // string that happens to contain the id.
+    where.push(`(i.assignees IS NOT NULL AND EXISTS (SELECT 1 FROM json_each(i.assignees) WHERE json_each.value = ?${params.length}))`)
+  }
+  if (filters.unassigned) where.push("(i.assignees IS NULL OR i.assignees = '[]')")
+  if (filters.blocked === true) where.push('i.blocked = 1')
+  if (filters.blocked === false) where.push('(i.blocked IS NULL OR i.blocked = 0)')
+  if (filters.dueBefore) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(filters.dueBefore)) {
+      return no(422, 'invalid', '`dueBefore` must be YYYY-MM-DD', { field: 'dueBefore' })
+    }
+    params.push(filters.dueBefore)
+    where.push(`i.due_date IS NOT NULL AND i.due_date <= ?${params.length}`)
   }
   if (filters.q?.trim()) {
     // `searchHits` matches title, description and the notes on the card; this is the same set,
@@ -294,15 +394,7 @@ export async function listItems(caller: OpCaller, filters: ItemFilters): Promise
 
   // The placement a listing names is the last one read, which is the one `readWorkspace` handed the
   // in-memory version (`ORDER BY id` and a map that overwrote). `MAX(p2.id)` is that rule in SQL.
-  const cte = filters.laneId
-    ? `WITH RECURSIVE subtree(id) AS (
-         SELECT id FROM lanes WHERE workspace_id = ?1 AND id = ?2
-         UNION ALL
-         -- scoped by the workspace_id the CTE is seeded with and every step repeats
-         SELECT lane.id FROM lanes lane JOIN subtree ON lane.parent_id = subtree.id
-          WHERE lane.workspace_id = ?1
-       ) `
-    : ''
+  const cte = ctes.length ? `WITH RECURSIVE ${ctes.join(', ')} ` : ''
   const rows = await caller.db.all<Record<string, unknown> & { id: string }>(
     `${cte}SELECT i.*,
             p.id AS placement_id,
@@ -378,6 +470,10 @@ export async function getItem(caller: OpCaller, itemId: string) {
     placements: state.placements
       .filter((p) => p.itemId === item.id)
       .map((p) => ({ boardId: p.boardId, laneId: p.laneId, rank: p.rank ?? 0 })),
+    // A dependency runs from the work waited on to the work that waits. Both directions are named,
+    // because a plan asks both "what am I waiting for?" and "what is waiting on me?".
+    dependsOn: state.links.filter((link) => link.to === item.id).map((link) => link.from),
+    blocks: state.links.filter((link) => link.from === item.id).map((link) => link.to),
     rollup: rollupOf(item.id, state),
     log: item.log ?? [],
   })
@@ -417,6 +513,287 @@ export async function listObjectives(caller: OpCaller) {
 export async function listPeople(caller: OpCaller) {
   const state = await readWorkspace(caller.db, caller.workspaceId)
   return ok({ data: state.users.map((user) => ({ id: user.id, name: user.name, ...(user.avatarUrl ? { avatarUrl: user.avatarUrl } : {}) })) })
+}
+
+/**
+ * Who the credential speaks for.
+ *
+ * A token knows what it may do but not whose work it is asked about, so "my open issues" needs this
+ * call to turn a person into an id. The answer is the identity the token acts as — never a way to
+ * act as somebody else — and the scopes and role it is capped by, so an agent can say what it cannot
+ * do instead of discovering it one refusal at a time.
+ */
+export async function whoami(caller: OpCaller) {
+  return ok({
+    user: {
+      id: caller.user.id,
+      name: caller.user.name,
+      email: caller.user.email,
+      ...(caller.user.avatarUrl ? { avatarUrl: caller.user.avatarUrl } : {}),
+    },
+    role: caller.role,
+    scopes: caller.scopes,
+    token: { id: caller.tokenId, ...(caller.tokenName ? { name: caller.tokenName } : {}) },
+    workspaceId: caller.workspaceId,
+  })
+}
+
+/** The workspace's words: the types a card can wear, and what the board counts. */
+export async function getVocabulary(caller: OpCaller) {
+  return ok(await readVocabulary(caller.db, caller.workspaceId))
+}
+
+export interface AttentionFilters {
+  /** One board, or every board on the instance. */
+  boardId?: string
+  /** A person's id, or `me`. */
+  assignee?: string
+  /** One signal: blocked, waiting, overdue, dueSoon, lateStart, stale, unassigned. */
+  signal?: string
+  limit?: unknown
+  cursor?: string
+}
+
+const SIGNAL_KEYS = ATTENTION_TILES.map((tile) => tile.key)
+
+const emptyCounts = (): AttentionCounts => ({
+  blocked: 0,
+  waiting: 0,
+  overdue: 0,
+  dueSoon: 0,
+  lateStart: 0,
+  stale: 0,
+  unassigned: 0,
+})
+
+/**
+ * The work that needs a look — the dashboard's "Needs attention", across the scope a caller names.
+ *
+ * The rules are the board's own (`boardAttention`), so a row here and a warning on the card are the
+ * same fact, and nothing is stored to keep them in step. The **scope** is the query: no `boardId`
+ * asks every board on the instance, one `boardId` asks that board, and `assignee: me` narrows to the
+ * token owner's own work. The counts describe the scope; `signal` narrows the rows to one tile.
+ *
+ * A card placed on more than one board is one row, with the signals from every board it sits on —
+ * the question is about the work, not about a placement.
+ */
+export async function listAttention(caller: OpCaller, filters: AttentionFilters = {}) {
+  const state = await readWorkspace(caller.db, caller.workspaceId)
+  const now = Date.now()
+
+  let boardId: string | undefined
+  let boardName: string | undefined
+  let scopeBoards = state.boards.filter((board) => !board.archived)
+  if (filters.boardId !== undefined && filters.boardId !== '') {
+    const asked = state.boards.find((board) => board.id === filters.boardId)
+    if (!asked) return no(404, 'not_found', 'no such board')
+    boardId = asked.id
+    boardName = asked.name
+    scopeBoards = [asked]
+  }
+
+  if (filters.assignee !== undefined && filters.assignee !== 'me' && !filters.assignee.trim()) {
+    return no(422, 'invalid', '`assignee` must be a person id, or `me`', { field: 'assignee' })
+  }
+  const assignee = filters.assignee === 'me' ? caller.user.id : filters.assignee
+
+  if (filters.signal !== undefined && filters.signal !== '' && !SIGNAL_KEYS.includes(filters.signal as never)) {
+    return no(422, 'invalid', `\`signal\` takes ${SIGNAL_KEYS.join(', ')}`, { field: 'signal' })
+  }
+
+  const graph: Graph = {
+    items: state.items,
+    edges: state.edges,
+    links: state.links,
+    placements: state.placements,
+    lanes: state.lanes,
+  }
+
+  // One row per item, with every signal the boards it sits on raise.
+  const found = new Map<string, AttentionRow & { boardId: string; boardName: string }>()
+  for (const board of scopeBoards) {
+    const reading = boardAttention(graph, board.id, state.issueTypes, state.flows, { boards: state.boards, now })
+    for (const row of reading.rows) {
+      if (row.signals.length === 0) continue
+      const existing = found.get(row.item.id)
+      if (!existing) {
+        found.set(row.item.id, { ...row, boardId: board.id, boardName: board.name })
+        continue
+      }
+      for (const signal of row.signals) {
+        if (!existing.signals.some((kept) => kept.key === signal.key)) existing.signals.push(signal)
+      }
+    }
+  }
+
+  const scoped = assignee
+    ? [...found.values()].filter((row) => (row.item.assignees ?? []).includes(assignee))
+    : [...found.values()]
+
+  // The counts describe the scope, not the tile a caller is looking through: a board's Blocked
+  // count is the same number whether the rows are narrowed to Blocked or not.
+  const counts = emptyCounts()
+  for (const row of scoped) for (const signal of row.signals) counts[signal.key] += 1
+
+  const rows = filters.signal ? scoped.filter((row) => row.signals.some((signal) => signal.key === filters.signal)) : scoped
+  // `orderRows` answers the dashboard's order; the board a row was read from travels with it.
+  const ordered = orderRows(rows) as Array<AttentionRow & { boardId: string; boardName: string }>
+
+  const limit = boundedLimit(filters.limit)
+  const at = Number(decodeCursor(filters.cursor) ?? 0)
+  const offset = Number.isInteger(at) && at > 0 ? at : 0
+  const page = ordered.slice(offset, offset + limit)
+
+  return ok({
+    scope: {
+      boardId: boardId ?? null,
+      ...(boardName ? { boardName } : {}),
+      assignee: assignee ?? null,
+      boards: scopeBoards.length,
+    },
+    counts,
+    total: ordered.length,
+    data: page.map((row) => ({
+      item: compactItem(
+        row.item,
+        state.placements.find((placement) => placement.itemId === row.item.id && placement.boardId === row.boardId),
+      ),
+      boardId: row.boardId,
+      boardName: row.boardName,
+      status: row.status,
+      ...(row.stage ? { stage: row.stage } : {}),
+      ...(row.ageDays !== undefined ? { ageDays: row.ageDays } : {}),
+      signals: row.signals,
+    })),
+    nextCursor: offset + limit < ordered.length ? encodeCursor(String(offset + limit)) : null,
+  })
+}
+
+export interface ActivityFilters {
+  /** ISO timestamp or epoch milliseconds. Only events at or after it. */
+  since?: string | number
+  /** ISO timestamp or epoch milliseconds. Only events at or before it. */
+  until?: string | number
+  /** One event type, or a comma-separated list from the webhook contract. */
+  type?: string
+  itemId?: string
+  limit?: unknown
+  cursor?: string
+}
+
+/**
+ * An instant from the two spellings a person and a script use.
+ *
+ * A number is epoch milliseconds; a string is either that or an ISO timestamp. An MCP client that
+ * sends `since: 0` is asking for everything, which is a legitimate question rather than a mistake.
+ */
+function instant(value: string | number, field: string): Op<number> {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value < 0) {
+      return no(422, 'invalid', `\`${field}\` must be an ISO timestamp or epoch milliseconds`, { field })
+    }
+    return ok(Math.floor(value))
+  }
+  const trimmed = value.trim()
+  if (!trimmed) return no(422, 'invalid', `\`${field}\` must be an ISO timestamp or epoch milliseconds`, { field })
+  if (/^\d+$/.test(trimmed)) return ok(Number(trimmed))
+  const parsed = Date.parse(trimmed)
+  if (Number.isNaN(parsed)) return no(422, 'invalid', `\`${field}\` must be an ISO timestamp or epoch milliseconds`, { field })
+  return ok(parsed)
+}
+
+/**
+ * The workspace's event stream, chronologically — what changed, when, and by whom.
+ *
+ * This is the same outbound record webhooks are delivered from, read as a timeline: a card created,
+ * moved, blocked, noted or edited, an initiative's health moving, an objective's mapping changing.
+ * An agent asking "what happened since yesterday?" answers it with one call rather than reading
+ * every card's history. Oldest first, so a page is a story in order; the cursor continues forward.
+ */
+export async function listActivity(caller: OpCaller, filters: ActivityFilters = {}) {
+  const limit = boundedLimit(filters.limit)
+  const params: unknown[] = [caller.workspaceId]
+  const where: string[] = ['workspace_id = ?1']
+
+  if (filters.since !== undefined && filters.since !== '') {
+    const at = instant(filters.since, 'since')
+    if (!at.ok) return at
+    params.push(at.value)
+    where.push(`occurred_at >= ?${params.length}`)
+  }
+  if (filters.until !== undefined && filters.until !== '') {
+    const at = instant(filters.until, 'until')
+    if (!at.ok) return at
+    params.push(at.value)
+    where.push(`occurred_at <= ?${params.length}`)
+  }
+  if (filters.itemId) {
+    params.push(filters.itemId)
+    where.push(`item_id = ?${params.length}`)
+  }
+
+  const asked = filters.type
+    ?.split(',')
+    .map((type) => type.trim())
+    .filter(Boolean) ?? []
+  if (asked.length) {
+    const unknown = asked.filter((type) => !(WEBHOOK_EVENT_TYPES as readonly string[]).includes(type))
+    if (unknown.length) {
+      return no(422, 'invalid', '`type` takes the event types the webhook contract names', { field: 'type', unknown })
+    }
+    const start = params.length + 1
+    for (const type of asked) params.push(type as WebhookEventType)
+    where.push(`type IN (${asked.map((_, index) => `?${start + index}`).join(', ')})`)
+  }
+
+  // The cursor is the last `seq` of the previous page. It is a position in the outbox, not an id,
+  // because the question "what came after this?" is the sequence.
+  let after = 0
+  if (filters.cursor) {
+    const parsed = Number(filters.cursor)
+    if (!Number.isInteger(parsed) || parsed < 0) return no(422, 'invalid', '`cursor` is the `nextCursor` of a previous answer', { field: 'cursor' })
+    after = parsed
+  }
+  if (after) {
+    params.push(after)
+    where.push(`seq > ?${params.length}`)
+  }
+  params.push(limit + 1)
+
+  const rows = await caller.db.all<{
+    id: string
+    type: string
+    payload: string
+    occurred_at: number
+    actor_id: string | null
+    item_id: string | null
+    seq: number
+  }>(
+    `SELECT id, type, payload, occurred_at, actor_id, item_id, seq
+       FROM outbound_events
+      WHERE ${where.join(' AND ')}
+      ORDER BY seq ASC
+      LIMIT ?${params.length}`,
+    params,
+  )
+
+  const page = rows.slice(0, limit)
+  const last = page[page.length - 1]
+  return ok({
+    data: page.map((row) => {
+      const payload = JSON.parse(row.payload) as { data?: unknown }
+      return {
+        id: row.id,
+        type: row.type,
+        at: row.occurred_at,
+        seq: row.seq,
+        ...(row.item_id ? { itemId: row.item_id } : {}),
+        ...(row.actor_id ? { actorId: row.actor_id } : {}),
+        data: payload.data ?? {},
+      }
+    }),
+    nextCursor: rows.length > limit && last ? String(last.seq) : null,
+  })
 }
 
 export async function search(caller: OpCaller, q: string, limit?: unknown) {
@@ -731,6 +1108,8 @@ export interface ItemPatch {
   externalLabel?: unknown
   externalUrl?: unknown
   parentId?: unknown
+  blocked?: unknown
+  blockedReason?: unknown
 }
 
 export async function updateItem(caller: OpCaller, itemId: string, body: ItemPatch, key?: string) {
@@ -754,6 +1133,13 @@ export async function updateItem(caller: OpCaller, itemId: string, body: ItemPat
 
   const current = await readItem(caller.db, itemId, caller.workspaceId)
   if (!current) return no(404, 'not_found', 'no such item')
+
+  // Checked before the revision, as the app's own write path does: "somebody has it open" is a
+  // different answer from "it moved", and a held card is not the agent's to write whatever the
+  // revision says.
+  const held = await heldFromAgent(caller, itemId)
+  if (held) return held
+
   if ((current.rev ?? 0) !== body.baseRev) {
     return no(409, 'stale', 'this item has moved past the revision the change was based on', { item: compactItem(current) })
   }
@@ -882,19 +1268,44 @@ export async function updateItem(caller: OpCaller, itemId: string, body: ItemPat
     changes.push('parent')
   }
 
+  // A block is its own act, not a field edit: it has its own event, its own history entry, and its
+  // reason. `changes` stays the fields a person typed, so the log reads "blocked: waiting on legal"
+  // rather than "edited: blocked".
+  let blockedEntry: ItemLogEntry | undefined
+  if (body.blocked !== undefined) {
+    if (typeof body.blocked !== 'boolean') return no(422, 'invalid', '`blocked` must be true or false', { field: 'blocked' })
+    if (body.blockedReason !== undefined && body.blockedReason !== null && typeof body.blockedReason !== 'string') {
+      return no(422, 'invalid', '`blockedReason` must be a string or null', { field: 'blockedReason' })
+    }
+    const reason = typeof body.blockedReason === 'string' ? body.blockedReason.trim().slice(0, 300) : ''
+    if (!body.blocked && reason) return no(422, 'invalid', 'unblocking takes no reason', { field: 'blockedReason' })
+    next.blocked = body.blocked ? true : undefined
+    next.blockedReason = body.blocked && reason ? reason : undefined
+    blockedEntry = {
+      id: newId(),
+      at: now,
+      kind: body.blocked ? 'blocked' : 'unblocked',
+      by: caller.user.id,
+      ...(reason ? { note: reason } : {}),
+      ...(caller.tokenName ? { via: caller.tokenName } : {}),
+    }
+  } else if (body.blockedReason !== undefined) {
+    return no(422, 'invalid', 'send `blocked` with a reason', { field: 'blockedReason' })
+  }
+
+  // The fields a person edited are one history entry; the block, when there is one, is another.
+  const entries: ItemLogEntry[] = []
+  if (changes.length) {
+    entries.push({
+      ...editedEntry({ id: newId, at: now, by: caller.user.id }, changes.join(', ')),
+      ...(caller.tokenName ? { via: caller.tokenName } : {}),
+    })
+  }
+  if (blockedEntry) entries.push(blockedEntry)
+
   const stored: Item = {
     ...next,
-    ...(changes.length
-      ? {
-          log: [
-            ...(next.log ?? []),
-            {
-              ...editedEntry({ id: newId, at: now, by: caller.user.id }, changes.join(', ')),
-              ...(caller.tokenName ? { via: caller.tokenName } : {}),
-            },
-          ],
-        }
-      : {}),
+    ...(entries.length ? { log: [...(next.log ?? []), ...entries] } : {}),
     rev: body.baseRev + 1,
   }
 
@@ -923,6 +1334,120 @@ export async function updateItem(caller: OpCaller, itemId: string, body: ItemPat
   )
 
   return ok({ item: compactItem(stored) })
+}
+
+export interface DependencyInput {
+  dependsOn?: unknown
+  reason?: unknown
+}
+
+/**
+ * Link a card to the work it waits on — "this is not done until that is".
+ *
+ * A dependency runs **across** the decomposition, never along it, and the domain decides: the same
+ * `canDepend` the picker and the drop preview read refuses a self-link, a link to a parent or a
+ * descendant, and any link that would close a loop. The relationship belongs in the dependent's
+ * history — it is the card whose plans changed — and its revision moves with it, as any write does.
+ */
+export async function linkItems(caller: OpCaller, itemId: string, body: DependencyInput) {
+  const state = await readWorkspace(caller.db, caller.workspaceId)
+  const dependent = state.items.find((item) => item.id === itemId)
+  if (!dependent) return no(404, 'not_found', 'no such item')
+  const dependsOn = typeof body.dependsOn === 'string' ? body.dependsOn : ''
+  const dependency = state.items.find((item) => item.id === dependsOn)
+  if (!dependency) return no(422, 'invalid', '`dependsOn` must be an item on this instance', { field: 'dependsOn' })
+
+  // Asking twice for one link is not a second link; a retry gets the same answer and writes nothing.
+  if (state.links.some((link) => link.from === dependsOn && link.to === itemId)) {
+    return ok({ itemId, dependsOn, linked: true, replayed: true })
+  }
+  if (!canDepend(itemId, dependsOn, state)) {
+    return no(
+      422,
+      'cannot_depend',
+      'a dependency runs across the decomposition: it may not link an item to its parent, its own descendant, or close a loop',
+      { itemId, dependsOn },
+    )
+  }
+
+  const held = await heldFromAgent(caller, itemId)
+  if (held) return held
+
+  const reason = typeof body.reason === 'string' ? body.reason.trim().slice(0, 300) : ''
+  const now = Date.now()
+  const stored: Item = {
+    ...dependent,
+    log: [
+      ...(dependent.log ?? []),
+      {
+        id: newId(),
+        at: now,
+        kind: 'linked',
+        note: `waits on ${dependency.title}`,
+        by: caller.user.id,
+        ...(caller.tokenName ? { via: caller.tokenName } : {}),
+      },
+    ],
+    rev: (dependent.rev ?? 0) + 1,
+  }
+
+  await caller.db.run('INSERT INTO links (id, from_id, to_id, reason, workspace_id) VALUES (?1, ?2, ?3, ?4, ?5)', [
+    newId('l'),
+    dependsOn,
+    itemId,
+    reason || null,
+    caller.workspaceId,
+  ])
+  await writeItemAndPlacements(
+    caller.db,
+    stored,
+    [],
+    caller.workspaceId,
+    undefined,
+    auditWrite(caller, 'item.link', itemId, { dependsOn }),
+  )
+  return ok({ itemId, dependsOn, linked: true, item: compactItem(stored) })
+}
+
+/** Take a dependency away. Idempotent in what it leaves behind: no link, one history entry. */
+export async function unlinkItems(caller: OpCaller, itemId: string, dependsOn: string) {
+  const state = await readWorkspace(caller.db, caller.workspaceId)
+  const dependent = state.items.find((item) => item.id === itemId)
+  if (!dependent) return no(404, 'not_found', 'no such item')
+  const link = state.links.find((entry) => entry.from === dependsOn && entry.to === itemId)
+  if (!link) return no(404, 'not_linked', 'these items are not linked')
+
+  const held = await heldFromAgent(caller, itemId)
+  if (held) return held
+
+  const waited = state.items.find((item) => item.id === dependsOn)?.title ?? 'something'
+  const now = Date.now()
+  const stored: Item = {
+    ...dependent,
+    log: [
+      ...(dependent.log ?? []),
+      {
+        id: newId(),
+        at: now,
+        kind: 'unlinked',
+        note: `no longer waits on ${waited}`,
+        by: caller.user.id,
+        ...(caller.tokenName ? { via: caller.tokenName } : {}),
+      },
+    ],
+    rev: (dependent.rev ?? 0) + 1,
+  }
+
+  await caller.db.run('DELETE FROM links WHERE id = ?1 AND workspace_id = ?2', [link.id, caller.workspaceId])
+  await writeItemAndPlacements(
+    caller.db,
+    stored,
+    [],
+    caller.workspaceId,
+    undefined,
+    auditWrite(caller, 'item.unlink', itemId, { dependsOn }),
+  )
+  return ok({ itemId, dependsOn, linked: false, item: compactItem(stored) })
 }
 
 export interface PromoteInputBody {
@@ -959,6 +1484,11 @@ export async function promoteItem(caller: OpCaller, boardId: string, itemId: str
       }
     }
   }
+
+  // A conversion changes what the card is, so it is content: a person reading it keeps it. Asked
+  // after the replay, so a retry is answered rather than refused for a lock it never met.
+  const held = await heldFromAgent(caller, itemId)
+  if (held) return held
 
   // A conversion is content and arrangement at once; a caller that read first may send a revision,
   // and a stale one is answered with the truth rather than applied over a newer card.
@@ -1084,6 +1614,11 @@ export async function moveItem(caller: OpCaller, boardId: string, itemId: string
 export async function setParentItem(caller: OpCaller, itemId: string, parentId: string | null, baseRev?: unknown) {
   const current = await readItem(caller.db, itemId, caller.workspaceId)
   if (!current) return no(404, 'not_found', 'no such item')
+
+  // A parent is a relationship, and relationships are the lock's business.
+  const held = await heldFromAgent(caller, itemId)
+  if (held) return held
+
   if (typeof baseRev === 'number' && (current.rev ?? 0) !== baseRev) {
     return no(409, 'stale', 'this item has moved past the revision the change was based on', { item: compactItem(current) })
   }
@@ -1138,6 +1673,11 @@ export async function mapInitiative(caller: OpCaller, objectiveId: string, itemI
   if (!canServeObjective(item, state, state.issueTypes)) {
     return no(422, 'not_an_outcome', 'only a top-level initiative can serve an objective — one that is not part of another', { itemId })
   }
+
+  // Attribution is a relationship, and relationships are the lock's business. The objective's own
+  // drawer is not open anywhere; the card's is, so the card is the one that answers.
+  const held = await heldFromAgent(caller, itemId)
+  if (held) return held
 
   const previous = state.edges.find((edge) => edge.kind === 'attribution' && edge.to === itemId && edge.from !== objectiveId)
   const statements = mapped

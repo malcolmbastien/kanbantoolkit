@@ -238,9 +238,9 @@ export function workspaceRoutes(runtime: Runtime) {
     const allowed = await requireWorkspace(c, runtime, 'item.write')
     if (allowed instanceof Response) return allowed
 
-    // A lease is a lock on an id, not on a row: the pen is taken on edit intent, which happens
-    // before the first change ever reaches the server. Requiring the card to exist would mean a
-    // card could not be edited for the first time by anybody.
+    // A lease is a lock on an id, not on a row: the pen is taken when the drawer opens, which
+    // happens before the first change ever reaches the server. Requiring the card to exist would
+    // mean a card could not be edited for the first time by anybody.
     const id = c.req.param('id')
     // An id that belongs to another workspace is not a card waiting for its first edit: it is
     // somebody else's, and taking a pen on it would be a write into a workspace this request is
@@ -249,6 +249,10 @@ export function workspaceRoutes(runtime: Runtime) {
     const sessionId = tabOf(c)
     const lock = await acquire(allowed.db, id, { userId: allowed.user.id, sessionId, name: allowed.user.name })
     if (lock.sessionId !== sessionId) return c.json({ error: 'someone else holds this card', holder: lock }, 423)
+    // A lease is state the feed carries, and a client on the socket reads the feed only when it is
+    // nudged. Opening a card rings the bell, so the card's mark does not wait for the next edit.
+    // The number is the doorbell, not a position: the client reads its own cursor.
+    await runtime.live?.publish(c.env, WORKSPACE_ID, 0)
     return c.json({ lock })
   })
 
@@ -272,6 +276,8 @@ export function workspaceRoutes(runtime: Runtime) {
     if (allowed instanceof Response) return allowed
 
     await release(allowed.db, c.req.param('id'), tabOf(c))
+    // The other half of the bell: a card handed back is a card the board may unlock at once.
+    await runtime.live?.publish(c.env, WORKSPACE_ID, 0)
     return c.body(null, 204)
   })
 
@@ -515,7 +521,7 @@ export function workspaceRoutes(runtime: Runtime) {
     // That is what lets a workspace that lived only in a browser arrive one card at a time.
     // Content is the lease's business; arrangement is not, and never comes through here.
     const held = await heldByOther(allowed.db, id, tabOf(c))
-    if (held) return c.json({ error: 'someone else is editing this card', holder: held }, 423)
+    if (held) return c.json({ error: 'someone else has this card open', holder: held }, 423)
 
     const current = await readItem(allowed.db, id, allowed.workspaceId)
     // "No such item here" and "such an item, in another workspace" are different answers, and only

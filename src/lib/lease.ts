@@ -1,12 +1,13 @@
 /**
  * This tab's lease on a card.
  *
- * Taken on **edit intent** — a focus into a field, never on opening the card, because reading is
- * free and two people may read the same card. Renewed while the drawer is open, released when it
- * closes, and let go on `pagehide`; the sixty-second life covers the close that never happens.
+ * Taken on **opening the card**: a card somebody has open is locked for everybody else, so the
+ * drawer asks for the pen as it appears rather than at the first keystroke. Renewed while it is
+ * open, released when it closes, and let go on `pagehide`; the sixty-second life covers the close
+ * that never happens.
  *
- * A refused acquisition is not an error: it means somebody else has the pen, which the presence
- * store has already heard from the same poll, so nothing is said twice.
+ * A refused acquisition is not an error: it means somebody else has the card open, and the answer
+ * names them, so the drawer can be read-only from its first frame rather than after the next poll.
  */
 
 import { TAB } from './presence'
@@ -18,17 +19,40 @@ const HEARTBEAT_MS = 15_000
 const holding = new Set<string>()
 let timer: ReturnType<typeof setInterval> | undefined
 
+/** What the server said about a request for the pen. */
+export interface LeaseAnswer {
+  /** This tab now holds the card. */
+  ok: boolean
+  /** The person who has it, when the request was refused. */
+  holderName?: string
+  /** That person's id, so the drawer can tell "another tab of mine" from somebody else. */
+  holderId?: string
+  /**
+   * The server could not answer. That is not a refusal: an offline drawer stays editable and its
+   * writes wait in the queue, because "I cannot ask" is not "somebody else has it".
+   */
+  unreachable?: boolean
+}
+
 const headers = (): HeadersInit => ({ 'x-kanbantoolkit-tab': TAB })
 
-async function take(itemId: string): Promise<boolean> {
+async function take(itemId: string): Promise<LeaseAnswer> {
   try {
     const response = await fetch(`/api/workspace/items/${encodeURIComponent(itemId)}/lock`, {
       method: 'POST',
       headers: headers(),
     })
-    return response.ok
+    if (response.ok) return { ok: true }
+    // A refusal names the holder: the drawer says who has it without waiting for the feed to catch up.
+    if (response.status === 423) {
+      const body = (await response.json().catch(() => null)) as
+        | { holder?: { userId?: string; holderName?: string } | null }
+        | null
+      return { ok: false, holderName: body?.holder?.holderName, holderId: body?.holder?.userId }
+    }
+    return { ok: false, unreachable: true }
   } catch {
-    return false
+    return { ok: false, unreachable: true }
   }
 }
 
@@ -45,18 +69,26 @@ async function renew(itemId: string): Promise<boolean> {
 }
 
 /** Ask for the pen on a card. Repeated calls are cheap: the same session re-taking is a renewal. */
-export async function takeLease(itemId: string): Promise<void> {
-  if (holding.has(itemId)) return
-  if (!(await take(itemId))) return
+export async function takeLease(itemId: string): Promise<LeaseAnswer> {
+  if (holding.has(itemId)) return { ok: true }
+  const answer = await take(itemId)
+  if (!answer.ok) return answer
   holding.add(itemId)
   start()
+  return { ok: true }
 }
 
 /** Let go of a card. Idempotent, and called from paths that may never have had it. */
 export async function dropLease(itemId: string): Promise<void> {
   holding.delete(itemId)
   try {
-    await fetch(`/api/workspace/items/${encodeURIComponent(itemId)}/lock`, { method: 'DELETE', headers: headers() })
+    // `keepalive` is what makes the release survive the page that is closing: the tab that goes
+    // away mid-request still hands the card back instead of leaving it locked until the TTL.
+    await fetch(`/api/workspace/items/${encodeURIComponent(itemId)}/lock`, {
+      method: 'DELETE',
+      headers: headers(),
+      keepalive: true,
+    })
   } catch {
     // The lease lapses on its own; this is the tidy version, not the only version.
   }
@@ -88,8 +120,9 @@ export function holdingLeases(): string[] {
 }
 
 if (typeof window !== 'undefined') {
-  // A tab being hidden or closed is the last chance to be polite about a lease.
+  // A tab being hidden or closed is the last chance to be polite about a lease. `forEach` visits
+  // the entries still left even as `dropLease` removes the one it is handing back.
   window.addEventListener('pagehide', () => {
-    for (const itemId of holding) void dropLease(itemId)
+    holding.forEach((itemId) => void dropLease(itemId))
   })
 }

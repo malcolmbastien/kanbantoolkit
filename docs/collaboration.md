@@ -12,7 +12,8 @@ what it covers.
 ## The requirement
 
 Two people must not edit the same card's content at once. One holds it; the other sees who, and can
-still read the card and move it around the board.
+still read the card and move it around the board. The pen is taken when the **drawer opens**, not at
+the first keystroke: a card somebody has open is a card they are working on.
 
 ## What counts as editing
 
@@ -21,6 +22,11 @@ still read the card and move it around the board.
 | **Content** | title, description, type, priority, tags, people, dates, checklist, kind | **Yes** |
 | **Relationships** | parent, dependencies, attribution | **Yes** |
 | **Arrangement** | moving it between lanes, reordering it within a lane | **No** |
+
+An **agent** is a writer too. Its token has no tab to hold a lease with, so any live lease is somebody
+else's pen: `/api/v1` and `/mcp` refuse content, block and relationship writes with `423 locked` while a
+person has the card open, and name them. A move is arrangement and stays allowed, and a note is an
+append — an agent reporting back is never blocked by somebody reading.
 
 A `Placement` is its own record, written to the item's log by `moveCard`/`moveCardToIndex`, and
 reversible. If an open drawer froze a card's position, one person reading a card during a planning
@@ -37,18 +43,20 @@ the lock is a **lease**: short life, renewed while someone is there.
 | --- | --- | --- |
 | TTL | 60 s (`LEASE_MS`) | Survives a slow heartbeat; a vanished holder costs nothing |
 | Heartbeat | every 15 s (`HEARTBEAT_MS`) | Renewed while the drawer is open and the tab is visible |
-| Acquired on | the first **edit intent** | Focus into a field, not opening the card: reading stays free and two people can look at the same card |
-| Released on | drawer close, blur, `pagehide` | Best effort; the TTL covers what those miss |
+| Acquired on | **opening the card** | A card somebody has open is locked to everybody else: reading a card is a request to work on it |
+| Released on | drawer close, `pagehide` | Best effort; the TTL covers what those miss |
 | Taken over on | expiry | Automatic, for whoever touches it next. No manual "steal" button in v1 |
 | Keyed by | user **and session** | One person in two tabs is told "you have this open in another tab", not blocked by themselves |
 
-Renewal stops after a few minutes without an edit, so a drawer left open overnight does not hold a
-card forever; when that person comes back and types, the write is refused and the drawer explains why
-rather than dropping the keystroke.
+The lease is renewed for as long as the drawer is open, so a card left open stays locked until the
+person closes it or navigates away; a closed laptop frees the card within a minute. A lapsed lease is
+taken again by the open drawer itself, and again on the next edit intent, so a night offline does
+not leave a card editable without a pen.
 
-`ItemPanel` already brackets free-text editing with `startTextEdit`/`endTextEdit` (focus → one log
-entry on blur, via `logTextEdit`). That bracket is the acquire/release point for title and
-description; the discrete fields write once per gesture, so they acquire on change.
+`ItemPanel` asks for the pen when it opens the card and lets go when it closes. The edit-intent
+handlers (focus into a field, and the press that leads there) are the retry after a lapse, not the
+acquisition. A Viewer's drawer and an archived card take nothing: neither may write, and a reader
+must never lock an author out.
 
 ## The revision is the guarantee
 
@@ -92,7 +100,7 @@ a Durable Object it is a single-threaded compare-and-set. Locks are **never** pe
 ## Protocol
 
 ```
-POST   /items/:id/lock       → 200 { lock } | 409 { holder }
+POST   /items/:id/lock       → 200 { lock } | 423 { holder }
 POST   /items/:id/heartbeat  → 200 | 409 { holder }
 DELETE /items/:id/lock       → 204
 PATCH  /items/:id            { rev, patch } → 200 { rev } | 409 { rev, by } | 423 { holder }
@@ -115,7 +123,9 @@ presence {
 ```
 
 The drawer reads `locks[itemId]`: absent or mine → editable; someone else → read-only with a banner
-naming them. A reader's drawer still updates live as the holder types.
+naming them. Opening the card asks for the pen, and a refusal carries the holder's name, so the
+drawer is read-only from its first frame rather than from the next poll. A reader's drawer still
+updates live as the holder types.
 
 ## The UI contract
 
@@ -134,6 +144,7 @@ naming them. A reader's drawer still updates live as the holder types.
 | Situation | What happens |
 | --- | --- |
 | Holder closes the tab | `pagehide` releases it; if that is missed, the TTL does |
+| Holder leaves the drawer open | The card stays locked while that tab is open; closing the tab or the TTL frees it |
 | Holder's wifi dies | The lease lapses within a minute; the next person takes it |
 | TTL lapses mid-typing | The next write is refused; the field keeps the text and says who changed it |
 | Two people acquire at once | The store settles it; one gets `200`, the other `409` |

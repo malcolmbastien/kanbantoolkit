@@ -213,10 +213,11 @@ Opening a card also brings it into view: the board scrolls the card into the mid
 beside the drawer, so its column and neighbours are in front of the reader. A card already in view is
 left where it is.
 
-The drawer is where editing happens. If somebody else is editing the same card, the drawer shows who has
-it, and the fields stay closed to you until they finish. A Viewer, and an archived or discarded item,
-are read-only. A Viewer can still comment in **Comments**, but an archived item accepts no edits or
-comments.
+The drawer is where editing happens. Opening a card takes its pen, so a card somebody has open is
+locked to everybody else: the drawer shows who has it, and the fields stay closed to you until they
+close it. You can still read it and move it around the board. A Viewer, and an archived or discarded
+item, are read-only. A Viewer can still comment in **Comments**, but an archived item accepts no
+edits or comments.
 
 The **Connections** button in the drawer narrows the board's connection lens to this item's own
 strings. Opening an item does not start that reading — the button is the way in — and an archived

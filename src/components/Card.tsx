@@ -914,6 +914,16 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
             </span>
           )}
           <span className="ml-auto flex items-center gap-1">
+            {held && (
+              <span
+                role="img"
+                aria-label={`${held.holderName} has this card open`}
+                title={`${held.holderName} has this card open`}
+                className="inline-flex shrink-0 items-center text-amber-600"
+              >
+                <Lock size={12} />
+              </span>
+            )}
             {summaryWarnings.length > 0 && (
               <span
                 role="img"
@@ -1254,8 +1264,8 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
             <span className="flex shrink-0 items-center gap-1.5 pt-1">
               {held && (
                 <span
-                  title={`${held.holderName} is editing this card. You can read it and move it.`}
-                  aria-label={`${held.holderName} is editing this card`}
+                  title={`${held.holderName} has this card open. You can read it and move it.`}
+                  aria-label={`${held.holderName} has this card open`}
                   className="text-amber-600"
                 >
                   <Lock size={12} />
@@ -1468,6 +1478,15 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
               leading chip, and with one child the row would start the marks at the left edge.
               The weight a reader scans for stays in the top-right corner whatever the type. */}
           <span className="ml-auto flex shrink-0 items-center gap-1.5">
+            {held && (
+              <span
+                title={`${held.holderName} has this card open. You can read it and move it.`}
+                aria-label={`${held.holderName} has this card open`}
+                className="text-amber-600"
+              >
+                <Lock size={12} />
+              </span>
+            )}
             {showConnections && (
               <DependencyCount count={complete ? 0 : openDependencies} onOpen={openDependenciesDoor} open={connectionsOpen} />
             )}

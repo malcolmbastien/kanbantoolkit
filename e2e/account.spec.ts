@@ -11,6 +11,27 @@ test.describe.configure({ mode: 'serial' })
 test.setTimeout(120_000)
 
 /**
+ * Leave no drawer open behind the test.
+ *
+ * Opening a card takes its lease, and a test page is closed by the harness without the `pagehide`
+ * a person's tab fires — so a drawer left open would hold that card for the rest of the TTL and lock
+ * the next serial test out of it. Closing it is what a person does, and the release is awaited
+ * rather than assumed.
+ */
+test.afterEach(async ({ page }) => {
+  const panel = page.locator('[data-item-panel]')
+  if ((await panel.count()) === 0) return
+  const released = page
+    .waitForResponse((response) => response.request().method() === 'DELETE' && response.url().endsWith('/lock'), {
+      timeout: 10_000,
+    })
+    .catch(() => null)
+  await panel.getByRole('button', { name: 'Close' }).click()
+  await released
+  await expect(panel).toHaveCount(0)
+})
+
+/**
  * An instance, from a browser's side.
  *
  * A deployment with a server is not a demo: it shows its door before it shows a board, and the
@@ -224,17 +245,17 @@ test('a change made on one device arrives on another without a reload', async ({
   }
 })
 
-test('a card being edited is held, and the pen is refused to anybody else', async ({ page }) => {
+test('a card somebody has open is held, and the pen is refused to anybody else', async ({ page }) => {
   await boardOpen(page)
   // A card of this test's own, so the test does not depend on what earlier tests left behind.
   await addCardTo(page, 'Backlog')
 
   const card = page.locator('[data-workflow="cards"] [data-card-id]').filter({ hasText: 'New card' }).last()
   const id = await card.getAttribute('data-card-id')
+  // Opening the drawer is the request for the pen: a card somebody has open is locked to
+  // everybody else, whether or not they have typed anything yet.
   await card.click()
-
-  // Edit intent, not opening: putting the caret in the title is what takes the pen.
-  await page.getByLabel('Title').click()
+  await expect(page.getByLabel('Title')).toBeVisible()
 
   // The feed every other client reads says who holds it — the same feed the drawer reads.
   const locks = async () => {
@@ -381,9 +402,9 @@ test('a card held in one session closes its fields in another, and names the hol
     await addCardTo(holder, 'Backlog')
     const card = holder.locator('[data-workflow="cards"] [data-card-id]').filter({ hasText: 'New card' }).last()
     const id = await card.getAttribute('data-card-id')
+    // Opening the drawer is what takes the pen, so the holder needs only to look at the card.
     await card.click()
-    // Edit intent is what takes the pen; opening a card is free.
-    await holder.getByLabel('Title').click()
+    await expect(holder.getByLabel('Title')).toBeVisible()
 
     // Wait for the lease to be *on the server* before the other session reads it, not merely for
     // the drawer to have taken focus.
@@ -397,15 +418,19 @@ test('a card held in one session closes its fields in another, and names the hol
 
     const other = await two.newPage()
     await openInstanceBoard(other, SELF_HOSTED, BOARD, MAYA)
-    // The second tab has to be in front for its feed to poll; a hidden tab catches up when looked at.
+    // The other tab has to be in front for its feed to poll; a hidden tab catches up when looked at.
     await other.bringToFront()
     const same = other.locator(`[data-card-id="${id}"]`)
     await expect(same).toBeVisible({ timeout: 20_000 })
 
+    // The mark is on the card's face as well as in the drawer, so the board says who has it before
+    // anybody opens it — and the lease rides the live nudge, not just the next edit.
+    await expect(same.locator('[aria-label*="has this card open"]')).toBeVisible({ timeout: 20_000 })
+
     // The lease the server enforces reaches the other session on its poll, and the drawer closes
     // what it cannot write while leaving the card readable (and movable).
     await same.click()
-    await expect(other.getByText('This card is open in another tab.')).toBeVisible({ timeout: 20_000 })
+    await expect(other.getByText(/This card is open in another tab/)).toBeVisible({ timeout: 20_000 })
     await expect(other.getByLabel('Title')).toBeDisabled()
   } finally {
     await one.close()
