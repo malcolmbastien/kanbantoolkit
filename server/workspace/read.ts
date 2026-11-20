@@ -419,7 +419,7 @@ export async function readGraph(db: Database, workspaceId: string = WORKSPACE_RO
 
 
 async function readTemplates(db: Database, workspaceId: string): Promise<BoardTemplate[]> {
-  const [templates, flows, lanes] = await Promise.all([
+  const [templates, flows, lanes, kinds] = await Promise.all([
     db.all<Row>('SELECT * FROM board_templates WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
     db.all<Row>(
       `SELECT f.* FROM template_flows f
@@ -435,9 +435,17 @@ async function readTemplates(db: Database, workspaceId: string): Promise<BoardTe
         ORDER BY l.template_id, l.position`,
       [workspaceId],
     ),
+    db.all<Row>(
+      `SELECT k.* FROM template_initiative_types k
+         JOIN board_templates t ON t.id = k.template_id
+        WHERE t.workspace_id = ?1
+        ORDER BY k.template_id, k.position`,
+      [workspaceId],
+    ),
   ])
   const lanesByTemplate = group(lanes, (row) => text(row.template_id))
   const flowsByTemplate = group(flows, (row) => text(row.template_id))
+  const kindsByTemplate = group(kinds, (row) => text(row.template_id))
 
   return templates.map((row) => {
     const id = text(row.id)
@@ -464,6 +472,14 @@ async function readTemplates(db: Database, workspaceId: string): Promise<BoardTe
         ...(maybeCount(lane.wip_limit) !== undefined ? { wipLimit: count(lane.wip_limit) } : {}),
         ...(maybeText(lane.description) !== undefined ? { description: text(lane.description) } : {}),
       })),
+    }
+    const templateKinds = kindsByTemplate.get(id) ?? []
+    if (templateKinds.length) {
+      template.initiativeTypes = templateKinds.map((kind) => ({
+        id: text(kind.id),
+        name: text(kind.name),
+        color: text(kind.color),
+      }))
     }
     const cardType = maybeText(row.default_card_type_id)
     if (cardType !== undefined) template.defaultCardTypeId = cardType

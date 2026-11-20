@@ -117,8 +117,8 @@ test('a portfolio board offers no card-shaped settings', async ({ page }) => {
   // Only the tabs a portfolio can act on: its identity, and the boards it reads beneath it.
   await expect(dialog.getByRole('tab')).toHaveText(['General', 'Boards'])
 
-  // A portfolio reads work rather than holding it: it has no columns of its own, makes no
-  // initiatives, and carries no card vocabulary — so none of that is offered here.
+  // A portfolio reads work rather than holding it: it has no cards columns of its own, carries no
+  // card vocabulary, and has no design for a template to keep.
   for (const section of ['Card types', 'Initiative kinds', 'Tags', 'WIP limit enforcement', 'Template']) {
     await expect(dialog.getByText(section, { exact: true })).toHaveCount(0)
   }

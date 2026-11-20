@@ -16,8 +16,9 @@
 import { create } from 'zustand'
 import { PERSIST_VERSION, useStore } from '@/store'
 import { noteStructureRev } from './structure'
-import { noteVocabularyRev } from './vocabularySync'
+import { noteVocabularyRev, scheduleVocabularyWrite, vocabularyChanged } from './vocabularySync'
 import { useAuth } from './auth'
+import type { VocabularyDocument } from './vocabularySync'
 import { isDemoWorkspace } from './demo'
 import { personFor } from './identity'
 import { queue } from './queue'
@@ -46,6 +47,18 @@ function asked(userId: string): boolean {
     return localStorage.getItem(ASKED + userId) === '1'
   } catch {
     return false
+  }
+}
+
+/** The vocabulary a workspace answer carries, in the document's own shape. */
+function spokenBy(body: Record<string, unknown>): VocabularyDocument {
+  const list = <T>(key: string): T[] => (Array.isArray(body[key]) ? (body[key] as T[]) : [])
+  return {
+    issueTypes: list('issueTypes'),
+    boardTemplates: list('boardTemplates'),
+    periods: list('periods'),
+    objectives: list('objectives'),
+    keyResults: list('keyResults'),
   }
 }
 
@@ -107,7 +120,16 @@ export async function reflectAccount(userId: string): Promise<AccountLoad> {
     const localDemo = isDemoWorkspace({ boards: local.boards, flows: local.flows, lanes: local.lanes, items: local.items, placements: local.placements })
     if (local.boards.length > 0 && !localDemo && !asked(userId)) {
       useWorkspaceSync.setState({ offer: true, error: undefined })
-      noteStructureRev(rev)
+      // The browser's design and words are being offered, not adopted: record the *server's* empty
+      // documents as the ones already sent, so a board or a type made while the offer stands still
+      // reaches the account, and so a reload does not leave them behind as “already synced”.
+      noteStructureRev(rev, {
+        boards: Array.isArray(body.boards) ? body.boards : [],
+        flows: Array.isArray(body.flows) ? body.flows : [],
+        lanes: Array.isArray(body.lanes) ? body.lanes : [],
+        placements: Array.isArray(body.placements) ? body.placements : [],
+      })
+      noteVocabularyRev(vocabularyRev, spokenBy(body))
       return 'offered'
     }
     // The account's workspace is empty, and empty is what it shows — its people included, because
@@ -116,7 +138,14 @@ export async function reflectAccount(userId: string): Promise<AccountLoad> {
     const account = useAuth.getState().user
     useStore.getState().setUser(personFor(account, useStore.getState().users)?.id)
     noteStructureRev(rev)
-    noteVocabularyRev(vocabularyRev)
+    // What the server said it holds, which on a fresh instance is no words at all. The app's own
+    // vocabulary then differs, and the watcher sends it — a new workspace needs its issue types
+    // before a parent can be recognised, or a card could not be put under an initiative.
+    noteVocabularyRev(vocabularyRev, spokenBy(body))
+    // A fresh instance keeps no words of its own, and the app merges its built-in types in so a
+    // card can be made at all. Those types are a change the server has not heard yet: send them,
+    // or a parent cannot be recognised as an initiative on the instance.
+    if (vocabularyRev !== null && vocabularyChanged()) scheduleVocabularyWrite()
     useWorkspaceSync.setState({ offer: false, error: undefined })
     return 'empty'
   }
@@ -135,7 +164,7 @@ export async function reflectAccount(userId: string): Promise<AccountLoad> {
   // The design just read is the one the next design write is based on, and the words just read are
   // the ones the next vocabulary write is based on.
   noteStructureRev(rev)
-  noteVocabularyRev(vocabularyRev)
+  noteVocabularyRev(vocabularyRev, spokenBy(body))
   useWorkspaceSync.setState({ offer: false, error: undefined })
   return 'adopted'
 }

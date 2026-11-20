@@ -44,7 +44,7 @@ export interface Repository {
    * `key` names the change rather than the attempt, so a queue that retries after a lost response
    * is answered rather than applied twice.
    */
-  commitItem(item: Item, baseRev: number, key?: string): Promise<CommitAnswer>
+  commitItem(item: Item, baseRev: number, key?: string, parentId?: string | null): Promise<CommitAnswer>
 }
 
 /** The browser's own storage, behind the interface: nothing to send, because nowhere else has it. */
@@ -67,14 +67,14 @@ export function httpRepository(): Repository {
   }
 }
 
-async function sendItem(item: Item, baseRev: number, key?: string): Promise<CommitAnswer> {
+async function sendItem(item: Item, baseRev: number, key?: string, parentId?: string | null): Promise<CommitAnswer> {
   try {
     const response = await fetch(`/api/workspace/items/${encodeURIComponent(item.id)}`, {
       method: 'PATCH',
       // The same tab the lease was taken with: without it the server would see a write from
       // somebody else and refuse the holder their own card.
       headers: { 'content-type': 'application/json', 'x-kanbantoolkit-tab': TAB },
-      body: JSON.stringify({ baseRev, item, ...(key ? { key } : {}) }),
+      body: JSON.stringify({ baseRev, item, ...(key ? { key } : {}), ...(parentId !== undefined ? { parentId } : {}) }),
     })
 
     if (response.status === 409) {
@@ -110,7 +110,7 @@ export function chooseRepository(): Repository {
       return useAuth.getState().user ? 'http' : 'local'
     },
     storage: tabSynced(guardedStorage()),
-    commitItem: (item, baseRev, key) =>
-      useAuth.getState().user ? sendItem(item, baseRev, key) : Promise.resolve({ kind: 'kept', item }),
+    commitItem: (item, baseRev, key, parentId) =>
+      useAuth.getState().user ? sendItem(item, baseRev, key, parentId) : Promise.resolve({ kind: 'kept', item }),
   }
 }

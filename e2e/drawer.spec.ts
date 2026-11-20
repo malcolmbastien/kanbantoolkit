@@ -532,6 +532,26 @@ test('Connect a card dims the cards the initiative already holds, and links on a
   await expect(page.locator('[data-card-id="init-billing"]')).not.toHaveAttribute('data-pick-root')
 })
 
+test('New child card makes a card under the initiative, with the parent already set', async ({ page }) => {
+  await openBoard(page)
+
+  await page.locator('[data-card-id="init-billing"]').first().click({ button: 'right' })
+  await page.locator('[data-card-menu][role="menu"]').first().getByText('New child card').click()
+
+  // The card exists before anybody has named it, opens for naming, and already reads its parent.
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel).toBeVisible()
+  await expect(panel.getByLabel('Title')).toHaveValue('New card')
+  await expect(panel.getByTitle('Parent and relationships')).toContainText('Billing migration')
+
+  // Name it and close: on the board it sits in the drop cell, saying what it rolls up to.
+  await panel.getByLabel('Title').fill('Child from the menu')
+  await page.keyboard.press('Escape')
+  const child = page.locator('[data-workflow="cards"] [data-card-id]').filter({ hasText: 'Child from the menu' })
+  await expect(child).toBeVisible()
+  await expect(child).toContainText('Billing migration')
+})
+
 test('an initiative given a parent stays on the board, and its parent is not a choice again', async ({ page }) => {
   await openBoard(page)
   const trial = page.locator('[data-workflow="initiatives"] [data-card-id="init-trial"]')

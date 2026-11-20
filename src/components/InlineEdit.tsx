@@ -85,6 +85,8 @@ export function InlineEdit({
           commit()
         } else if (e.key === 'Escape') {
           e.preventDefault()
+          // Escape cancels the rename, not the dialog around it.
+          e.stopPropagation()
           cancel()
         }
       }}

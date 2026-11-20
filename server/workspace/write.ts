@@ -36,6 +36,7 @@ const TABLES = [
   'periods',
   'template_lanes',
   'template_flows',
+  'template_initiative_types',
   'board_templates',
   'people',
   'issue_types',
@@ -88,6 +89,8 @@ const CHILD_DELETE: Record<string, string> = {
     'DELETE FROM template_lanes WHERE template_id IN (SELECT id FROM board_templates WHERE workspace_id = ?1)',
   template_flows:
     'DELETE FROM template_flows WHERE template_id IN (SELECT id FROM board_templates WHERE workspace_id = ?1)',
+  template_initiative_types:
+    'DELETE FROM template_initiative_types WHERE template_id IN (SELECT id FROM board_templates WHERE workspace_id = ?1)',
 }
 
 const value = <T>(input: T | undefined | null): T | null => input ?? null
@@ -359,6 +362,15 @@ function addVocabulary(statements: Statement[], vocabulary: Vocabulary, workspac
         description: value(lane.description),
       }, workspaceId)
     }
+    for (const [position, kind] of (template.initiativeTypes ?? []).entries()) {
+      add(statements, 'template_initiative_types', {
+        template_id: template.id,
+        id: kind.id,
+        name: kind.name,
+        color: kind.color,
+        position,
+      }, workspaceId)
+    }
   }
 
   for (const period of vocabulary.periods) {
@@ -405,6 +417,7 @@ export async function writeVocabulary(
     // Children before parents, and only this workspace's rows.
     { sql: 'DELETE FROM template_lanes WHERE template_id IN (SELECT id FROM board_templates WHERE workspace_id = ?1)', params: [workspaceId] },
     { sql: 'DELETE FROM template_flows WHERE template_id IN (SELECT id FROM board_templates WHERE workspace_id = ?1)', params: [workspaceId] },
+    { sql: 'DELETE FROM template_initiative_types WHERE template_id IN (SELECT id FROM board_templates WHERE workspace_id = ?1)', params: [workspaceId] },
     { sql: 'DELETE FROM board_templates WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM issue_types WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM objectives WHERE workspace_id = ?1', params: [workspaceId] },

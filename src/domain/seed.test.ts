@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createSeed } from './seed'
+import { createSeed, SEED_TODAY } from './seed'
 import { demoWorkspace } from './demo'
 import { kindOf } from './flows'
 import { boardInitiatives, canServeObjective, initiativeTypeId, portfolioInitiatives } from './board'
@@ -227,7 +227,9 @@ describe('the demo dataset', () => {
   })
 
   it('gives Team Atlas a weekly delivery history the forecast can read on first visit', () => {
-    const now = Date.now()
+    // The demo's dates are anchored to its own today; reading the dataset against the wall clock
+    // makes this assertion a countdown, and a fixed history would one day fail it for being old.
+    const now = SEED_TODAY
     // The demo's own board, read the way the Flow screen reads it: every card placed on it,
     // archived ones included, with the stage its cell gives it.
     const records = cards
@@ -243,11 +245,23 @@ describe('the demo dataset', () => {
 })
 
 describe('the templates the app ships', () => {
-  it('are one cards flow each, and every lane names it', () => {
+  it('describe the flows a board reads, and every lane names one of them', () => {
     for (const template of seed.boardTemplates) {
-      expect(template.flows).toHaveLength(1)
-      expect(template.flows[0].kind).toBe('cards')
-      expect(template.lanes.every((lane) => lane.flowKey === template.flows[0].key)).toBe(true)
+      // A template for a team carries its cards flow(s) and the initiatives flow; a program
+      // carries the initiatives flow only, because a program makes no cards.
+      expect(template.flows.length, template.name).toBeGreaterThanOrEqual(1)
+      const kind = template.band === 'program' ? 'initiatives' : 'cards'
+      expect(template.flows.some((flow) => flow.kind === kind), template.name).toBe(true)
+      expect(template.flows.filter((flow) => flow.kind === 'initiatives'), template.name).toHaveLength(1)
+      expect(template.flows.every((flow) => flow.kind === 'cards' || flow.kind === 'initiatives'), template.name).toBe(true)
+      const keys = new Set(template.flows.map((flow) => flow.key))
+      expect(template.lanes.every((lane) => keys.has(lane.flowKey)), template.name).toBe(true)
     }
+    // The collection is not limited to one flow per board: upstream and downstream are one design.
+    expect(
+      seed.boardTemplates.find((template) => template.name === 'Upstream Kanban')!.flows.filter((flow) => flow.kind === 'cards'),
+    ).toHaveLength(2)
+    // Every template describes a board that has a design: a team or a program, never a portfolio.
+    expect(seed.boardTemplates.every((template) => template.band === 'team' || template.band === 'program')).toBe(true)
   })
 })

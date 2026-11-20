@@ -133,6 +133,10 @@ export async function deleteWorkspace(db: Database, workspaceId: string, audit: 
       sql: 'DELETE FROM template_lanes WHERE template_id IN (SELECT id FROM board_templates WHERE workspace_id = ?1)',
       params: [workspaceId],
     },
+    {
+      sql: 'DELETE FROM template_initiative_types WHERE template_id IN (SELECT id FROM board_templates WHERE workspace_id = ?1)',
+      params: [workspaceId],
+    },
     // The workspace's own rows.
     { sql: 'DELETE FROM workspace_structure WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM board_activity WHERE workspace_id = ?1', params: [workspaceId] },

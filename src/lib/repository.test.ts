@@ -98,6 +98,20 @@ describe('sending a change', () => {
     expect(JSON.parse(init.body as string)).toEqual({ baseRev: 1, item: card })
   })
 
+  it('carries the parent when the change was a hierarchy edit, and leaves it out otherwise', async () => {
+    const fetchMock = answer(200, { item: card })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await httpRepository().commitItem(card, 1, undefined, 'i-parent')
+    let body = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string)
+    expect(body).toEqual({ baseRev: 1, item: card, parentId: 'i-parent' })
+
+    fetchMock.mockClear()
+    await httpRepository().commitItem(card, 1)
+    body = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string)
+    expect(body).toEqual({ baseRev: 1, item: card })
+  })
+
   it('takes the server\'s card when the workspace has moved past the change', async () => {
     const theirs = { ...card, rev: 9, title: 'Theirs' }
     vi.stubGlobal('fetch', answer(409, { error: 'moved past', item: theirs }))

@@ -73,13 +73,30 @@ interface LaneSettingsProps {
   canRemove?: boolean
   /** Why removal is refused, said beside the disabled button. */
   removeReason?: string
+  /** A fixed section's name is the stage's, so it is not edited here. */
+  nameFixed?: boolean
+  /** A flow that does not use WIP limits — the initiatives flow — hides the field. */
+  wipHidden?: boolean
 }
 
 /**
  * The lane settings popover: name, WIP limit, policy (description) and remove.
  * Fields commit on blur / Enter; it closes on Escape, a click away, or Done.
  */
-export function LaneSettings({ lane, top, anchorRef, onClose, rename, setWip, setPolicy, remove, canRemove = true, removeReason }: LaneSettingsProps) {
+export function LaneSettings({
+  lane,
+  top,
+  anchorRef,
+  onClose,
+  rename,
+  setWip,
+  setPolicy,
+  remove,
+  canRemove = true,
+  removeReason,
+  nameFixed = false,
+  wipHidden = false,
+}: LaneSettingsProps) {
   const [name, setNameDraft] = useState(lane.name)
   const [wip, setWipDraft] = useState(lane.wipLimit !== undefined ? String(lane.wipLimit) : '')
   const [policy, setPolicyDraft] = useState(lane.description ?? '')
@@ -152,43 +169,47 @@ export function LaneSettings({ lane, top, anchorRef, onClose, rename, setWip, se
       style={{ top: pos.top, left: pos.left }}
       className="fixed z-50 w-72 space-y-3 rounded-lg border border-slate-200 bg-white p-3 text-meta text-slate-800 shadow-2xl"
     >
-      <div>
-        <label className={label} htmlFor="lane-name">
-          Name
-        </label>
-        <input
-          id="lane-name"
-          value={name}
-          onChange={(e) => {
-            setNameDraft(e.target.value)
-            const v = e.target.value.trim()
-            if (v) rename(v)
-          }}
-          onBlur={() => {
-            if (!name.trim()) setNameDraft(lane.name)
-          }}
-          className={field}
-        />
-      </div>
+      {!nameFixed && (
+        <div>
+          <label className={label} htmlFor="lane-name">
+            Name
+          </label>
+          <input
+            id="lane-name"
+            value={name}
+            onChange={(e) => {
+              setNameDraft(e.target.value)
+              const v = e.target.value.trim()
+              if (v) rename(v)
+            }}
+            onBlur={() => {
+              if (!name.trim()) setNameDraft(lane.name)
+            }}
+            className={field}
+          />
+        </div>
+      )}
 
-      <div>
-        <label className={label} htmlFor="lane-wip">
-          WIP limit
-        </label>
-        <input
-          id="lane-wip"
-          type="number"
-          min={0}
-          value={wip}
-          onChange={(e) => {
-            setWipDraft(e.target.value)
-            const v = e.target.value.trim()
-            setWip(v === '' ? undefined : Math.max(0, Math.floor(Number(v) || 0)))
-          }}
-          placeholder="none"
-          className={`${field} w-20`}
-        />
-      </div>
+      {!wipHidden && (
+        <div>
+          <label className={label} htmlFor="lane-wip">
+            WIP limit
+          </label>
+          <input
+            id="lane-wip"
+            type="number"
+            min={0}
+            value={wip}
+            onChange={(e) => {
+              setWipDraft(e.target.value)
+              const v = e.target.value.trim()
+              setWip(v === '' ? undefined : Math.max(0, Math.floor(Number(v) || 0)))
+            }}
+            placeholder="none"
+            className={`${field} w-20`}
+          />
+        </div>
+      )}
 
       <div>
         <label className={label} htmlFor="lane-policy">

@@ -438,6 +438,37 @@ test('a card held in one session closes its fields in another, and names the hol
   }
 })
 
+test('a child card keeps its parent on the instance, across a reload', async ({ page }) => {
+  await boardOpen(page)
+
+  // An outcome to hang work from…
+  await page.getByRole('button', { name: 'Initiative', exact: true }).click()
+  await page.getByLabel('Title').fill('Parent outcome')
+  await page.keyboard.press('Escape')
+
+  // …and a card made from its menu, with the parent set as it is created.
+  const initiative = page
+    .locator('[data-workflow="initiatives"] [data-card-id]')
+    .filter({ hasText: 'Parent outcome' })
+    .first()
+  await initiative.click({ button: 'right' })
+  await page.locator('[data-card-menu][role="menu"]').first().getByText('New child card').click()
+  await page.getByLabel('Title').fill('Child outcome work')
+  await page.keyboard.press('Escape')
+
+  // The edge is beside the item in the workspace, so the item write has to carry it: after a
+  // reload the card still reads what it rolls up to.
+  await page.waitForTimeout(1000)
+  await page.reload()
+  await page.waitForTimeout(1500)
+  const child = page
+    .locator('[data-workflow="cards"] [data-card-id]')
+    .filter({ hasText: 'Child outcome work' })
+    .first()
+  await child.click()
+  await expect(page.locator('[data-item-panel]').getByTitle('Parent and relationships')).toContainText('Parent outcome')
+})
+
 test('a conversion on an instance reaches the server as the same card, now an initiative', async ({ page }) => {
   await boardOpen(page)
   await addCardTo(page, 'Backlog')

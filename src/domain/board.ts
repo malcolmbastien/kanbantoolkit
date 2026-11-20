@@ -1,6 +1,7 @@
 import { decompositionChildren, decompositionParent, descendants, rollupOf, type Graph } from './derive'
 import { childrenOf, leafLanes, leavesUnder, placementsInOrder, rootLane } from './lanes'
 import { cardsFlows, initiativesFlow } from './flows'
+import { templateFlowsInOrder } from './template'
 import type { Board, BoardBand, BoardFlow, BoardTemplate, InitiativeType, IssueType, Item, Lane, Placement, Tag } from './types'
 
 /** The kinds a board offers, in the order it lists them. An absent list is simply empty. */
@@ -153,28 +154,33 @@ export function boardsByBand(boards: Board[], query = '', includeArchived = fals
  * team's work or one program's links would be wrong everywhere else.
  */
 export function templateFromBoard(id: string, name: string, board: Board, lanes: Lane[], flows: BoardFlow[]): BoardTemplate {
-  // A template captures every **cards flow** — the team's design — and never the initiatives
-  // flow, which is the standard shape the organisation reads rather than the team's to design.
-  const cards = cardsFlows(flows, board.id)
-  const flowKeyOf = new Map(cards.map((flow, i) => [flow.id, `f${i}`]))
+  // A template captures the design a board actually reads. A team captures its cards flows and the
+  // initiatives flow above them; a program captures the **initiatives flow** — the sections and the
+  // cells its outcomes are arranged in. A portfolio has no design of its own to keep, so it is
+  // never a template.
+  const cards = board.band === 'team' ? cardsFlows(flows, board.id) : []
+  const initiatives = initiativesFlow(flows, board.id)
+  // The initiatives flow is fixed at the top of every template, above the cards flows.
+  const captured = [...(initiatives ? [initiatives] : []), ...cards]
+  const flowKeyOf = new Map(captured.map((flow, i) => [flow.id, `f${i}`]))
   const flat: Lane[] = []
   const walk = (lane: Lane) => {
     flat.push(lane)
     childrenOf(lanes, lane.id).forEach(walk)
   }
-  for (const flow of cards) {
+  for (const flow of captured) {
     const root = rootLane(lanes, flow.id)
     if (root) childrenOf(lanes, root.id).forEach(walk)
   }
 
   // Keys are minted in document order and only need to be unique inside the template.
   const keyOf = new Map(flat.map((l, i) => [l.id, `k${i}`]))
-  const rootOfFlow = new Map(cards.map((flow) => [flow.id, rootLane(lanes, flow.id)?.id]))
+  const rootOfFlow = new Map(captured.map((flow) => [flow.id, rootLane(lanes, flow.id)?.id]))
   return {
     id,
     name,
     band: board.band,
-    flows: cards.map((flow, i) => ({ key: `f${i}`, kind: 'cards', name: flow.name, order: i })),
+    flows: captured.map((flow, i) => ({ key: `f${i}`, kind: flow.kind, name: flow.name, order: i })),
     lanes: flat.map((l) => ({
       key: keyOf.get(l.id)!,
       flowKey: flowKeyOf.get(l.flowId)!,
@@ -187,8 +193,11 @@ export function templateFromBoard(id: string, name: string, board: Board, lanes:
       ...(l.wipLimit !== undefined ? { wipLimit: l.wipLimit } : {}),
       ...(l.description ? { description: l.description } : {}),
     })),
-    ...(board.defaultCardTypeId ? { defaultCardTypeId: board.defaultCardTypeId } : {}),
-    ...(board.wipEnforcement ? { wipEnforcement: board.wipEnforcement } : {}),
+    ...(board.initiativeTypes?.length
+      ? { initiativeTypes: board.initiativeTypes.map((kind) => ({ ...kind })) }
+      : {}),
+    ...(board.band === 'team' && board.defaultCardTypeId ? { defaultCardTypeId: board.defaultCardTypeId } : {}),
+    ...(board.band === 'team' && board.wipEnforcement ? { wipEnforcement: board.wipEnforcement } : {}),
   }
 }
 
@@ -203,14 +212,16 @@ export function lanesFromTemplate(
 ): { flows: BoardFlow[]; lanes: Lane[] } {
   // One flow per template flow, one root each, then the lanes under the root of their own flow —
   // a template with two cards flows becomes a board with two, sharing nothing with the template.
-  const flows: BoardFlow[] = template.flows.map((flow) => ({
+  // The initiatives flow is drawn first, as it is in the template.
+  const ordered = templateFlowsInOrder(template)
+  const flows: BoardFlow[] = ordered.map((flow) => ({
     id: uid(),
     boardId,
     kind: flow.kind,
     name: flow.name,
     order: flow.order,
   }))
-  const flowIdOf = new Map(template.flows.map((flow, i) => [flow.key, flows[i].id]))
+  const flowIdOf = new Map(ordered.map((flow, i) => [flow.key, flows[i].id]))
   const roots = new Map(
     flows.map((flow) => [flow.id, { id: uid(), boardId, parentId: null, order: 0, name: '', orientation: 'columns' as const, flowId: flow.id }]),
   )
@@ -319,6 +330,19 @@ export function isAggregating(board: Board | undefined): boolean {
 /** A portfolio board — the strategy lens: objectives and the initiatives that serve them. */
 export function isPortfolio(board: Board | undefined): boolean {
   return board?.band === 'portfolio'
+}
+
+/**
+ * The board types a template can describe.
+ *
+ * A **team** draws its cards flows and the initiatives flow above them; a **program** arranges its
+ * initiatives sections and cells. A **portfolio** is not a design: it is its objectives, its
+ * coverage and the four typed columns that roll work up, so there is nothing for a template to keep.
+ */
+export const TEMPLATE_BANDS: BoardBand[] = ['team', 'program']
+
+export function canTemplateBoard(band: BoardBand | undefined): boolean {
+  return band === 'team' || band === 'program'
 }
 
 /**

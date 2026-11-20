@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Target, X } from 'lucide-react'
+import { LayoutTemplate, Target, X } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { cn } from '@/lib/utils'
 import { useDialogFocus } from '@/lib/useDialogFocus'
@@ -36,17 +36,20 @@ const BAND_DETAIL: Record<BoardBand, { tagline: string; body: string; useFor: st
  * instead of a select whose one-line label assumed the reader already knew the vocabulary.
  */
 export function NewBoardDialog({
-  templates,
+  template,
   onCreate,
+  onBrowseTemplates,
   onClose,
 }: {
-  templates: BoardTemplate[]
-  onCreate: (name: string, band: BoardBand, templateId?: string) => void
+  /** The design this board starts from, when the person came here through a template. */
+  template?: BoardTemplate
+  onCreate: (name: string, band: BoardBand) => void
+  /** Offered when the person has not chosen a template: the way to that choice is its own act. */
+  onBrowseTemplates?: () => void
   onClose: () => void
 }) {
   const [name, setName] = useState('')
-  const [band, setBand] = useState<BoardBand>('team')
-  const [templateId, setTemplateId] = useState('')
+  const [band, setBand] = useState<BoardBand>(template?.band ?? 'team')
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -62,9 +65,9 @@ export function NewBoardDialog({
   const create = () => {
     const trimmed = name.trim()
     if (!trimmed) return
-    // A starting-columns template is a team board's cards design. A coordination board has no
-    // cards flow of its own to apply it to, so the dialog does not offer one there.
-    onCreate(trimmed, band, band === 'team' ? templateId || undefined : undefined)
+    // A template carries the board's type with it: the design knows whether it is a team board,
+    // and there is no second choice to disagree with the columns already chosen.
+    onCreate(trimmed, template?.band ?? band)
   }
 
   const dialogRef = useRef<HTMLFormElement>(null)
@@ -92,10 +95,12 @@ export function NewBoardDialog({
         <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
           <div className="min-w-0 flex-1">
             <h2 id="new-board-title" className="text-title font-semibold text-slate-800">
-              New board
+              {template ? 'New board from template' : 'New board'}
             </h2>
             <p className="mt-1 text-meta leading-relaxed text-slate-600">
-              Change it later in Board settings.
+              {template
+                ? `Starts from “${template.name}”: its flows, columns, and WIP policy come across.`
+                : 'Change it later in Board settings.'}
             </p>
           </div>
           <button
@@ -121,6 +126,29 @@ export function NewBoardDialog({
             />
           </label>
 
+          {template ? (
+            <div className="rounded-lg border border-indigo-200 bg-indigo-50/50 px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <span className={cn('rounded px-1.5 py-px text-micro font-bold uppercase tracking-wide', (BAND_STYLES[template.band] ?? BAND_STYLES.team).chip)}>
+                  {(BAND_STYLES[template.band] ?? BAND_STYLES.team).label}
+                </span>
+                <span className="text-meta font-semibold text-slate-800">{template.name}</span>
+                <span className="ml-auto text-micro text-slate-600">
+                  {template.flows.length} flow{template.flows.length === 1 ? '' : 's'} · {template.lanes.length} lanes
+                </span>
+              </div>
+              <p className="mt-1 text-meta text-slate-600">{template.flows.map((flow) => flow.name).join(' · ')}</p>
+              {onBrowseTemplates && (
+                <button
+                  type="button"
+                  onClick={onBrowseTemplates}
+                  className="mt-1 text-micro font-medium text-indigo-700 underline underline-offset-2 hover:text-indigo-800"
+                >
+                  Choose a different template
+                </button>
+              )}
+            </div>
+          ) : (
           <fieldset>
             <legend className="text-meta font-medium text-slate-600">Board type</legend>
             <div className="mt-1.5 grid gap-2 md:grid-cols-3">
@@ -134,13 +162,7 @@ export function NewBoardDialog({
                     key={b}
                     type="button"
                     aria-pressed={selected}
-                    onClick={() => {
-                      setBand(b)
-                      // Starting columns belong to a team board. Dropping the choice rather than
-                      // keeping it hidden means a program or portfolio cannot be created with a
-                      // template the reader can no longer see.
-                      if (b !== 'team') setTemplateId('')
-                    }}
+                    onClick={() => setBand(b)}
                     className={cn(
                       'flex h-full flex-col rounded-lg border p-2.5 text-left transition',
                       selected
@@ -171,33 +193,20 @@ export function NewBoardDialog({
               })}
             </div>
           </fieldset>
-
-          {band === 'team' && (
-            <label className="flex flex-col gap-1">
-              <span className="text-meta font-medium text-slate-600">Starting columns</span>
-              <select
-                value={templateId}
-                onChange={(e) => setTemplateId(e.target.value)}
-                aria-label="New board template"
-                className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
-              >
-                <option value="">Standard columns</option>
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-              <span className="text-micro text-slate-600">
-                {templateId
-                  ? 'Uses that template’s columns, types and WIP policy.'
-                  : 'Backlog to Done. Shape it after.'}
-              </span>
-            </label>
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
+          {!template && onBrowseTemplates && (
+            <button
+              type="button"
+              onClick={onBrowseTemplates}
+              className="mr-auto flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700"
+              title="Browse the board designs and create from one"
+            >
+              <LayoutTemplate size={13} aria-hidden /> Start from a template…
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}

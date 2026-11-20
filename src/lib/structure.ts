@@ -66,10 +66,19 @@ let lastSent: string | null = null
  */
 let dirty = false
 
-/** Adoption answers this: the design just read is the one the next write is based on. */
-export function noteStructureRev(rev: number | null): void {
+/**
+ * Adoption answers this: the design just read is the one the next write is based on.
+ *
+ * `design` is what the server said it holds, when that differs from what this browser shows after
+ * adopting it. A workspace offered for copying is the case: the browser's boards are not the
+ * account's yet, and treating them as already sent loses a board made after the offer appeared.
+ */
+export function noteStructureRev(
+  rev: number | null,
+  design?: { boards: unknown[]; flows: unknown[]; lanes: unknown[]; placements: unknown[] },
+): void {
   useStructure.setState({ rev })
-  lastSent = rev === null ? null : JSON.stringify(designOf())
+  lastSent = rev === null ? null : JSON.stringify(design ?? designOf())
   dirty = false
 }
 

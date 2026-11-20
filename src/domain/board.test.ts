@@ -24,6 +24,7 @@ import {
   templateDuplicateLane,
   templateInsertLaneAfter,
   templateLaneIsRow,
+  templateLaneIsSection,
   templateMoveFlow,
   templateMoveLane,
   templateRemoveFlow,
@@ -34,9 +35,10 @@ import {
   templateSetLaneWip,
   templateSetOrientation,
   templateSplitLane,
+  withInitiatives,
 } from './template'
 import { rollupOf } from './derive'
-import { childrenOf, placementsInOrder, rootLane } from './lanes'
+import { childrenOf, placementsInOrder, rootLane, topLevelLanes } from './lanes'
 import { BUILT_IN_TEMPLATES } from './demo'
 import { createFixture } from './fixture'
 import type { BoardFlow, Lane, TemplateLane } from './types'
@@ -170,7 +172,8 @@ describe('board templates — a design, not its work', () => {
 
   it('the seeded Scrum template keeps its four columns and their cells', () => {
     const scrum = s.boardTemplates.find((t) => t.name === 'Scrum')!
-    const top = templateChildren(scrum, null)
+    const scrumCards = scrum.flows.find((flow) => flow.kind === 'cards')!
+    const top = templateChildren(scrum, null, scrumCards.key)
     expect(top.map((l) => l.name)).toEqual(['Product Backlog', 'Ready to Start', 'In Progress', 'Done'])
     const kids = (key: string) => templateChildren(scrum, key).map((l) => l.name)
     expect(kids('k1')).toEqual(['Backlog Refinement', 'Current Sprint'])
@@ -180,16 +183,96 @@ describe('board templates — a design, not its work', () => {
     // It is a usable design: instantiating it yields those columns and nothing else.
     let n = 0
     const { flows, lanes } = lanesFromTemplate(scrum, 'b', () => `id${++n}`)
-    expect(flows).toHaveLength(1)
-    const root = lanes.find((l) => l.parentId === null)!
+    // A team template carries the initiatives flow first, then its cards flow.
+    expect(flows.map((f) => f.kind)).toEqual(['initiatives', 'cards'])
+    const cards = flows.find((f) => f.kind === 'cards')!
+    const root = rootLane(lanes, cards.id)!
     expect(lanes.filter((l) => l.parentId === root.id)).toHaveLength(4)
-    expect(lanes.filter((l) => l.stage === 'done')).toHaveLength(1)
+    expect(lanes.filter((l) => l.stage === 'done' && l.flowId === cards.id)).toHaveLength(1)
+    const initiatives = flows.find((f) => f.kind === 'initiatives')!
+    expect(topLevelLanes(lanes, initiatives.id).map((l) => l.name)).toEqual([
+      'Backlog',
+      'Not Started',
+      'In Progress',
+      'Done',
+    ])
+  })
+
+  it('ships the Upstream Kanban template as two flows, with the picture’s cells in order', () => {
+    const t = s.boardTemplates.find((template) => template.name === 'Upstream Kanban')!
+    expect(t.flows.filter((flow) => flow.kind === 'cards').map((flow) => flow.name)).toEqual(['Upstream', 'Downstream'])
+
+    const up = (key: string | null) => templateChildren(t, key, 'up').map((lane) => lane.name)
+    expect(up(null)).toEqual(['Discovery', 'Ready to Pull', 'Being Pulled', 'Pulled'])
+    expect(up('u0')).toEqual(['Idea', 'Analysis', 'Concept'])
+
+    const down = (key: string | null) => templateChildren(t, key, 'down').map((lane) => lane.name)
+    expect(down(null)).toEqual(['Incoming', 'Next', 'In Progress', 'Ready to Deploy'])
+    expect(down('d2')).toEqual(['Analysis', 'Development', 'Test', 'UAT'])
+
+    // A usable design: two cards flows, four typed roots each, every lane inside its own flow.
+    let n = 0
+    const { flows, lanes } = lanesFromTemplate(t, 'b', () => `id${++n}`)
+    expect(flows.filter((flow) => flow.kind === 'cards').map((flow) => flow.name)).toEqual(['Upstream', 'Downstream'])
+    for (const flow of flows) {
+      const root = lanes.find((lane) => lane.parentId === null && lane.flowId === flow.id)!
+      const columns = lanes.filter((lane) => lane.parentId === root.id)
+      expect(columns.map((lane) => lane.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
+    }
+    expect(flows.find((flow) => flow.kind === 'initiatives')).toBeTruthy()
+  })
+
+  it('ships a collection of common designs, each with the four typed columns', () => {
+    const names = BUILT_IN_TEMPLATES.map((template) => template.name)
+    for (const name of [
+      'Basic Kanban',
+      'Personal Kanban',
+      'Scrumban',
+      'Shape Up',
+      'Incident Response',
+      'Design Sprint',
+      'Feature Flow',
+      'Scrum',
+      'Upstream Kanban',
+    ]) {
+      expect(names, name).toContain(name)
+    }
+
+    for (const template of BUILT_IN_TEMPLATES) {
+      // Keys are what a template is edited and instantiated by, so two lanes cannot share one.
+      expect(new Set(template.lanes.map((lane) => lane.key)).size, template.name).toBe(template.lanes.length)
+      for (const flow of template.flows) {
+        const roots = templateChildren(template, null, flow.key)
+        expect(roots.map((lane) => lane.stage), `${template.name}/${flow.name}`).toEqual([
+          'backlog',
+          'notStarted',
+          'inProgress',
+          'done',
+        ])
+      }
+    }
+
+    // Every one of them is a usable design: it instantiates into the flows and columns it names.
+    let n = 0
+    for (const template of BUILT_IN_TEMPLATES) {
+      const { flows, lanes } = lanesFromTemplate(template, `b-${template.id}`, () => `id${++n}`)
+      expect(flows.map((flow) => flow.name), template.name).toEqual(template.flows.map((flow) => flow.name))
+      for (const flow of flows) {
+        const root = lanes.find((lane) => lane.parentId === null && lane.flowId === flow.id)!
+        expect(lanes.filter((lane) => lane.parentId === root.id).map((lane) => lane.stage), template.name).toEqual([
+          'backlog',
+          'notStarted',
+          'inProgress',
+          'done',
+        ])
+      }
+    }
   })
 
   it('captures the lane tree below the root, keyed rather than ided', () => {
     const t = templateFromBoard('t1', 'Team flow', atlas(), s.lanes, s.flows)
     // Team Atlas carries two cards flows; this reads the first one's tree.
-    const first = t.flows[0].key
+    const first = t.flows.find((flow) => flow.kind === 'cards')!.key
     const lanes = t.lanes.filter((l) => l.flowKey === first)
     expect(t.band).toBe('team')
     expect(lanes.map((l) => l.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Dev', 'Test', 'Done'])
@@ -222,10 +305,12 @@ describe('board templates — a design, not its work', () => {
 
     let n = 0
     const { flows, lanes } = lanesFromTemplate(t, 'new-board', () => `id-${++n}`)
-    const root = lanes.find((l) => l.parentId === null)!
     expect(new Set(lanes.map((l) => l.id)).size).toBe(lanes.length)
     expect(lanes.every((l) => l.boardId === 'new-board')).toBe(true)
-    expect(flows.every((f) => f.boardId === 'new-board' && f.kind === 'cards')).toBe(true)
+    expect(flows.every((f) => f.boardId === 'new-board')).toBe(true)
+    expect(flows.map((f) => f.kind)).toEqual(['initiatives', 'cards', 'cards'])
+    const firstCards = flows.find((flow) => flow.kind === 'cards')!
+    const root = rootLane(lanes, firstCards.id)!
     expect(lanes.filter((l) => l.parentId !== null).map((l) => l.name)).toEqual(t.lanes.map((l) => l.name))
     expect(lanes.filter((l) => l.parentId !== null).map((l) => l.stage)).toEqual(t.lanes.map((l) => l.stage))
     expect(lanes.filter((l) => l.parentId !== null).map((l) => l.wipLimit)).toEqual(t.lanes.map((l) => l.wipLimit))
@@ -236,17 +321,17 @@ describe('board templates — a design, not its work', () => {
       'In Progress',
       'Done',
     ])
-    const ip = lanes.find((l) => l.name === 'In Progress')!
+    const ip = lanes.find((l) => l.name === 'In Progress' && l.flowId === firstCards.id)!
     expect(lanes.filter((l) => l.parentId === ip.id).map((l) => l.name)).toEqual(['Dev', 'Test'])
     // The template is untouched, so it can be used again.
     expect(JSON.stringify(t)).toBe(before)
   })
 })
 
-describe('a template is a set of cards flows', () => {
+describe('a template is the design of the boards it makes', () => {
   const s = createFixture()
 
-  it('captures every cards flow, and never the initiatives flow', () => {
+  it('captures every flow a board reads — its cards flows and its initiatives', () => {
     const atlas = s.boards.find((b) => b.id === 'b-atlas')!
     const escalations: BoardFlow = { id: 'f-escalations', boardId: 'b-atlas', kind: 'cards', name: 'Escalations', order: 2 }
     const lanes = [
@@ -256,14 +341,34 @@ describe('a template is a set of cards flows', () => {
     ]
     const template = templateFromBoard('t-two', 'Two flows', atlas, lanes, [...s.flows, escalations])
 
-    expect(template.flows.map((f) => f.name)).toEqual(['Cards', 'Support', 'Escalations'])
-    // The organisation's shape is not the team's to design: only cards flows are captured.
-    expect(template.flows.every((f) => f.kind === 'cards')).toBe(true)
+    // A team's design is what it draws (its cards flows) plus the shape the organisation reads
+    // through it (its initiatives flow) — both are part of the board being templateUrl'd.
+    expect(template.flows.map((f) => f.name)).toEqual(['Initiatives', 'Cards', 'Support', 'Escalations'])
+    expect(template.flows.map((f) => f.kind)).toEqual(['initiatives', 'cards', 'cards', 'cards'])
     expect(template.lanes.every((l) => template.flows.some((f) => f.key === l.flowKey))).toBe(true)
-    // The second flow's own tree, with its own top level.
-    const third = template.flows[2].key
+    // The third cards flow's own tree, with its own top level.
+    const third = template.flows[3].key
     expect(template.lanes.filter((l) => l.flowKey === third).map((l) => l.name)).toEqual(['Backlog'])
     expect(template.lanes.filter((l) => l.flowKey === third).every((l) => l.parentKey === null)).toBe(true)
+    // The initiatives flow is captured too: its sections are the board's own, in order.
+    const initiatives = template.flows[0]
+    expect(template.lanes.filter((l) => l.flowKey === initiatives.key).map((l) => l.name)).toEqual([
+      'Backlog',
+      'Not Started',
+      'In Progress',
+      'Done',
+    ])
+  })
+
+  it('captures only the initiatives flow for a program, which makes no cards', () => {
+    const program = s.boards.find((b) => b.id === 'b-portfolio')!
+    const template = templateFromBoard('t-program', 'Program flow', program, s.lanes, s.flows)
+    expect(template.band).toBe('program')
+    expect(template.flows.map((f) => f.kind)).toEqual(['initiatives'])
+    expect(template.lanes.every((l) => l.flowKey === template.flows[0].key)).toBe(true)
+    // A program has no card settings of its own to carry.
+    expect(template.defaultCardTypeId).toBeUndefined()
+    expect(template.wipEnforcement).toBeUndefined()
   })
 
   it('mints one board flow per template flow, each lane under its own root', () => {
@@ -278,9 +383,9 @@ describe('a template is a set of cards flows', () => {
 
     let n = 0
     const built = lanesFromTemplate(template, 'b-new', () => `id${++n}`)
-    expect(built.flows.map((f) => f.name)).toEqual(['Cards', 'Support', 'Escalations'])
+    expect(built.flows.map((f) => f.name)).toEqual(['Initiatives', 'Cards', 'Support', 'Escalations'])
     const roots = built.lanes.filter((l) => l.parentId === null)
-    expect(roots).toHaveLength(3)
+    expect(roots).toHaveLength(4)
     // Every lane's nearest root is a root of its own flow: the trees never mix.
     const rootOf = (id: string) => {
       let cur = built.lanes.find((l) => l.id === id)
@@ -289,13 +394,14 @@ describe('a template is a set of cards flows', () => {
     }
     for (const lane of built.lanes) expect(rootOf(lane.id)?.flowId).toBe(lane.flowId)
     // And the template is untouched, so it can be used again.
-    expect(template.flows).toHaveLength(3)
+    expect(template.flows).toHaveLength(4)
   })
 
-  it('adds, names, moves and removes a flow — and keeps the last one', () => {
+  it('adds, names, moves and removes a cards flow — and never the initiatives flow', () => {
     const one = BUILT_IN_TEMPLATES[0]
+    const initiativesKey = one.flows.find((f) => f.kind === 'initiatives')!.key
     const added = templateAddFlow(one)
-    expect(added.flows.map((f) => f.name)).toEqual(['Cards', 'Cards 2'])
+    expect(added.flows.map((f) => f.name)).toEqual(['Initiatives', 'Cards', 'Cards 2'])
     expect(added.lanes.filter((l) => l.flowKey === added.key).map((l) => l.stage)).toEqual([
       'backlog',
       'notStarted',
@@ -306,19 +412,71 @@ describe('a template is a set of cards flows', () => {
     expect(new Set(added.lanes.map((l) => l.key)).size).toBe(added.lanes.length)
 
     const named = { ...one, flows: templateRenameFlow({ ...one, flows: added.flows }, added.key, 'Support'), lanes: added.lanes }
-    expect(named.flows[1].name).toBe('Support')
+    expect(named.flows.find((f) => f.key === added.key)?.name).toBe('Support')
 
+    // Moving a cards flow stays below the initiatives flow, which keeps its place.
     const moved = templateMoveFlow(named, added.key, -1)
-    expect(moved.map((f) => f.name)).toEqual(['Support', 'Cards'])
-    expect(moved.map((f) => f.order)).toEqual([0, 1])
+    expect(moved.map((f) => f.name)).toEqual(['Initiatives', 'Support', 'Cards'])
+    expect(moved.map((f) => f.order)).toEqual([0, 1, 2])
+    // The initiatives flow is never moved or renamed: it is the organisation's shape.
+    expect(templateMoveFlow(one, initiativesKey, 1)).toEqual(one.flows)
+    expect(templateRenameFlow(one, initiativesKey, 'Outcomes')).toEqual(one.flows)
+    expect(templateRenameLane(one, one.lanes.find((l) => l.flowKey === initiativesKey)!.key, 'Ideas')).toEqual(one.lanes)
 
     const removed = templateRemoveFlow({ ...named, flows: moved }, added.key)!
-    expect(removed.flows.map((f) => f.name)).toEqual(['Cards'])
+    expect(removed.flows.map((f) => f.name)).toEqual(['Initiatives', 'Cards'])
     expect(removed.lanes.some((l) => l.flowKey === added.key)).toBe(false)
 
-    // A template keeps at least one cards flow, so the only one is not removable.
+    // A template keeps its initiatives flow and at least one cards flow.
     expect(canRemoveTemplateFlow(one, one.flows[0].key)).toBe(false)
+    expect(canRemoveTemplateFlow(one, initiativesKey)).toBe(false)
     expect(templateRemoveFlow(one, one.flows[0].key)).toBeNull()
+    expect(templateRemoveFlow(one, initiativesKey)).toBeNull()
+  })
+})
+
+describe('giving a template the initiatives flow', () => {
+  const bare = {
+    id: 't-bare',
+    name: 'Bare',
+    band: 'team' as const,
+    flows: [{ key: 'f0', kind: 'cards' as const, name: 'Cards', order: 0 }],
+    lanes: [
+      { key: 'k0', flowKey: 'f0', parentKey: null, order: 0, name: 'Backlog', stage: 'backlog' as const },
+    ],
+  }
+
+  it('adds the four typed sections once, and is idempotent', () => {
+    const once = withInitiatives(bare)
+    expect(once.flows.map((f) => f.kind)).toEqual(['initiatives', 'cards'])
+    expect(once.lanes.filter((l) => l.flowKey === once.flows[0].key).map((l) => l.name)).toEqual([
+      'Backlog',
+      'Not Started',
+      'In Progress',
+      'Done',
+    ])
+    expect(once.lanes.filter((l) => l.flowKey === once.flows[0].key).every((l) => l.parentKey === null)).toBe(true)
+    // Keys are minted around the template's own, so nothing collides.
+    expect(new Set(once.lanes.map((l) => l.key)).size).toBe(once.lanes.length)
+    // A template that already names one is returned untouched, so migration repeated is safe.
+    expect(withInitiatives(once)).toBe(once)
+  })
+
+  it('fixes the section names and leaves their cells to the designer', () => {
+    const t = withInitiatives(bare)
+    const initiatives = t.flows.find((flow) => flow.kind === 'initiatives')!
+    const section = t.lanes.find((l) => l.flowKey === initiatives.key && l.stage === 'backlog')!
+    expect(templateLaneIsSection(t, section.key)).toBe(true)
+    // The standard words are not the team's to rename…
+    expect(templateRenameLane(t, section.key, 'Ideas')).toEqual(t.lanes)
+    // …but the cells they split into are.
+    const split = { ...t, lanes: templateSplitLane(t, section.key, 'columns', (() => {
+      let n = 0
+      return () => `new${++n}`
+    })()) }
+    const cell = split.lanes.find((l) => l.parentKey === section.key)!
+    expect(templateLaneIsSection(split, cell.key)).toBe(false)
+    expect(templateRenameLane(split, cell.key, 'Ideas').find((l) => l.key === cell.key)?.name).toBe('Ideas')
   })
 })
 

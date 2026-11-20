@@ -9,7 +9,7 @@ import { favouriteBoardList, recentBoardList } from '@/domain/boardShortcuts'
 import { useMay } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
-import type { Board, BoardBand } from '@/domain/types'
+import type { Board, BoardBand, BoardTemplate } from '@/domain/types'
 
 /**
  * The board workspace: every board in the organisation, grouped by type, with a
@@ -46,6 +46,8 @@ export function BoardWorkspace() {
   const canTemplates = may('template.manage')
   const [q, setQ] = useState('')
   const [showNewBoard, setShowNewBoard] = useState(false)
+  /** The design a board is being made from; null means the standard columns. */
+  const [startingTemplate, setStartingTemplate] = useState<BoardTemplate | null>(null)
   const [showArchived, setShowArchived] = useState(false)
   // The browser's primary cut is the board type, so it is a filter rather than a
   // section header you scroll past.
@@ -77,13 +79,28 @@ export function BoardWorkspace() {
   const archivedCount = boards.filter((b) => b.archived).length
   const lastBoard = boards.length <= 1
 
-  const createBoard = (name: string, band: BoardBand, templateId?: string) => {
+  const createBoard = (name: string, band: BoardBand) => {
     // Creating a board is the end of browsing: it opens immediately through the normal navigation,
     // rather than landing in the list for a second visit.
-    const boardId = addBoard(name, band, false, templateId)
+    const boardId = addBoard(name, band, false, startingTemplate?.id)
     selectBoard(boardId)
     setShowNewBoard(false)
+    setStartingTemplate(null)
     setQ('')
+  }
+
+  /** New board with nothing chosen yet; the template route is a separate act, below. */
+  const openNewBoard = () => {
+    setStartingTemplate(null)
+    setShowNewBoard(true)
+  }
+
+  /** A board from a template: the design is already the answer, so the dialog only asks its name. */
+  const useTemplate = (template: BoardTemplate) => {
+    setPreviewId(null)
+    setNewTemplateId(null)
+    setStartingTemplate(template)
+    setShowNewBoard(true)
   }
 
   /** A name nobody has used, so two untouched templates are not both “Untitled template”. */
@@ -132,7 +149,7 @@ export function BoardWorkspace() {
               <>
                 <ImportBoardButton />
                 <button
-                  onClick={() => setShowNewBoard(true)}
+                  onClick={openNewBoard}
                   className="flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-meta font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
                   title="Create a board"
                 >
@@ -284,7 +301,7 @@ export function BoardWorkspace() {
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
               {canCreate && (
                 <button
-                  onClick={() => setShowNewBoard(true)}
+                  onClick={openNewBoard}
                   className="flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-meta font-semibold text-white transition hover:bg-indigo-500"
                 >
                   <Plus size={13} /> New board
@@ -508,29 +525,48 @@ export function BoardWorkspace() {
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {boardTemplates.map((t) => (
-                  <button
+                  <div
                     key={t.id}
-                    onClick={() => setPreviewId(t.id)}
-                    className="group flex flex-col rounded-xl border border-dashed border-sky-300 bg-white p-3 text-left shadow-sm transition hover:border-sky-400 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400"
-                    title="Open this template"
+                    data-template-card={t.id}
+                    className="group flex flex-col overflow-hidden rounded-xl border border-dashed border-sky-300 bg-white shadow-sm transition hover:border-sky-400 hover:shadow-md"
                   >
-                    <span className="flex items-center justify-between">
-                      <span className="grid h-9 w-9 place-items-center rounded-lg bg-sky-100 text-sky-700">
-                        <Ruler size={16} />
+                    <button
+                      onClick={() => setPreviewId(t.id)}
+                      className="flex flex-1 flex-col p-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+                      title="Open this template’s design"
+                    >
+                      <span className="flex items-center justify-between">
+                        <span className="grid h-9 w-9 place-items-center rounded-lg bg-sky-100 text-sky-700">
+                          <Ruler size={16} />
+                        </span>
+                        <span className="rounded bg-white/70 px-1.5 py-px text-micro font-semibold uppercase tracking-wide text-sky-700 ring-1 ring-sky-200">
+                          {BAND_STYLES[t.band].label}
+                        </span>
                       </span>
-                      <span className="rounded bg-white/70 px-1.5 py-px text-micro font-semibold uppercase tracking-wide text-sky-700 ring-1 ring-sky-200">
-                        {BAND_STYLES[t.band].label}
-                      </span>
-                    </span>
 
-                    <span className="mt-3 truncate text-title font-semibold text-slate-800">{t.name}</span>
-                    <span className="mt-0.5 text-meta text-slate-600">
-                      {t.lanes.length} lane{t.lanes.length === 1 ? '' : 's'}
-                    </span>
-                    <span className="mt-2 flex items-center gap-1 text-micro font-medium text-sky-700">
-                      Open design <ArrowRight size={11} />
-                    </span>
-                  </button>
+                      <span className="mt-3 truncate text-title font-semibold text-slate-800">{t.name}</span>
+                      <span className="mt-0.5 text-meta text-slate-600">
+                        {t.lanes.length} lane{t.lanes.length === 1 ? '' : 's'}
+                      </span>
+                      <span className="mt-2 flex items-center gap-1 text-micro font-medium text-sky-700">
+                        Open design <ArrowRight size={11} />
+                      </span>
+                    </button>
+                    <div className="flex items-center gap-2 border-t border-sky-100 px-3 py-2">
+                      <span className="min-w-0 flex-1 truncate text-micro text-slate-600">
+                        {t.flows.length} flow{t.flows.length === 1 ? '' : 's'}
+                      </span>
+                      {canCreate && (
+                        <button
+                          onClick={() => useTemplate(t)}
+                          className="shrink-0 rounded-md bg-indigo-600 px-2 py-1 text-micro font-semibold text-white transition hover:bg-indigo-500"
+                          title={`Create a board from ${t.name}`}
+                        >
+                          Use template
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -543,9 +579,21 @@ export function BoardWorkspace() {
 
       {showNewBoard && (
         <NewBoardDialog
-          templates={boardTemplates}
+          template={startingTemplate ?? undefined}
           onCreate={createBoard}
-          onClose={() => setShowNewBoard(false)}
+          onBrowseTemplates={
+            boardTemplates.length > 0
+              ? () => {
+                  setShowNewBoard(false)
+                  setStartingTemplate(null)
+                  setHomeTab('templates')
+                }
+              : undefined
+          }
+          onClose={() => {
+            setShowNewBoard(false)
+            setStartingTemplate(null)
+          }}
         />
       )}
 
@@ -554,6 +602,7 @@ export function BoardWorkspace() {
           template={preview}
           isNew={newTemplateId === preview.id}
           startEditing={newTemplateId === preview.id}
+          onUse={() => useTemplate(preview)}
           onClose={() => {
             setPreviewId(null)
             setNewTemplateId(null)

@@ -46,6 +46,14 @@ describe('the queue of changes that have not been sent', () => {
     expect(queue.all().map((queued) => queued.item.id)).toEqual(['i-2'])
   })
 
+  it('keeps the parent a hierarchy change carried, and a detach as null', () => {
+    queue.add({ ...entry('i-1'), parentId: 'i-parent' })
+    queue.add({ ...entry('i-2'), parentId: null })
+
+    // A retry after a reload is the same change: the edge beside the item must travel with it.
+    expect(queue.all().map((queued) => queued.parentId)).toEqual(['i-parent', null])
+  })
+
   it('says when it is full rather than dropping the oldest work', () => {
     for (let index = 0; index < QUEUE_LIMIT; index++) queue.add(entry(`i-${index}`))
     expect(queue.size()).toBe(QUEUE_LIMIT)

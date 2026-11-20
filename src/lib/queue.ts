@@ -23,6 +23,12 @@ export interface QueuedWrite {
   item: Item
   baseRev: number
   at: number
+  /**
+   * The parent the change set, when it was a hierarchy edit — `null` to detach. The edge lives
+   * beside the item in this workspace, so a retry after a reload must carry it too; without this
+   * the parent would exist only in the tab that set it.
+   */
+  parentId?: string | null
 }
 
 const KEY = 'kanbantoolkit-queue-v1'

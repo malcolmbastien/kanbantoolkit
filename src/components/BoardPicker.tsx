@@ -23,7 +23,9 @@ interface Props {
 export function BoardPicker({ boards, boardId, onSelect, disabled = false }: Props) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
+  const [at, setAt] = useState<{ left: number; top: number } | null>(null)
   const boxRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
 
   const sorted = useMemo(
     () =>
@@ -46,6 +48,33 @@ export function BoardPicker({ boards, boardId, onSelect, disabled = false }: Pro
   useEffect(() => {
     if (open) setActive(Math.max(0, sorted.findIndex((b) => b.id === boardId)))
   }, [open, sorted, boardId])
+
+  // The menu is placed against the window, not against the bar.
+  //
+  // The navigation is a horizontal scroller — a row that never wraps — so an absolutely
+  // positioned menu inside it is clipped to the bar's own height and a reader sees nothing when
+  // they click. A fixed menu escapes that clip while staying in this component's DOM, which is
+  // what keeps the outside-click test below working without a second ref.
+  useEffect(() => {
+    if (!open) return
+    const place = () => {
+      const rect = buttonRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const width = 288
+      setAt({
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
+        top: rect.bottom + 4,
+      })
+    }
+    place()
+    window.addEventListener('resize', place)
+    // The bar's own navigation scrolls sideways; the menu belongs to the button that opened it.
+    window.addEventListener('scroll', place, true)
+    return () => {
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
+    }
+  }, [open])
 
   const choose = (id: string) => {
     onSelect(id)
@@ -74,12 +103,13 @@ export function BoardPicker({ boards, boardId, onSelect, disabled = false }: Pro
     <div className="relative" ref={boxRef}>
       <button
         type="button"
+        ref={buttonRef}
         onClick={() => setOpen((o) => !o)}
         onKeyDown={onKeyDown}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-800 outline-none transition hover:border-slate-300 focus:ring-2 focus:ring-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-800 outline-none transition hover:border-slate-300 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {current && (
           <span
@@ -95,11 +125,12 @@ export function BoardPicker({ boards, boardId, onSelect, disabled = false }: Pro
         <ChevronDown size={13} className={cn('shrink-0 text-slate-400 transition', open && 'rotate-180')} />
       </button>
 
-      {open && (
+      {open && at && (
         <div
           role="listbox"
           aria-label="Boards"
-          className="absolute left-0 z-50 mt-1 max-h-[70vh] w-72 overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-xl"
+          style={{ left: at.left, top: at.top }}
+          className="fixed z-50 max-h-[70vh] w-72 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-xl"
         >
           {sorted.map((b, i) => {
             const style = BAND_STYLES[b.band] ?? BAND_STYLES.team

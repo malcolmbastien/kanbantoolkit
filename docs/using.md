@@ -280,9 +280,22 @@ an objective.
 
 ## Keeping a copy
 
-A **template** is a board design without its work: its cards flows, their names, columns and limits —
-never the initiatives flow, which is the standard shape the organisation reads. Making a board from
-a template brings every flow across.
+A **template** is a board design without its work, and only the two boards that *have* a design can
+be one. For a **team** board it keeps the cards flows — their names, columns and limits — and the
+initiatives flow the cards roll up through. For a **program** board it keeps the initiatives flow and
+its cells, which is what a program arranges. A **portfolio** is never a template: its surface is its
+objectives, their coverage and the four typed columns that roll the work up, so there is no design to
+save. The four typed sections of the initiatives flow keep the app's names and order in every
+template — what a designer adds is the cells within them — and the initiatives flow is fixed at the
+top, above every cards flow. A team's template also carries its **initiative kinds**, so a board
+made from it starts with the same labels. **Edit** opens the design as a draft: **Save** keeps it,
+and **Cancel** (or closing the dialog) reverts to what was there. Making a board from a template
+brings the design it carries across. The app ships a collection: **Basic Kanban**, **Personal
+Kanban**, **Scrumban**, **Shape Up**, **Incident Response**, **Design Sprint**, **Feature Flow**,
+**Scrum** and **Upstream Kanban** (upstream discovery and downstream delivery as two flows of one
+board). A board made from any of them is yours to reshape. A template is used from the **Templates**
+tab — **Use template** on its card, or the same button in its preview — so the new-board dialog itself
+asks only for a name and a board type.
 
 **Admin → Workspace data → Export** downloads the whole workspace as JSON; **Import…** replaces it with a file, after
 a confirmation. **Board settings → General → Export CSV** writes a board’s cards as a table. On an instance the server holds

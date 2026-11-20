@@ -259,9 +259,15 @@ export interface BoardTemplate {
   id: string
   name: string
   band: BoardBand
-  /** The cards flows the design describes, in the order the board would show them. */
+  /** The design's flows, initiatives first: it is fixed at the top, above every cards flow. */
   flows: TemplateFlow[]
   lanes: TemplateLane[]
+  /**
+   * The initiative kinds a board made from this design starts with — the same board-owned
+   * vocabulary `Board.initiativeTypes` carries, kept with the design rather than shared with
+   * another board.
+   */
+  initiativeTypes?: InitiativeType[]
   defaultCardTypeId?: string
   wipEnforcement?: 'visualize' | 'justify' | 'block'
 }

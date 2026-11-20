@@ -12,6 +12,7 @@ import {
   FolderInput,
   Minus,
   MoreHorizontal,
+  Plus,
   Shapes,
   ShieldCheck,
   Tag,
@@ -19,7 +20,7 @@ import {
   CornerDownRight,
   Unlink,
 } from 'lucide-react'
-import { boardInitiativeTypes, cardTypes, initiativeTypeById, isAggregating, isInitiativeItem, isPortfolio, NONE_TYPE_ID, placementOn } from '@/domain/board'
+import { boardCardTypeId, boardInitiativeTypes, cardTypes, defaultDropLane, initiativeTypeById, isAggregating, isInitiativeItem, isPortfolio, NONE_TYPE_ID, placementOn } from '@/domain/board'
 import { decompositionParent, descendants, isComplete } from '@/domain/derive'
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
 import { lanePath, leafLanes } from '@/domain/lanes'
@@ -82,6 +83,7 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const archiveItems = useStore((s) => s.archiveItems)
   const askConfirm = useStore((s) => s.askConfirm)
   const promoteToInitiative = useStore((s) => s.promoteToInitiative)
+  const addCard = useStore((s) => s.addCard)
   const may = useMay()
 
   const [open, setOpen] = useState<Panel | null>(null)
@@ -118,6 +120,20 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
     Boolean(only) &&
     may('item.write') &&
     canPromoteToInitiative(only!.id, boardId, { items, boards, placements, lanes, flows, issueTypes })
+
+  // A child card is made where the board makes cards: the current board's drop cell. A board that
+  // renders no cards flow (a programme or portfolio) has nowhere to put one, and the action is not
+  // offered there — the same rule the "Connect a card…" action follows.
+  const childTypeId = boardCardTypeId(board, issueTypes)
+  const childLane = board && !aggregating ? defaultDropLane(board, flows, lanes, boardId) : undefined
+  const canAddChildCard =
+    single &&
+    Boolean(only) &&
+    isInitiativeItem(only!, issueTypes) &&
+    !aggregating &&
+    may('item.write') &&
+    Boolean(childTypeId) &&
+    Boolean(childLane)
   const lanesLeaf = cardsFlows(flows, boardId).flatMap((flow) => leafLanes(lanes, flow.id))
   const anyBlocked = targets.some((t) => t.blocked)
   const allBlocked = count > 0 && targets.every((t) => t.blocked)
@@ -494,6 +510,30 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
               <CornerDownRight size={13} />
             </span>
             <span className="flex-1">Set parent…</span>
+          </button>
+        )}
+        {/* A new card under the initiative, with the parent set as it is made — the act a person
+            means when they are looking at an outcome and the work does not exist yet. It lands in
+            the board's own drop cell and opens for naming, like every other new card. */}
+        {canAddChildCard && (
+          <button
+            className={ITEM}
+            onClick={() =>
+              run(() =>
+                addCard({
+                  boardId,
+                  typeId: childTypeId!,
+                  laneId: childLane!.id,
+                  title: 'New card',
+                  parentId: only!.id,
+                }),
+              )
+            }
+          >
+            <span className="shrink-0 text-slate-600">
+              <Plus size={13} />
+            </span>
+            <span className="flex-1">New child card</span>
           </button>
         )}
         {/* The same edge, named from the initiative: you are looking at an outcome and want to

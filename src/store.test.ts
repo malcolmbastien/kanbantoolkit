@@ -77,6 +77,54 @@ describe('store actions', () => {
     expect(decompositionParent('st-signup-form', s().edges)).toBe('init-signup')
   })
 
+  it('makes a child card with its parent already set, and opens it for naming', () => {
+    const board = s().boards.find((b) => b.id === 'b-atlas')!
+    const lane = defaultDropLane(board, s().flows, s().lanes, 'b-atlas')!
+    const before = s().items.length
+
+    s().addCard({ boardId: 'b-atlas', typeId: 't-story', laneId: lane.id, title: 'New card', parentId: 'init-signup' })
+
+    expect(s().items).toHaveLength(before + 1)
+    const child = s().items.find((item) => item.title === 'New card')!
+    // The lineage is part of the creation, not a second act after it.
+    expect(decompositionParent(child.id, s().edges)).toBe('init-signup')
+    expect(child.log?.map((entry) => entry.kind)).toEqual(['created', 'edited'])
+    expect(child.log?.at(-1)?.note).toBe('Rolls up to New signup flow')
+    // The card is in front, with its placeholder title ready to be typed over.
+    expect(s().selectedItemId).toBe(child.id)
+    expect(s().titleFocusItemId).toBe(child.id)
+  })
+
+  it('does not make a child under something that is not an initiative', () => {
+    const board = s().boards.find((b) => b.id === 'b-atlas')!
+    const lane = defaultDropLane(board, s().flows, s().lanes, 'b-atlas')!
+    const before = s().items.length
+
+    // A card cannot be a parent; the domain refuses, and a refusal creates nothing at all.
+    s().addCard({ boardId: 'b-atlas', typeId: 't-story', laneId: lane.id, title: 'Orphan', parentId: 'st-email' })
+    expect(s().items).toHaveLength(before)
+    expect(s().items.some((item) => item.title === 'Orphan')).toBe(false)
+  })
+
+  it('makes a board from the Upstream Kanban template, with both flows', () => {
+    const id = s().addBoard('Upstream board', 'team', false, 'tpl-upstream-kanban')
+    const flows = s().flows.filter((flow) => flow.boardId === id && flow.kind === 'cards')
+    expect(flows.map((flow) => flow.name)).toEqual(['Upstream', 'Downstream'])
+
+    const lanes = s().lanes.filter((lane) => lane.boardId === id)
+    const names = lanes.map((lane) => lane.name)
+    for (const name of ['Idea', 'Analysis', 'Concept', 'Ready to Pull', 'Next', 'Development', 'Test', 'UAT', 'Ready to Deploy']) {
+      expect(names, name).toContain(name)
+    }
+    // Two trees, never one: every card lane answers to one of the board's cards flows.
+    const cardsFlows = new Set(flows.map((entry) => entry.id))
+    for (const lane of lanes.filter((entry) => cardsFlows.has(entry.flowId))) {
+      expect(cardsFlows.has(lane.flowId), lane.name).toBe(true)
+    }
+    // And the initiatives flow is the standard one, not part of the template.
+    expect(s().flows.some((flow) => flow.boardId === id && flow.kind === 'initiatives')).toBe(true)
+  })
+
   it('converts a card into an initiative, keeping the item and moving it to its stage section', () => {
     // The fixture opens on the portfolio; the card being converted is on Team Atlas.
     s().selectBoard('b-atlas')
@@ -525,9 +573,14 @@ describe('store actions', () => {
     const template = s().boardTemplates[s().boardTemplates.length - 1]
     expect(s().boardTemplates.length).toBe(templatesBefore + 1)
     expect(template.name).toBe('Team flow')
-    // The board carries two cards flows, so the template does too.
-    expect(template.flows.map((f) => f.name)).toEqual(['Cards', 'Support'])
+    // The board carries two cards flows and an initiatives flow, and the initiatives flow is
+    // fixed at the top of the template.
+    expect(template.flows.map((f) => f.name)).toEqual(['Initiatives', 'Cards', 'Support'])
     expect(template.lanes.map((l) => l.name)).toEqual([
+      'Backlog',
+      'Not Started',
+      'In Progress',
+      'Done',
       'Backlog',
       'Not Started',
       'In Progress',
@@ -553,40 +606,80 @@ describe('store actions', () => {
     expect(childrenOf(s().lanes, root.id)[0].id).not.toBe(childrenOf(s().lanes, atlasRoot.id)[0].id)
     expect(s().placements.length).toBe(placementsBefore)
     // The template is unchanged and still usable.
-    expect(template.lanes).toHaveLength(10)
+    expect(template.lanes).toHaveLength(14)
 
-    // A template's band is the fallback when none is given — and a coordination board
-    // still starts with an empty linkedBoardIds.
+    // A program's template is its initiatives flow: that is the design a program arranges.
     s().saveBoardAsTemplate('b-portfolio', 'Program flow')
     const program = s().boardTemplates[s().boardTemplates.length - 1]
     expect(program.band).toBe('program')
+    expect(program.flows.map((f) => f.kind)).toEqual(['initiatives'])
     s().addBoard('Program two', undefined, false, program.id)
     const created2 = s().boards[s().boards.length - 1]
     expect(created2.band).toBe('program')
     expect(created2.linkedBoardIds).toEqual([])
+    // A program keeps the model's hidden scaffold cards flow, but its design is the
+    // initiatives flow the template carried.
+    expect(cardsFlows(s().flows, created2.id).map((f) => f.name)).toEqual(['Cards'])
+    expect(topLevelLanes(s().lanes, flow(created2.id, 'initiatives')).map((l) => l.stage)).toEqual([
+      'backlog',
+      'notStarted',
+      'inProgress',
+      'done',
+    ])
 
-    // A template designs a cards flow, and a coordination board has none to design: it starts
-    // standard even if an old caller names a template.
-    s().addBoard('Program with a team template', 'program', false, template.id)
-    const coordination = s().boards[s().boards.length - 1]
-    expect(cardsFlows(s().flows, coordination.id).map((f) => f.name)).toEqual(['Cards'])
+    // A portfolio tracks objectives and the four typed columns rather than holding a design:
+    // it cannot be saved as a template.
+    const saved = s().boardTemplates.length
+    s().saveBoardAsTemplate('b-strategy', 'Portfolio flow')
+    expect(s().boardTemplates.length).toBe(saved)
 
-    // An explicit band still wins over the template's.
+    // A team template is not applied to a portfolio: a portfolio keeps the standard shape.
+    s().addBoard('Portfolio with a team template', 'portfolio', false, template.id)
+    const portfolio = s().boards[s().boards.length - 1]
+    expect(portfolio.band).toBe('portfolio')
+    expect(cardsFlows(s().flows, portfolio.id).map((f) => f.name)).toEqual(['Cards'])
+    expect(topLevelLanes(s().lanes, flow(portfolio.id, 'initiatives')).map((l) => l.stage)).toEqual([
+      'backlog',
+      'notStarted',
+      'inProgress',
+      'done',
+    ])
+
+    // An explicit band still wins over the template's — and a template for another board type
+    // is not applied to it.
     s().addBoard('Explicit', 'team', false, program.id)
-    expect(s().boards[s().boards.length - 1].band).toBe('team')
+    const explicit = s().boards[s().boards.length - 1]
+    expect(explicit.band).toBe('team')
+    expect(cardsFlows(s().flows, explicit.id).map((f) => f.name)).toEqual(['Cards'])
   })
 
   it('a template can be started from scratch, with a board type', () => {
-    s().newBoardTemplate('Squad flow', 'program')
-    const t = s().boardTemplates[s().boardTemplates.length - 1]
-    expect(t.name).toBe('Squad flow')
-    expect(t.band).toBe('program')
-    expect(t.lanes.map((l) => l.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
-    expect(t.lanes.map((l) => l.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
-    expect(t.lanes.every((l) => l.parentKey === null)).toBe(true)
+    // A team template starts with a cards flow and the initiatives flow every board has.
+    s().newBoardTemplate('Squad flow', 'team')
+    const team = s().boardTemplates[s().boardTemplates.length - 1]
+    expect(team.name).toBe('Squad flow')
+    expect(team.band).toBe('team')
+    expect(team.flows.map((f) => f.kind)).toEqual(['initiatives', 'cards'])
+    for (const flow of team.flows) {
+      const lanes = team.lanes.filter((l) => l.flowKey === flow.key)
+      expect(lanes.map((l) => l.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
+      expect(lanes.map((l) => l.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
+      expect(lanes.every((l) => l.parentKey === null)).toBe(true)
+    }
+
+    // A program makes no cards, so its template is the initiatives flow alone.
+    s().newBoardTemplate('Program flow', 'program')
+    const program = s().boardTemplates[s().boardTemplates.length - 1]
+    expect(program.band).toBe('program')
+    expect(program.flows.map((f) => f.kind)).toEqual(['initiatives'])
+    expect(program.lanes.map((l) => l.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
+
+    // A portfolio is a reading of the work, not a design of its own.
+    const before = s().boardTemplates.length
+    expect(s().newBoardTemplate('Portfolio flow', 'portfolio')).toBeUndefined()
+    expect(s().boardTemplates.length).toBe(before)
 
     // A blank name is refused.
-    const before = s().boardTemplates.length
     s().newBoardTemplate('   ', 'team')
     expect(s().boardTemplates.length).toBe(before)
 
@@ -653,22 +746,47 @@ describe('store actions', () => {
     expect(s().lanes.filter((l) => kindOfLane(l) === 'initiatives').some((l) => cardsIds.has(l.id))).toBe(false)
   })
 
-  it('a template designs the cards flow only — the initiatives flow starts standard', () => {
-    const before = s().boards.length
-    s().addBoard('Sprint board', 'team', false, 'tpl-scrum')
-    const board = s().boards[before]
+  it('a team template carries its initiatives flow, cells and all', () => {
+    // The design a board is read through is part of the template: a split section is a split.
+    const ns = topLevelLanes(s().lanes, flow('b-atlas', 'initiatives')).find((l) => l.stage === 'notStarted')!
+    s().splitLane(ns.id, 'columns')
+    s().saveBoardAsTemplate('b-atlas', 'With initiatives cells')
+    const template = s().boardTemplates.at(-1)!
 
-    // The template's design is the cards workflow…
+    s().addBoard('Team copy', undefined, false, template.id)
+    const board = s().boards.at(-1)!
+    // The cards design comes across…
     expect(topLevelLanes(s().lanes, flow(board.id)).map((l) => l.name)).toEqual([
-      'Product Backlog',
-      'Ready to Start',
+      'Backlog',
+      'Not Started',
       'In Progress',
       'Done',
     ])
-    // …and the initiatives workflow is the standard four, one cell each.
+    // …and so does the initiatives design, cell for cell.
+    const madeNs = topLevelLanes(s().lanes, flow(board.id, 'initiatives')).find((l) => l.stage === 'notStarted')!
+    expect(childrenOf(s().lanes, madeNs.id).map((l) => l.name)).toEqual(['Column 1', 'Column 2'])
+  })
+
+  it('a program template brings its initiatives cells and no template cards', () => {
+    // A program arranges its initiatives sections by hand; that arrangement is its design.
+    const ns = topLevelLanes(s().lanes, flow('b-portfolio', 'initiatives')).find((l) => l.stage === 'notStarted')!
+    s().splitLane(ns.id, 'columns')
+    s().saveBoardAsTemplate('b-portfolio', 'Program design')
+    const template = s().boardTemplates.at(-1)!
+    expect(template.band).toBe('program')
+    expect(template.flows.map((f) => f.kind)).toEqual(['initiatives'])
+
+    const before = s().boards.length
+    s().addBoard('Program board', undefined, false, template.id)
+    const board = s().boards[before]
+    expect(board.band).toBe('program')
+    // The initiatives flow, cell for cell…
     const init = topLevelLanes(s().lanes, flow(board.id, 'initiatives'))
     expect(init.map((l) => l.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
-    expect(init.every((l) => childrenOf(s().lanes, l.id).length === 0)).toBe(true)
+    const madeNs = init.find((l) => l.stage === 'notStarted')!
+    expect(childrenOf(s().lanes, madeNs.id).map((l) => l.name)).toEqual(['Column 1', 'Column 2'])
+    // …and the model's hidden scaffold cards flow, not a template's.
+    expect(cardsFlows(s().flows, board.id).map((f) => f.name)).toEqual(['Cards'])
   })
 
   it('templates are managed and round-trip through persistence', () => {
@@ -686,7 +804,7 @@ describe('store actions', () => {
 
     // Older state simply has no collection; the migration supplies the built-ins.
     const migrated = migrateState({ boards: [] }) as { boardTemplates: { id: string }[] }
-    expect(migrated.boardTemplates.map((t) => t.id)).toEqual(['tpl-feature-flow', 'tpl-scrum'])
+    expect(migrated.boardTemplates.map((t) => t.id)).toEqual(['tpl-feature-flow', 'tpl-scrum', 'tpl-upstream-kanban', 'tpl-basic-kanban', 'tpl-personal-kanban', 'tpl-scrumban', 'tpl-shape-up', 'tpl-incident-response', 'tpl-design-sprint'])
   })
 
   it('the migration adds built-in templates without duplicating them', () => {
@@ -705,7 +823,18 @@ describe('store actions', () => {
       boards: [],
       boardTemplates: [{ id: 'mine', name: 'Mine', band: 'team', lanes: [] }],
     }) as { boardTemplates: { id: string }[] }
-    expect(withOwn.boardTemplates.map((t) => t.id).sort()).toEqual(['mine', 'tpl-feature-flow', 'tpl-scrum'])
+    expect(withOwn.boardTemplates.map((t) => t.id).sort()).toEqual([
+      'mine',
+      'tpl-basic-kanban',
+      'tpl-design-sprint',
+      'tpl-feature-flow',
+      'tpl-incident-response',
+      'tpl-personal-kanban',
+      'tpl-scrum',
+      'tpl-scrumban',
+      'tpl-shape-up',
+      'tpl-upstream-kanban',
+    ])
 
     // A built-in whose definition has changed since it was stored is brought up to date.
     const stale = migrateState({
@@ -713,6 +842,72 @@ describe('store actions', () => {
       boardTemplates: [{ ...BUILT_IN_TEMPLATES[0], lanes: [] }],
     }) as { boardTemplates: { id: string; lanes: unknown[] }[] }
     expect(stale.boardTemplates.find((t) => t.id === 'tpl-scrum')?.lanes.length).toBeGreaterThan(0)
+  })
+
+  it('the migration gives an older template the initiatives flow it never had', () => {
+    const migrated = migrateState({
+      boards: [],
+      boardTemplates: [
+        {
+          id: 'mine',
+          name: 'Mine',
+          band: 'team',
+          flows: [{ key: 'f0', kind: 'cards', name: 'Cards', order: 0 }],
+          lanes: [{ key: 'k0', flowKey: 'f0', parentKey: null, order: 0, name: 'Backlog', stage: 'backlog' }],
+        },
+      ],
+    }) as {
+      boardTemplates: { id: string; flows: { key: string; kind: string }[]; lanes: { flowKey: string }[] }[]
+    }
+    const mine = migrated.boardTemplates.find((t) => t.id === 'mine')!
+    expect(mine.flows.map((f) => f.kind)).toEqual(['initiatives', 'cards'])
+    // Every lane still names a flow that exists.
+    const keys = new Set(mine.flows.map((f) => f.key))
+    expect(mine.lanes.every((l) => keys.has(l.flowKey))).toBe(true)
+
+    // Running the migration again adds no second copy.
+    const again = migrateState({ boards: [], boardTemplates: migrated.boardTemplates }) as typeof migrated
+    const againMine = again.boardTemplates.find((t) => t.id === 'mine')!
+    expect(againMine.flows.filter((f) => f.kind === 'initiatives')).toHaveLength(1)
+  })
+
+  it('the migration fixes the initiatives flow at the top of a stored template', () => {
+    const migrated = migrateState({
+      boards: [],
+      boardTemplates: [
+        {
+          id: 'mine',
+          name: 'Mine',
+          band: 'team',
+          flows: [
+            { key: 'f0', kind: 'cards', name: 'Cards', order: 0 },
+            { key: 'i0', kind: 'initiatives', name: 'Initiatives', order: 1 },
+          ],
+          lanes: [{ key: 'k0', flowKey: 'f0', parentKey: null, order: 0, name: 'Backlog', stage: 'backlog' }],
+        },
+      ],
+    }) as { boardTemplates: { id: string; flows: { kind: string; order: number }[] }[] }
+    const mine = migrated.boardTemplates.find((t) => t.id === 'mine')!
+    expect(mine.flows.map((flow) => flow.kind)).toEqual(['initiatives', 'cards'])
+    expect(mine.flows.map((flow) => flow.order)).toEqual([0, 1])
+  })
+
+  it('withdraws a template that was stored for a portfolio', () => {
+    const migrated = migrateState({
+      boards: [],
+      boardTemplates: [
+        {
+          id: 'old-portfolio',
+          name: 'Portfolio flow',
+          band: 'portfolio',
+          flows: [{ key: 'i', kind: 'initiatives', name: 'Initiatives', order: 0 }],
+          lanes: [{ key: 'p0', flowKey: 'i', parentKey: null, order: 0, name: 'Backlog', stage: 'backlog' }],
+        },
+      ],
+    }) as { boardTemplates: { id: string; band: string }[] }
+    // A portfolio has no design to keep, and the built-ins describe teams and programs only.
+    expect(migrated.boardTemplates.some((t) => t.id === 'old-portfolio')).toBe(false)
+    expect(migrated.boardTemplates.every((t) => t.band === 'team' || t.band === 'program')).toBe(true)
   })
 
   it('migrateState normalises the archived flags and leaves older boards working', () => {
@@ -2428,7 +2623,7 @@ describe('store actions', () => {
     expect(snapshot()).toBe(before)
   })
 
-  it('a kind belongs to a board: duplicated with it, never carried by a template', () => {
+  it('a kind belongs to a board: copied with it, and carried into a board made from a template', () => {
     s().selectBoard('b-atlas')
     s().addInitiativeType('b-atlas', 'Bet', '#0ea5e9')
     const kindId = s().boards.find((b) => b.id === 'b-atlas')!.initiativeTypes![0].id
@@ -2442,10 +2637,16 @@ describe('store actions', () => {
     s().updateInitiativeType(copy.id, copy.initiativeTypes![0].id, { name: 'Bet (copy)' })
     expect(s().boards.find((b) => b.id === 'b-atlas')!.initiativeTypes![0].name).toBe('Bet')
 
-    // A template designs a flow and nothing else, so the kinds do not travel with it.
+    // A template carries the board's kinds as its starting vocabulary, but a board made from it
+    // mints its own ids, so editing one board's Bet cannot rename another's.
     s().saveBoardAsTemplate('b-atlas', 'Atlas flow')
     const template = s().boardTemplates.find((t) => t.name === 'Atlas flow')!
-    expect(template).not.toHaveProperty('initiativeTypes')
+    expect(template.initiativeTypes?.map((k) => k.name)).toEqual(['Bet'])
+    s().addBoard('Atlas from template', undefined, false, template.id)
+    const made = s().boards.find((b) => b.name === 'Atlas from template')!
+    expect(made.initiativeTypes?.map((k) => k.name)).toEqual(['Bet'])
+    expect(made.initiativeTypes![0].id).not.toBe(template.initiativeTypes![0].id)
+    expect(made.initiativeTypes![0].id).not.toBe(kindId)
 
     // Old state: a board without the field reads as no kinds at all.
     const migrated = migrateState({ boards: [{ id: 'x', name: 'X', band: 'team' }] }) as { boards: Board[] }
@@ -3470,14 +3671,13 @@ describe('the flows of a board', () => {
     s().addCardsFlow('Escalations')
     s().saveBoardAsTemplate('b-atlas', 'Two flows')
     const template = s().boardTemplates.at(-1)!
-    expect(template.flows.map((f) => f.name)).toEqual(['Cards', 'Support', 'Escalations'])
+    expect(template.flows.map((f) => f.name)).toEqual(['Initiatives', 'Cards', 'Support', 'Escalations'])
 
     s().addBoard('Copy', undefined, false, template.id)
     const copy = s().boards.at(-1)!
     const made = cardsFlows(s().flows, copy.id)
     expect(made.map((f) => f.name)).toEqual(['Cards', 'Support', 'Escalations'])
-    // Each flow arrives with its own four columns, and the initiatives flow is still the
-    // standard one — the organisation's shape is not the template's.
+    // Each flow arrives with its own four columns, and the initiatives flow is the template's.
     for (const flow of made) {
       expect(topLevelLanes(s().lanes, flow.id).map((l) => l.stage)).toEqual([
         'backlog',
@@ -3494,13 +3694,72 @@ describe('the flows of a board', () => {
     ])
   })
 
-  it('a new template starts as one cards flow, named and ordered', () => {
+  it('a new template starts as one cards flow and the initiatives flow, named and ordered', () => {
     const id = s().newBoardTemplate('Fresh', 'team')!
     const template = s().boardTemplates.find((t) => t.id === id)!
-    expect(template.flows).toHaveLength(1)
-    expect(template.flows[0]).toMatchObject({ kind: 'cards', name: 'Cards', order: 0 })
+    expect(template.flows.map((f) => f.kind)).toEqual(['initiatives', 'cards'])
+    const cards = template.flows.find((flow) => flow.kind === 'cards')!
+    expect(cards).toMatchObject({ kind: 'cards', name: 'Cards', order: 1 })
+    expect(template.lanes.filter((l) => l.flowKey === cards.key).map((l) => l.stage)).toEqual([
+      'backlog',
+      'notStarted',
+      'inProgress',
+      'done',
+    ])
+    const initiatives = template.flows.find((flow) => flow.kind === 'initiatives')!
+    expect(initiatives).toMatchObject({ kind: 'initiatives', name: 'Initiatives', order: 0 })
+    expect(template.lanes.filter((l) => l.flowKey === initiatives.key).map((l) => l.stage)).toEqual([
+      'backlog',
+      'notStarted',
+      'inProgress',
+      'done',
+    ])
+  })
+
+  it('a template changes board type without losing the flow that type reads', () => {
+    const id = s().newBoardTemplate('Switchable', 'team')!
+    // A program has no cards: its cards flow and card settings go with the board type.
+    s().updateBoardTemplate(id, { band: 'program', defaultCardTypeId: 't-bug', wipEnforcement: 'block' })
+    let template = s().boardTemplates.find((t) => t.id === id)!
+    expect(template.band).toBe('program')
+    expect(template.flows.map((f) => f.kind)).toEqual(['initiatives'])
+    expect(template.flows.map((f) => f.order)).toEqual([0])
     expect(template.lanes.every((l) => l.flowKey === template.flows[0].key)).toBe(true)
-    expect(template.lanes.map((l) => l.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
+    expect(template.defaultCardTypeId).toBeUndefined()
+    expect(template.wipEnforcement).toBeUndefined()
+
+    // Back to a team, and a cards flow is supplied again.
+    s().updateBoardTemplate(id, { band: 'team' })
+    template = s().boardTemplates.find((t) => t.id === id)!
+    expect(template.flows.map((f) => f.kind).sort()).toEqual(['cards', 'initiatives'])
+    expect(template.flows.map((f) => f.order)).toEqual([0, 1])
+
+    // A portfolio is not a design, so a template cannot become one.
+    s().updateBoardTemplate(id, { band: 'portfolio' })
+    expect(s().boardTemplates.find((t) => t.id === id)?.band).toBe('team')
+  })
+
+  it('saves an edit as one replacement, with the initiatives flow fixed at the top', () => {
+    const id = s().newBoardTemplate('Editable', 'team')!
+    const stored = s().boardTemplates.find((t) => t.id === id)!
+    const cards = stored.flows.find((flow) => flow.kind === 'cards')!
+    const initiatives = stored.flows.find((flow) => flow.kind === 'initiatives')!
+
+    // The editor hands back the whole draft: a stored order with cards first is normalised, and
+    // the design's settings — including its initiative kinds — land in one write.
+    s().replaceBoardTemplate({
+      ...stored,
+      flows: [cards, initiatives],
+      initiativeTypes: [{ id: 'k-bet', name: 'Bet', color: '#0ea5e9' }],
+    })
+    const saved = s().boardTemplates.find((t) => t.id === id)!
+    expect(saved.flows.map((flow) => flow.kind)).toEqual(['initiatives', 'cards'])
+    expect(saved.flows.map((flow) => flow.order)).toEqual([0, 1])
+    expect(saved.initiativeTypes?.map((kind) => kind.name)).toEqual(['Bet'])
+
+    // A portfolio has no design of its own, so a save cannot turn a template into one.
+    s().replaceBoardTemplate({ ...saved, band: 'portfolio' })
+    expect(s().boardTemplates.find((t) => t.id === id)?.band).toBe('team')
   })
 
   it('is edit-mode work: Cancel takes the flow away with it', () => {

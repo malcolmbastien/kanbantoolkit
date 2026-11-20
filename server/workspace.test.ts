@@ -16,7 +16,7 @@ import type { Database } from './db'
 import { fromSqlite } from './sqlite'
 import { readGraph, readWorkspace } from './workspace/read'
 import { acquire, LEASE_MS, lockOf, release } from './workspace/locks'
-import type { Board, BoardFlow, Item, Lane } from '../src/domain/types'
+import type { Board, BoardFlow, BoardTemplate, Item, Lane } from '../src/domain/types'
 import type { Workspace } from './workspace/types'
 import { writeWorkspace } from './workspace/write'
 import { REQUIRED_SCHEMA } from './workspace/schema'
@@ -674,6 +674,46 @@ describe('writing one item', () => {
     expect(queries.filter((sql) => /FROM edges WHERE workspace_id/.test(sql))).toHaveLength(1)
   })
 
+  it('writes a parent edge with the item, and removes it with null', async () => {
+    const { db, patch } = await writer()
+    // The initiative type is what makes a parent valid; the seeded workspace has only cards.
+    await db.run("INSERT INTO issue_types (id, workspace_id, name, color) VALUES ('t-initiative', 'workspace', 'Initiative', '#8b5cf6')")
+
+    expect(
+      (await patch('i-parent', { baseRev: 0, item: card({ id: 'i-parent', title: 'Outcome', typeId: 't-initiative' }) })).status,
+    ).toBe(200)
+    expect((await patch('i-child', { baseRev: 0, item: card({ id: 'i-child', title: 'Child' }) })).status).toBe(200)
+
+    // The parent travels with the item write: the edge is beside the item, so an ordinary edit
+    // never touches it, and a hierarchy edit must say which one it means.
+    expect(
+      (await patch('i-child', { baseRev: 1, item: card({ id: 'i-child', title: 'Child', rev: 1 }), parentId: 'i-parent' })).status,
+    ).toBe(200)
+    const edges = () =>
+      db.all<{ from_id: string }>("SELECT from_id FROM edges WHERE kind = 'decomposition' AND to_id = 'i-child'")
+    expect(await edges()).toEqual([{ from_id: 'i-parent' }])
+
+    // null detaches; one parent at most, so the old edge is replaced rather than added to.
+    expect(
+      (await patch('i-child', { baseRev: 2, item: card({ id: 'i-child', title: 'Child', rev: 2 }), parentId: null })).status,
+    ).toBe(200)
+    expect(await edges()).toEqual([])
+  })
+
+  it('refuses a parent that is not an initiative, and writes no edge', async () => {
+    const { db, patch } = await writer()
+    expect((await patch('i-parent', { baseRev: 0, item: card({ id: 'i-parent', title: 'A card' }) })).status).toBe(200)
+    expect((await patch('i-child', { baseRev: 0, item: card({ id: 'i-child', title: 'Child' }) })).status).toBe(200)
+
+    const refused = await patch('i-child', {
+      baseRev: 1,
+      item: card({ id: 'i-child', title: 'Child', rev: 1 }),
+      parentId: 'i-parent',
+    })
+    expect(refused.status).toBe(422)
+    expect(await db.all("SELECT 1 FROM edges WHERE to_id = 'i-child'")).toEqual([])
+  })
+
   it('emits item events for an endpoint that subscribes to them', async () => {
     const { db, patch } = await writer()
     await db.run(
@@ -1258,8 +1298,9 @@ describe('writing the workspace vocabulary', () => {
         band: 'team' as const,
         flows: [{ key: 'f-cards', kind: 'cards' as const, name: 'Cards', order: 0 }],
         lanes: [{ key: 'l-backlog', flowKey: 'f-cards', parentKey: null, order: 0, name: 'Backlog', stage: 'backlog' as const }],
+        initiativeTypes: [{ id: 'k-bet', name: 'Bet', color: '#0ea5e9' }],
       },
-    ],
+    ] as BoardTemplate[],
     periods: [{ id: 'p-q1', name: '2026-Q1', start: '2026-01-01', end: '2026-03-31' }],
     objectives: [{ id: 'o-1', title: 'Sign in without a password', description: 'A passwordless door.', periodId: 'p-q1', status: 'active' as const, order: 0 }],
     keyResults: [{ id: 'k-1', objectiveId: 'o-1', title: 'Every member can sign in' }],
@@ -1310,6 +1351,40 @@ describe('writing the workspace vocabulary', () => {
 
     // The design's revision is not touched by a vocabulary write: the two documents are separate.
     expect(body.structureRev).toBe(1)
+  })
+
+  it('accepts the two flows a board has, including a program with no cards', async () => {
+    const { put, read, rev } = await writer()
+    const document = vocabulary()
+    // A program arranges its initiatives flow and makes no cards, so that is its design.
+    document.boardTemplates.push({
+      id: 'bt-program',
+      name: 'A program board',
+      band: 'program' as const,
+      flows: [{ key: 'f-initiatives', kind: 'initiatives' as const, name: 'Initiatives', order: 0 }],
+      lanes: [
+        { key: 'l-init-backlog', flowKey: 'f-initiatives', parentKey: null, order: 0, name: 'Backlog', stage: 'backlog' as const },
+        { key: 'l-init-proposed', flowKey: 'f-initiatives', parentKey: 'l-init-backlog', order: 0, name: 'Proposed' },
+      ],
+    })
+    expect((await put({ rev, ...document })).status).toBe(200)
+    const body = await read()
+    expect(body.boardTemplates.find((t) => t.id === 'bt-program')?.flows.map((f) => f.kind)).toEqual(['initiatives'])
+    expect(body.boardTemplates.find((t) => t.id === 'bt-program')?.lanes).toHaveLength(2)
+
+    // A third kind of flow is not a board's shape, and a board has one initiatives flow, not two.
+    const otherKind = vocabulary()
+    otherKind.boardTemplates[0].flows = [{ key: 'f-cards', kind: 'other' as never, name: 'Other', order: 0 }]
+    expect((await put({ rev: rev + 1, ...otherKind })).status).toBe(400)
+
+    const twoInitiatives = vocabulary()
+    twoInitiatives.boardTemplates[0].flows = [
+      { key: 'f-cards', kind: 'cards' as const, name: 'Cards', order: 0 },
+      { key: 'f-i1', kind: 'initiatives' as const, name: 'Initiatives', order: 1 },
+      { key: 'f-i2', kind: 'initiatives' as const, name: 'Outcomes', order: 2 },
+    ]
+    expect((await put({ rev: rev + 1, ...twoInitiatives })).status).toBe(400)
+    expect((await read()).vocabularyRev).toBe(rev + 1)
   })
 
   it('keeps the revision honest: a stale sender is refused with the one that is there', async () => {

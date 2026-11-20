@@ -12,6 +12,7 @@ import type {
   BoardTemplate,
   ChecklistEntry,
   Edge,
+  InitiativeType,
   Item,
   ItemLink,
   ItemLogEntry,
@@ -306,15 +307,18 @@ const parseIssueType = (raw: Record<string, unknown>): IssueType | null => {
 }
 
 /**
- * One template: its cards flows and their keyed lanes.
+ * One template: its flows and their keyed lanes.
  *
- * Refused rather than repaired when a lane names a flow the template does not have, when a flow is
- * not a cards flow, or when a parent names a lane that is not there: a template is what a board is
- * made from, and one that cannot be made from is not a design.
+ * A team template keeps its cards flows and the initiatives flow above them; a program template is
+ * its initiatives flow alone. Refused rather than repaired when a lane names
+ * a flow the template does not have, when a flow is neither kind, or when a parent names a lane that
+ * is not there: a template is what a board is made from, and one that cannot be made from is not a
+ * design.
  */
 const parseTemplate = (raw: Record<string, unknown>): BoardTemplate | null => {
   const id = requiredText(raw.id, LIMITS.id)
   const name = requiredText(raw.name, LIMITS.title)
+  const band = raw.band === 'program' || raw.band === 'portfolio' ? raw.band : 'team'
   const flowsRaw = raw.flows
   if (!id || !name || !Array.isArray(flowsRaw) || flowsRaw.length === 0 || flowsRaw.length > 100) return null
   const flows: TemplateFlow[] = []
@@ -323,11 +327,13 @@ const parseTemplate = (raw: Record<string, unknown>): BoardTemplate | null => {
     const flow = value as Record<string, unknown>
     const key = requiredText(flow.key, LIMITS.id)
     const flowName = requiredText(flow.name, LIMITS.title)
-    // A template designs the team's own flow; the initiatives flow is never captured.
-    if (!key || !flowName || flow.kind !== 'cards') return null
-    flows.push({ key, kind: 'cards', name: flowName, order: number(flow.order) ?? 0 })
+    // The two flows a board has: the team's cards and the organisation's initiatives.
+    if (!key || !flowName || (flow.kind !== 'cards' && flow.kind !== 'initiatives')) return null
+    flows.push({ key, kind: flow.kind, name: flowName, order: number(flow.order) ?? 0 })
   }
   if (new Set(flows.map((f) => f.key)).size !== flows.length) return null
+  // A board has exactly one initiatives flow, so a template cannot name two.
+  if (flows.filter((f) => f.kind === 'initiatives').length > 1) return null
 
   const lanesRaw = raw.lanes
   if (!Array.isArray(lanesRaw) || lanesRaw.length > 500) return null
@@ -356,12 +362,30 @@ const parseTemplate = (raw: Record<string, unknown>): BoardTemplate | null => {
   if (laneKeys.size !== lanes.length) return null
   if (lanes.some((l) => l.parentKey !== null && !laneKeys.has(l.parentKey))) return null
 
+  // A template's initiative kinds are a board's own labels, carried with the design. None is the
+  // absence of a kind, so it is not an entry here — the same rule a board's own list keeps.
+  const initiativeTypes: InitiativeType[] = []
+  if (raw.initiativeTypes !== undefined) {
+    if (!Array.isArray(raw.initiativeTypes) || raw.initiativeTypes.length > 100) return null
+    const seen = new Set<string>()
+    for (const value of raw.initiativeTypes) {
+      if (!value || typeof value !== 'object') return null
+      const kind = value as Record<string, unknown>
+      const kindId = requiredText(kind.id, LIMITS.id)
+      const kindName = requiredText(kind.name, LIMITS.title)
+      if (!kindId || !kindName || seen.has(kindId) || /^none$/i.test(kindName)) return null
+      seen.add(kindId)
+      initiativeTypes.push({ id: kindId, name: kindName, color: text(kind.color, 20) || '#64748b' })
+    }
+  }
+
   return {
     id,
     name,
-    band: raw.band === 'program' || raw.band === 'portfolio' ? raw.band : 'team',
+    band,
     flows,
     lanes,
+    ...(initiativeTypes.length ? { initiativeTypes } : {}),
     ...(requiredText(raw.defaultCardTypeId, LIMITS.id) ? { defaultCardTypeId: requiredText(raw.defaultCardTypeId, LIMITS.id) } : {}),
     ...(raw.wipEnforcement === 'justify' || raw.wipEnforcement === 'block' || raw.wipEnforcement === 'visualize'
       ? { wipEnforcement: raw.wipEnforcement }
@@ -430,6 +454,15 @@ export function canonicalTemplate(template: BoardTemplate): BoardTemplate {
         ...(l.description ? { description: l.description } : {}),
       }))
       .sort((a, b) => a.key.localeCompare(b.key)),
+    ...(template.initiativeTypes?.length
+      ? {
+          initiativeTypes: template.initiativeTypes.map((kind) => ({
+            id: kind.id,
+            name: kind.name,
+            color: kind.color,
+          })),
+        }
+      : {}),
     ...(template.defaultCardTypeId ? { defaultCardTypeId: template.defaultCardTypeId } : {}),
     ...(template.wipEnforcement ? { wipEnforcement: template.wipEnforcement } : {}),
   }

@@ -1,4 +1,5 @@
 import { NONE_TYPE } from './board'
+import { withInitiatives } from './template'
 import type { Board, BoardFlow, BoardTemplate, IssueType, Lane, TemplateFlow, TemplateLane, User } from './types'
 
 /**
@@ -88,7 +89,12 @@ export interface WorkflowLanes {
  * added once, here.
  */
 const TEMPLATE_FLOW: TemplateFlow = { key: 'f0', kind: 'cards', name: 'Cards', order: 0 }
-type TemplateDraft = Omit<BoardTemplate, 'flows' | 'lanes'> & { lanes: Omit<TemplateLane, 'flowKey'>[] }
+type TemplateDraft = Omit<BoardTemplate, 'flows' | 'lanes'> & {
+  /** The flows this template describes. A draft without them is one flow named Cards. */
+  flows?: TemplateFlow[]
+  /** Lanes name their flow when the template has more than one; otherwise the only flow is theirs. */
+  lanes: Array<Omit<TemplateLane, 'flowKey'> & { flowKey?: string }>
+}
 
 const TEMPLATE_DRAFTS: TemplateDraft[] = [
   /**
@@ -213,13 +219,161 @@ const TEMPLATE_DRAFTS: TemplateDraft[] = [
       { key: 'k10', parentKey: 'k8', order: 1, name: 'Done' },
     ],
   },
+  {
+    /**
+     * The two halves of an upstream/downstream kanban, on one board.
+     *
+     * The reference is two boards drawn hand in hand: upstream discovers and shapes work, then a
+     * downstream team pulls it. Here they are the board's two **cards flows**, so the hand-off is
+     * a move between flows rather than a copy between boards. Each flow still has the four typed
+     * columns the model requires; the picture's columns are the cells inside them, and the two
+     * extra columns each side are the hand-off states the picture implies but does not draw.
+     */
+    id: 'tpl-upstream-kanban',
+    name: 'Upstream Kanban',
+    band: 'team',
+    defaultCardTypeId: 't-story',
+    flows: [
+      { key: 'up', kind: 'cards', name: 'Upstream', order: 0 },
+      { key: 'down', kind: 'cards', name: 'Downstream', order: 1 },
+    ],
+    lanes: [
+      // Upstream: the discovery pool is one uncommitted column split into the three states the
+      // picture draws; Ready to Pull is the commitment point.
+      { key: 'u0', flowKey: 'up', parentKey: null, order: 0, name: 'Discovery', stage: 'backlog', orientation: 'columns' },
+      { key: 'u1', flowKey: 'up', parentKey: 'u0', order: 0, name: 'Idea', description: 'A problem, a request or an observation, before anybody has judged it.' },
+      { key: 'u2', flowKey: 'up', parentKey: 'u0', order: 1, name: 'Analysis', description: 'Is it worth doing? Value, cost of delay and the rough shape.' },
+      { key: 'u3', flowKey: 'up', parentKey: 'u0', order: 2, name: 'Concept', description: 'What it would take: a sketch, a decision and an estimate.' },
+      { key: 'u4', flowKey: 'up', parentKey: null, order: 1, name: 'Ready to Pull', stage: 'notStarted', description: 'Analysed and shaped, waiting for a downstream team to pull it.' },
+      { key: 'u5', flowKey: 'up', parentKey: null, order: 2, name: 'Being Pulled', stage: 'inProgress', description: 'A downstream team has taken it on; upstream is finishing its hand-off.' },
+      { key: 'u6', flowKey: 'up', parentKey: null, order: 3, name: 'Pulled', stage: 'done', description: 'Upstream is finished with it.' },
+      // Downstream: Incoming is the intake the picture leaves implicit; Next is the committed pull
+      // queue, Analysis through UAT are the work, and Ready to Deploy is done.
+      { key: 'd0', flowKey: 'down', parentKey: null, order: 0, name: 'Incoming', stage: 'backlog', description: 'Pulled from upstream, waiting for the next replenishment.' },
+      { key: 'd1', flowKey: 'down', parentKey: null, order: 1, name: 'Next', stage: 'notStarted', description: 'Selected for the next cycle; the team’s next pull.' },
+      { key: 'd2', flowKey: 'down', parentKey: null, order: 2, name: 'In Progress', stage: 'inProgress', orientation: 'columns' },
+      { key: 'd3', flowKey: 'down', parentKey: 'd2', order: 0, name: 'Analysis', description: 'Understanding it: options, impact and the plan.' },
+      { key: 'd4', flowKey: 'down', parentKey: 'd2', order: 1, name: 'Development', description: 'Building it, with its tests written alongside.' },
+      { key: 'd5', flowKey: 'down', parentKey: 'd2', order: 2, name: 'Test', description: 'Verifying it: automated, exploratory and peer review.' },
+      { key: 'd6', flowKey: 'down', parentKey: 'd2', order: 3, name: 'UAT', description: 'Acceptance by the people who asked for it, in their own words.' },
+      { key: 'd7', flowKey: 'down', parentKey: null, order: 3, name: 'Ready to Deploy', stage: 'done', description: 'Accepted and waiting for its release window.' },
+    ],
+  },
+  {
+    /** The canonical board: a queue, a ready column, and two WIP-limited working columns. */
+    id: 'tpl-basic-kanban',
+    name: 'Basic Kanban',
+    band: 'team',
+    defaultCardTypeId: 't-story',
+    flows: [{ key: 'f0', kind: 'cards', name: 'Flow', order: 0 }],
+    lanes: [
+      { key: 'bk0', parentKey: null, order: 0, name: 'Backlog', stage: 'backlog', description: 'Everything not yet picked up.' },
+      { key: 'bk1', parentKey: null, order: 1, name: 'Ready', stage: 'notStarted', description: 'Small enough to start, waiting for a free slot.' },
+      { key: 'bk2', parentKey: null, order: 2, name: 'In Progress', stage: 'inProgress', orientation: 'columns' },
+      { key: 'bk3', parentKey: 'bk2', order: 0, name: 'Doing', wipLimit: 3, description: 'The work in hand. The limit is what keeps it in hand.' },
+      { key: 'bk4', parentKey: 'bk2', order: 1, name: 'Review', wipLimit: 2, description: 'Read by somebody else before it is called done.' },
+      { key: 'bk5', parentKey: null, order: 3, name: 'Done', stage: 'done' },
+    ],
+  },
+  {
+    /** One person's board: a list, today's shortlist, and a limit on what is actually open. */
+    id: 'tpl-personal-kanban',
+    name: 'Personal Kanban',
+    band: 'team',
+    defaultCardTypeId: 't-task',
+    flows: [{ key: 'f0', kind: 'cards', name: 'Tasks', order: 0 }],
+    lanes: [
+      { key: 'pk0', parentKey: null, order: 0, name: 'Backlog', stage: 'backlog' },
+      { key: 'pk1', parentKey: null, order: 1, name: 'Today', stage: 'notStarted', description: 'The few things you mean to finish today.' },
+      { key: 'pk2', parentKey: null, order: 2, name: 'Doing', stage: 'inProgress', wipLimit: 3, description: 'Three is the point: a fourth is a promise you cannot keep.' },
+      { key: 'pk3', parentKey: null, order: 3, name: 'Done', stage: 'done' },
+    ],
+  },
+  {
+    /** Scrum's commitments on a kanban's pull system: refined work is selected, then pulled. */
+    id: 'tpl-scrumban',
+    name: 'Scrumban',
+    band: 'team',
+    defaultCardTypeId: 't-story',
+    flows: [{ key: 'f0', kind: 'cards', name: 'Sprint', order: 0 }],
+    lanes: [
+      { key: 'sb0', parentKey: null, order: 0, name: 'Product Backlog', stage: 'backlog' },
+      { key: 'sb1', parentKey: null, order: 1, name: 'Ready', stage: 'notStarted', orientation: 'columns' },
+      { key: 'sb2', parentKey: 'sb1', order: 0, name: 'Refined', description: 'Small, understood and agreed; waiting for a slot.' },
+      { key: 'sb3', parentKey: 'sb1', order: 1, name: 'Selected for Sprint', description: 'Committed for this sprint, not yet started.' },
+      { key: 'sb4', parentKey: null, order: 2, name: 'In Progress', stage: 'inProgress', orientation: 'columns' },
+      { key: 'sb5', parentKey: 'sb4', order: 0, name: 'Doing', wipLimit: 3 },
+      { key: 'sb6', parentKey: 'sb4', order: 1, name: 'Review', wipLimit: 2 },
+      { key: 'sb7', parentKey: 'sb4', order: 2, name: 'Testing' },
+      { key: 'sb8', parentKey: null, order: 3, name: 'Done', stage: 'done', orientation: 'columns' },
+      { key: 'sb9', parentKey: 'sb8', order: 0, name: 'Accepted', description: 'Meets the sprint goal.' },
+      { key: 'sb10', parentKey: 'sb8', order: 1, name: 'Released', description: 'In front of the people it was for.' },
+    ],
+  },
+  {
+    /** Shape Up: discovery and shaping are pre-commitment; a shaped pitch is bet on, then built. */
+    id: 'tpl-shape-up',
+    name: 'Shape Up',
+    band: 'team',
+    defaultCardTypeId: 't-story',
+    flows: [{ key: 'f0', kind: 'cards', name: 'Cycle', order: 0 }],
+    lanes: [
+      { key: 'su0', parentKey: null, order: 0, name: 'Discovery', stage: 'backlog', orientation: 'columns' },
+      { key: 'su1', parentKey: 'su0', order: 0, name: 'Ideas', description: 'Raw demand; nobody has shaped it yet.' },
+      { key: 'su2', parentKey: 'su0', order: 1, name: 'Shaping', description: 'Time, appetite and a sketch of the solution.' },
+      { key: 'su3', parentKey: null, order: 1, name: 'Betting table', stage: 'notStarted', description: 'Shaped pitches waiting for a cycle to be bet on.' },
+      { key: 'su4', parentKey: null, order: 2, name: 'Building', stage: 'inProgress', description: 'A six-week cycle in progress. Scope is fixed; the work is not.' },
+      { key: 'su5', parentKey: null, order: 3, name: 'Shipped', stage: 'done' },
+    ],
+  },
+  {
+    /** Incidents: triage is the commitment point, and monitoring is a state of its own. */
+    id: 'tpl-incident-response',
+    name: 'Incident Response',
+    band: 'team',
+    defaultCardTypeId: 't-bug',
+    flows: [{ key: 'f0', kind: 'cards', name: 'Response', order: 0 }],
+    lanes: [
+      { key: 'ir0', parentKey: null, order: 0, name: 'Reported', stage: 'backlog', description: 'An alert or a report; not yet triaged.' },
+      { key: 'ir1', parentKey: null, order: 1, name: 'Triaged', stage: 'notStarted', description: 'Severity set, an owner named, waiting for the on-call.' },
+      { key: 'ir2', parentKey: null, order: 2, name: 'In Progress', stage: 'inProgress', orientation: 'columns' },
+      { key: 'ir3', parentKey: 'ir2', order: 0, name: 'Investigating', description: 'Finding the cause, not yet changing anything.' },
+      { key: 'ir4', parentKey: 'ir2', order: 1, name: 'Mitigating', description: 'The bleeding is being stopped.' },
+      { key: 'ir5', parentKey: 'ir2', order: 2, name: 'Monitoring', description: 'Fix is in; watching for recurrence before closing.' },
+      { key: 'ir6', parentKey: null, order: 3, name: 'Resolved', stage: 'done' },
+    ],
+  },
+  {
+    /** A five-day sprint: understand and sketch before committing, prototype and test after. */
+    id: 'tpl-design-sprint',
+    name: 'Design Sprint',
+    band: 'team',
+    defaultCardTypeId: 't-spike',
+    flows: [{ key: 'f0', kind: 'cards', name: 'Sprint', order: 0 }],
+    lanes: [
+      { key: 'ds0', parentKey: null, order: 0, name: 'Discovery', stage: 'backlog', orientation: 'columns' },
+      { key: 'ds1', parentKey: 'ds0', order: 0, name: 'Understand', description: 'Monday: the problem, the users and the map.' },
+      { key: 'ds2', parentKey: 'ds0', order: 1, name: 'Sketch', description: 'Tuesday: solutions drawn, not discussed.' },
+      { key: 'ds3', parentKey: null, order: 1, name: 'Decide', stage: 'notStarted', description: 'Wednesday: one direction chosen and committed.' },
+      { key: 'ds4', parentKey: null, order: 2, name: 'In Progress', stage: 'inProgress', orientation: 'columns' },
+      { key: 'ds5', parentKey: 'ds4', order: 0, name: 'Prototype', description: 'Thursday: something a person can react to.' },
+      { key: 'ds6', parentKey: 'ds4', order: 1, name: 'Test', description: 'Friday: five conversations, watched and written down.' },
+      { key: 'ds7', parentKey: null, order: 3, name: 'Sprint complete', stage: 'done' },
+    ],
+  },
 ]
 
-export const BUILT_IN_TEMPLATES: BoardTemplate[] = TEMPLATE_DRAFTS.map((template) => ({
-  ...template,
-  flows: [{ ...TEMPLATE_FLOW }],
-  lanes: template.lanes.map((lane) => ({ ...lane, flowKey: TEMPLATE_FLOW.key })),
-}))
+export const BUILT_IN_TEMPLATES: BoardTemplate[] = TEMPLATE_DRAFTS.map(({ flows, lanes, ...template }) => {
+  // A program has no cards of its own, so its template is the initiatives flow and nothing else;
+  // a team template starts from its cards flow(s). Every template gains the initiatives flow the
+  // board always has.
+  const actual = flows ?? (template.band === 'program' ? [] : [{ ...TEMPLATE_FLOW }])
+  return withInitiatives({
+    ...template,
+    flows: actual,
+    lanes: lanes.map((lane) => ({ ...lane, flowKey: lane.flowKey ?? actual[0]?.key ?? 'i' })),
+  })
+})
 
 export interface DemoWorkspace {
   users: User[]

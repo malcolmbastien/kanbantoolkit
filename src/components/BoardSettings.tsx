@@ -301,8 +301,9 @@ export function BoardSettings() {
             </div>
           )}
 
-          {/* Template — a board design, reusable when creating boards. A portfolio has no columns
-              of its own to keep, so there is nothing to save. */}
+          {/* Template — a board design, reusable when creating boards. A team keeps its flows and
+              a program keeps its initiatives flow; a portfolio is a reading of the work rather
+              than a design, so it has nothing to keep. */}
           {!portfolio && (
           <div>
             <div className={label}>Template</div>
@@ -317,7 +318,9 @@ export function BoardSettings() {
                 <LayoutTemplate size={13} /> Save as template
               </button>
               <span className="text-meta text-slate-600">
-                Keeps the columns, default card type and WIP policy. Not the cards or the linked boards.
+                {board.band === 'program'
+                  ? 'Keeps the initiatives flow and its cells. Not the cards or the linked boards.'
+                  : 'Keeps the cards flows, the initiatives flow, the default card type and WIP policy. Not the cards or the linked boards.'}
               </span>
             </div>
             {savedTemplate && (

@@ -41,6 +41,45 @@ test('the top bar stays one row as the window narrows', async ({ page }) => {
 })
 
 /**
+ * The switcher's menu hangs below the bar.
+ *
+ * The navigation is a horizontal scroller — a row that never wraps — so an absolutely positioned
+ * menu inside it is clipped to the bar's own height and a reader sees nothing when they click.
+ */
+test('the board switcher opens its menu below the bar, not inside its scroller', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await openBoard(page)
+
+  const trigger = page.locator('[data-board-nav] button').first()
+  await trigger.click()
+  // Clicking must not paint a focus ring: the bar's scroller clips an outer one into brackets
+  // around the corners, which reads as a broken border rather than as focus.
+  await expect(trigger).toHaveCSS('box-shadow', 'none')
+
+  const list = page.getByRole('listbox', { name: 'Boards' })
+  await expect(list).toBeVisible()
+
+  const menu = (await list.boundingBox())!
+  const nav = (await page.locator('[data-board-nav]').boundingBox())!
+  expect(menu.y, 'the menu starts below the bar').toBeGreaterThanOrEqual(nav.y + nav.height - 1)
+  expect(menu.height, 'the menu is taller than the bar it hangs from').toBeGreaterThan(nav.height)
+
+  // The geometry alone cannot see a clip: an element outside its scroller still has a rect. A
+  // point inside the menu must belong to the menu, not to the scroller that cut it off.
+  const onTop = await page.evaluate(() => {
+    const list = document.querySelector('[role="listbox"][aria-label="Boards"]')!
+    const rect = list.getBoundingClientRect()
+    const at = document.elementFromPoint(rect.left + 24, rect.top + rect.height / 2)
+    return Boolean(at && list.contains(at))
+  })
+  expect(onTop, 'the menu is clipped by the bar’s scroller').toBe(true)
+
+  // A menu that is clipped cannot be used; choosing another board can.
+  await list.getByRole('option').filter({ hasText: 'Team Nova' }).click()
+  await expect(trigger).toContainText('Team Nova')
+})
+
+/**
  * A breakpoint is a guess about the room a row has. The bar measures the room instead: the same
  * window shows the views by name when the board, the account and the actions leave space for them,
  * and the words come back when a resize frees that space again.

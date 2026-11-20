@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { expect, test, type Page } from '@playwright/test'
-import { addCardTo, openBoard } from './support'
+import { addCardTo, laneRegion, openBoard } from './support'
 
 /**
  * The workspace as a file. The interesting question is not whether Export produces a download —
@@ -47,10 +47,57 @@ test('a template opens from its card', async ({ page }) => {
   const dialog = page.getByRole('dialog', { name: 'Template: Feature Flow' })
   await expect(dialog).toBeVisible()
   // Everything about the template is in one place: its name, its design, edit and delete.
-  await expect(dialog.getByRole('button', { name: 'Template name' })).toBeVisible()
+  await expect(dialog.getByRole('heading', { name: 'Feature Flow' })).toBeVisible()
+  // A design is read for what it would build: the board is one action, beside Edit.
+  await expect(dialog.getByRole('button', { name: 'Use template' })).toBeVisible()
   await expect(dialog.getByRole('button', { name: 'Edit' })).toBeVisible()
   await expect(dialog.getByRole('button', { name: 'Delete template' })).toBeVisible()
   await expect(dialog.getByText('Board type')).toBeVisible()
+  // The initiatives flow is fixed at the top, above the cards flows.
+  await expect(dialog.locator('[data-template-flow]').first()).toContainText('Initiatives')
+
+  // Editing is a draft held behind Save/Cancel, not a one-way Done.
+  await dialog.getByRole('button', { name: 'Edit' }).click()
+  // The name is in the draft too, so it is editable only while editing.
+  await expect(dialog.getByRole('button', { name: 'Template name' })).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Save', exact: true })).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeVisible()
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await expect(dialog.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0)
+  await expect(dialog.getByRole('button', { name: 'Edit' })).toBeVisible()
+})
+
+test('a template makes a board, instead of a dropdown in the new-board dialog', async ({ page }) => {
+  await page.goto('/app')
+  await expect(page.getByRole('heading', { name: 'Workspace Home' })).toBeVisible()
+
+  // The new-board dialog asks for a name and a type. It does not ask which design to use: that is
+  // a choice of its own, made where the designs are read.
+  await page.getByRole('button', { name: 'New board' }).first().click()
+  const blank = page.getByRole('dialog', { name: 'New board' })
+  await expect(blank).toBeVisible()
+  await expect(blank.getByLabel('New board template')).toHaveCount(0)
+  await blank.getByRole('button', { name: /Start from a template/ }).click()
+  await expect(page.getByRole('tab', { name: /Templates/ })).toHaveAttribute('aria-selected', 'true')
+
+  // The collection ships with the app, and a card offers the act a template exists for.
+  const card = page.locator('[data-template-card="tpl-upstream-kanban"]')
+  await expect(card).toBeVisible()
+  await card.getByRole('button', { name: 'Use template' }).click()
+
+  const dialog = page.getByRole('dialog', { name: 'New board from template' })
+  await expect(dialog).toContainText('Upstream Kanban')
+  await dialog.getByLabel('New board name').fill('Upstream and downstream')
+  await dialog.getByRole('button', { name: 'Create board' }).click()
+
+  // Two cards flows, drawn as two workflows: upstream discovers, downstream pulls.
+  await expect(page.locator('[data-flow-band][data-flow-name="Upstream"]')).toBeVisible({ timeout: 20_000 })
+  await expect(page.locator('[data-flow-band][data-flow-name="Downstream"]')).toBeVisible()
+  await expect(laneRegion(page, 'Idea', 'Upstream')).toBeVisible()
+  await expect(laneRegion(page, 'Ready to Pull', 'Upstream')).toBeVisible()
+  await expect(laneRegion(page, 'Analysis', 'Downstream')).toBeVisible()
+  await expect(laneRegion(page, 'UAT', 'Downstream')).toBeVisible()
+  await expect(laneRegion(page, 'Ready to Deploy', 'Downstream')).toBeVisible()
 })
 
 test('New template opens the template editor, and Cancel discards it', async ({ page }) => {
@@ -66,16 +113,26 @@ test('New template opens the template editor, and Cancel discards it', async ({ 
   await expect(dialog).toHaveCount(0)
   await expect(page.getByRole('button', { name: /Untitled template/ })).toHaveCount(0)
 
-  // Done keeps it. The same editor sets its name, type, flow and card types.
+  // Save keeps it. The same editor sets its name, type, flow, initiative kinds and card types.
   await page.getByRole('button', { name: /New template/ }).click()
   await expect(dialog).toBeVisible()
   await dialog.getByRole('textbox', { name: 'Template name' }).fill('Probe Design')
+  // Templates describe what a team draws and what a program arranges; a portfolio is a reading of
+  // the work, not a design of its own.
   await dialog.getByLabel('Template board type').selectOption('program')
-  await dialog.getByRole('button', { name: 'Done', exact: true }).click()
+  await dialog.getByLabel('New initiative kind name').fill('Bet')
+  await dialog.getByRole('button', { name: 'Add kind' }).click()
+  await dialog.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(dialog).toHaveCount(0)
   const card = page.getByRole('button', { name: /Probe Design/ })
   await expect(card).toBeVisible()
   await expect(card).toContainText('Program')
+
+  // The kind was part of the draft, so it is part of the saved design.
+  await card.click()
+  const saved = page.getByRole('dialog', { name: 'Template: Probe Design' })
+  await expect(saved.getByText('Initiative kinds')).toBeVisible()
+  await expect(saved.getByText('Bet', { exact: true })).toBeVisible()
 })
 
 test('None is a card type, always offered', async ({ page }) => {
@@ -247,18 +304,20 @@ test('a template can carry a second cards flow, and keeps it', async ({ page }) 
 
   const dialog = page.locator('[data-template-editor]')
   await dialog.getByRole('textbox', { name: 'Template name' }).fill('Two flows')
-  // A template is a set of flows: the new one arrives with its own four columns.
+  // A template is a set of flows: it starts with its cards flow and its initiatives flow, and
+  // another cards flow arrives with its own four columns.
   await dialog.getByRole('button', { name: 'Add a cards flow' }).click()
-  await expect(dialog.locator('[data-template-flow]')).toHaveCount(2)
+  await expect(dialog.locator('[data-template-flow]')).toHaveCount(3)
   await dialog.getByRole('button', { name: 'Rename Cards 2' }).click()
   await dialog.getByRole('textbox', { name: 'Rename Cards 2' }).fill('Support')
   await page.keyboard.press('Enter')
-  await dialog.getByRole('button', { name: 'Done', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Save', exact: true }).click()
 
-  // Opening it again: both flows, named, each with its tree.
+  // Opening it again: both cards flows, named, each with its tree — and the initiatives flow.
   await page.getByRole('button', { name: /Two flows/ }).click()
   const reopened = page.getByRole('dialog', { name: 'Template: Two flows' })
-  await expect(reopened.locator('[data-template-flow]')).toHaveCount(2)
+  await expect(reopened.locator('[data-template-flow]')).toHaveCount(3)
   await expect(reopened.getByText('Cards', { exact: true })).toBeVisible()
   await expect(reopened.getByText('Support', { exact: true })).toBeVisible()
+  await expect(reopened.getByText('Initiatives', { exact: true })).toBeVisible()
 })

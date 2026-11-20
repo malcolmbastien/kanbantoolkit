@@ -56,7 +56,7 @@ test('a type, a template and an objective outlive the browser', async ({ page })
   await page.getByRole('button', { name: /New template/ }).click()
   const editor = page.locator('[data-template-editor]')
   await editor.getByRole('textbox', { name: 'Template name' }).fill('Probe Design')
-  await editor.getByRole('button', { name: 'Done', exact: true }).click()
+  await editor.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(page.getByRole('button', { name: /Probe Design/ })).toBeVisible()
   await landing
 
@@ -67,11 +67,10 @@ test('a type, a template and an objective outlive the browser', async ({ page })
   await page.getByRole('button', { name: 'New board' }).first().click()
   const creator = page.getByRole('dialog')
   await creator.getByLabel('New board name').fill('Strategy')
-  // Starting columns are a team board's design, so the choice is absent for both coordination kinds.
+  // A design is a separate act now: this dialog asks for a name and a type, and nothing else.
   await creator.getByRole('button', { name: /^Program/ }).click()
   await expect(creator.getByLabel('New board template')).toHaveCount(0)
   await creator.getByRole('button', { name: /^Portfolio/ }).click()
-  await expect(creator.getByLabel('New board template')).toHaveCount(0)
   await creator.getByRole('button', { name: 'Create board' }).click()
   // Creating opens the portfolio: its objectives, with nothing committed yet.
   await expect(page.getByRole('button', { name: 'Edit objectives' })).toBeVisible()

@@ -128,4 +128,4 @@ export const WORKSPACE_SCHEMA = 1
  * happened to a board, so the activity drawer would answer with an empty history rather than the
  * truth; refused at the door like every shape before it.
  */
-export const REQUIRED_SCHEMA = 50
+export const REQUIRED_SCHEMA = 51

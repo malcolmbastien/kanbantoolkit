@@ -142,8 +142,12 @@ A board has exactly **one initiatives flow** and **one or more cards flows**.
   of the column it lands in. A new card is made from a workflow's own Backlog, or from the toolbar
   with its workflow chosen. The Flow view can be narrowed to one cards flow, and to one card type
   within it.
-- A **template** captures a set of cards flows — their names, columns and limits — and a new board
-  made from it gets all of them. A program or portfolio board has no cards flow of its own.
+- A **template** captures the design of a **team** or **program** board. A team template keeps its
+  cards flows — their names, columns and limits — and the initiatives flow they roll up through; a
+  program template is its initiatives flow, whose sections are fixed and whose cells are the design.
+  The initiatives flow is always fixed at the top, above every cards flow, and a template carries
+  the board's initiative kinds. A **portfolio** tracks objectives, coverage and the four typed
+  columns rather than holding a design, so it is never a template.
 
 Each flow's header stays on screen while its columns scroll, so a reader in a long lane keeps the
 flow, and its set of columns, in view. The initiatives and external dependency bands behave the same

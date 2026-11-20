@@ -10,6 +10,7 @@ import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
 import { refusalFor, requireWorkspace } from '../access'
 import type { Item, ItemLogEntry } from '../../src/domain/types'
+import { canSetParent } from '../../src/domain/board'
 import { WORKSPACE_ID } from '../auth/session'
 import { itemBelongsElsewhere, readGraph, readItem, readItemsByIds, readVocabularyRev, readWorkspace } from './read'
 import { REQUIRED_SCHEMA, WORKSPACE_SCHEMA } from './schema'
@@ -499,7 +500,12 @@ export function workspaceRoutes(runtime: Runtime) {
     if (allowed instanceof Response) return allowed
 
     const id = c.req.param('id')
-    const body = (await c.req.json().catch(() => null)) as { item?: unknown; baseRev?: unknown; key?: unknown } | null
+    const body = (await c.req.json().catch(() => null)) as {
+      item?: unknown
+      baseRev?: unknown
+      key?: unknown
+      parentId?: unknown
+    } | null
 
     const item = parseItem(body?.item)
     if (!item || item.id !== id) return c.json({ error: 'not an item this endpoint can write' }, 400)
@@ -539,6 +545,15 @@ export function workspaceRoutes(runtime: Runtime) {
       if (refused) return c.json(refused, 403)
     }
 
+    // A parent is an edge beside the item, so the write that changes it says which one it means.
+    // `undefined` leaves the hierarchy alone; `null` detaches. The app sends it only on the acts
+    // that change a parent, so an ordinary edit never touches the edges.
+    if (body?.parentId !== undefined && body.parentId !== null && typeof body.parentId !== 'string') {
+      return c.json({ error: 'parentId must be an item id, or null to detach' }, 400)
+    }
+    const changesParent = body?.parentId !== undefined
+    const parentId = typeof body?.parentId === 'string' && body.parentId ? body.parentId : undefined
+
     // The state the change is based on, for the health comparison a write can move. Only the graph
     // is read — settings, templates and the rest of the workspace cannot change a health reading —
     // and the after graph is derived from it after the write, because a card's own fields are the
@@ -546,7 +561,28 @@ export function workspaceRoutes(runtime: Runtime) {
     const beforeGraph = await readGraph(allowed.db, allowed.workspaceId)
 
     const stored = { ...item, rev: baseRev + 1 }
+    if (changesParent && parentId) {
+      // A new card is not in the graph yet; the domain's rule is asked about the card being made.
+      const known = current ? beforeGraph : { ...beforeGraph, items: [...beforeGraph.items, stored] }
+      if (!canSetParent(id, parentId, known, beforeGraph.issueTypes)) {
+        return c.json({ error: 'a parent must be an initiative, and nothing can be its own ancestor' }, 422)
+      }
+    }
+
     await writeItem(allowed.db, stored, allowed.workspaceId, key)
+    if (changesParent) {
+      // One parent at most: the old edge goes with the new one, as it does in the app.
+      await allowed.db.run("DELETE FROM edges WHERE kind = 'decomposition' AND to_id = ?1 AND workspace_id = ?2", [
+        id,
+        allowed.workspaceId,
+      ])
+      if (parentId) {
+        await allowed.db.run(
+          "INSERT INTO edges (id, kind, from_id, to_id, workspace_id) VALUES (?1, 'decomposition', ?2, ?3, ?4)",
+          [crypto.randomUUID(), parentId, id, allowed.workspaceId],
+        )
+      }
+    }
     // The change is announced only after it landed: a nudge for a write that failed would make a
     // second device read the feed for nothing.
     await runtime.live?.publish(c.env, WORKSPACE_ID, stored.rev ?? 0)

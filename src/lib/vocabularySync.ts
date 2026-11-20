@@ -87,10 +87,17 @@ let inFlight = false
 
 let timer: ReturnType<typeof setTimeout> | undefined
 
-/** Adoption answers this: the words just read are the ones the next write is based on. */
-export function noteVocabularyRev(rev: number | null): void {
+/**
+ * Adoption answers this: the words just read are the ones the next write is based on.
+ *
+ * `read` is what the server said it holds, when that differs from what this browser shows after
+ * adopting it. A fresh instance answers with no words at all while the app seeds its own, and
+ * treating the seed as "already sent" is how a new workspace kept an empty vocabulary on the
+ * server — no issue types, so a parent could not be recognised as an initiative.
+ */
+export function noteVocabularyRev(rev: number | null, read?: VocabularyDocument): void {
   useVocabulary.setState({ rev, error: undefined, field: undefined })
-  lastSent = rev === null ? null : JSON.stringify(vocabularyDocument())
+  lastSent = rev === null ? null : JSON.stringify(read ?? vocabularyDocument())
 }
 
 /**
