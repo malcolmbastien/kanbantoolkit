@@ -4,12 +4,13 @@ import { BandBadge } from './BandBadge'
 import { DueChip } from './DueChip'
 import { myWork, type MyWorkEntry } from '@/domain/mywork'
 import { mentionsFor, mentionsOfNotes, mergeMentions, type MentionNote } from '@/domain/mentions'
-import { initialsOf } from '@/domain/users'
+import { initialsOf, nameOfUser } from '@/domain/users'
 import { chipColors } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { useStore } from '@/store'
 import { fetchMentions } from '@/lib/history'
+import { dismissMentionKey, dismissedMentionKeys, mentionEntryKey } from '@/lib/dismissedMentions'
 
 /**
  * My work — everything the workspace's person is assigned to, assembled from every board,
@@ -27,8 +28,9 @@ export function MyWorkView() {
   const boards = useStore((s) => s.boards)
   const issueTypes = useStore((s) => s.issueTypes)
   const selectBoard = useStore((s) => s.selectBoard)
-  const boardId = useStore((s) => s.boardId)
   const openItem = useStore((s) => s.openItem)
+  const setPanelTab = useStore((s) => s.setPanelTab)
+  const focusComment = useStore((s) => s.focusComment)
   const setMyWork = useStore((s) => s.setMyWork)
 
   // Who is signed in, when the instance says: on an account, this view is *yours* — the picker is
@@ -66,14 +68,37 @@ export function MyWorkView() {
   )
   const me = users.find((u) => u.id === meUserId)
   const total = groups.reduce((n, g) => n + g.entries.length, 0)
+  // Dismissals belong to the person and this browser, not the workspace. The state is loaded when
+  // the person changes so a picker switch reads that person's own list.
+  const [dismissed, setDismissed] = useState<Set<string>>(() => new Set())
+  useEffect(() => setDismissed(dismissedMentionKeys(meUserId)), [meUserId])
+  const visibleMentions = useMemo(
+    () => mentions.filter((mention) => !dismissed.has(mentionEntryKey(mention.item.id, mention.entry.id))),
+    [mentions, dismissed],
+  )
 
   /**
-   * Read the card where it is. The item's board becomes the board in front, and the item panel
-   * replaces My work on the right — one drawer on that side, so the card is what is read next.
+   * Read the card where it is. Its board becomes the board in front — even when My work was opened
+   * over the workspace or another view — and the card opens beside the list. The list is the second
+   * sidebar and stays where it was.
    */
   const openDrawer = (itemBoardId: string, itemId: string) => {
-    if (itemBoardId !== boardId) selectBoard(itemBoardId)
+    selectBoard(itemBoardId)
     openItem(itemId)
+  }
+
+  /** Open the card on its conversation, with the comment the mention names in view. */
+  const openMention = (mention: (typeof mentions)[number]) => {
+    if (mention.boardId) selectBoard(mention.boardId)
+    openItem(mention.item.id)
+    setPanelTab('comments')
+    focusComment(mention.entry.id)
+  }
+
+  const dismiss = (mention: (typeof mentions)[number]) => {
+    const key = mentionEntryKey(mention.item.id, mention.entry.id)
+    dismissMentionKey(meUserId, key)
+    setDismissed((current) => new Set(current).add(key))
   }
 
   /** What makes a row worth a second look: blocked, late, or about to be. A resolved card is done. */
@@ -87,10 +112,16 @@ export function MyWorkView() {
           : undefined
 
   return (
-    <aside data-my-work aria-label="My work" className="flex h-full min-h-0 w-[420px] shrink-0 flex-col border-l border-slate-300 bg-slate-100">
-      <div className="flex shrink-0 items-center gap-2 border-b border-slate-300 bg-white px-3 py-2">
-        <UserRound size={14} className="shrink-0 text-sky-700" />
-        <span className="text-body font-semibold text-slate-800">My work</span>
+    <aside
+      data-my-work
+      aria-label="My work"
+      className="flex h-full min-h-0 w-[420px] shrink-0 flex-col border-l-2 border-sky-300 bg-slate-50"
+    >
+      <div className="flex shrink-0 items-center gap-2 border-b border-sky-200 bg-sky-50/90 px-3 py-2">
+        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-sky-100 text-sky-700 ring-1 ring-sky-200">
+          <UserRound size={13} />
+        </span>
+        <span className="text-body font-semibold text-slate-900">My work</span>
         <span className="text-meta text-slate-600">
           {total} assigned item{total === 1 ? '' : 's'}
           {total > 0 ? ` on ${groups.length} board${groups.length === 1 ? '' : 's'}` : ''}
@@ -131,37 +162,48 @@ export function MyWorkView() {
             </label>
           )}
         </div>
-        <p className="mb-3 text-meta text-slate-600">
-          Everything you own, assembled from every board. Click a card to read it here; the board
-          button takes you to the cell it lives in when the work has to move.
-        </p>
-
-        {mentions.length > 0 && (
+        {visibleMentions.length > 0 && (
           <section data-my-work-mentions className="mb-3 overflow-hidden rounded-lg border border-indigo-200 bg-white shadow-sm">
             <div className="flex items-center gap-2 border-b border-indigo-100 bg-indigo-50 px-3 py-1.5">
               <AtSign size={13} className="shrink-0 text-indigo-700" />
               <span className="text-meta font-semibold text-indigo-900">Mentions</span>
-              <span className="text-micro text-indigo-700">{mentions.length}</span>
+              <span className="text-micro text-indigo-700">{visibleMentions.length}</span>
             </div>
             <div className="space-y-1 p-1.5">
-              {mentions.slice(0, 12).map((mention, index) => (
-                <button
-                  key={`${mention.item.id}-${mention.entry.id}-${index}`}
-                  data-my-work-mention={mention.item.id}
-                  onClick={() => {
-                    if (mention.boardId && mention.boardId !== boardId) selectBoard(mention.boardId)
-                    openItem(mention.item.id)
-                  }}
-                  className="flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left transition hover:bg-indigo-50"
-                >
-                  <span className="min-w-0 truncate text-meta font-medium text-slate-800">{mention.item.title}</span>
-                  <span className="line-clamp-2 text-micro leading-snug text-slate-600">{mention.entry.note}</span>
-                  <span className="text-micro text-slate-500">
-                    {boards.find((b) => b.id === mention.boardId)?.name ?? 'Not on a board'} ·{' '}
-                    {new Date(mention.entry.at).toLocaleDateString([], { day: 'numeric', month: 'short' })}
-                  </span>
-                </button>
-              ))}
+              {visibleMentions.slice(0, 12).map((mention, index) => {
+                const author = nameOfUser(users, mention.entry.by) ?? 'Unknown author'
+                return (
+                  <div key={`${mention.item.id}-${mention.entry.id}-${index}`} className="group relative">
+                    <button
+                      data-my-work-mention={mention.item.id}
+                      onClick={() => openMention(mention)}
+                      className="flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 pr-20 text-left transition hover:bg-indigo-50"
+                    >
+                      <span className="min-w-0 truncate text-meta font-medium text-slate-800">{mention.item.title}</span>
+                      <span className="line-clamp-2 text-micro leading-snug text-slate-600">{mention.entry.note}</span>
+                      <span className="flex flex-wrap items-center gap-x-1 text-micro text-slate-500">
+                        <span data-my-work-mention-author className="font-medium text-slate-600">
+                          {author}
+                        </span>
+                        <span aria-hidden>·</span>
+                        <span>{boards.find((b) => b.id === mention.boardId)?.name ?? 'Not on a board'}</span>
+                        <span aria-hidden>·</span>
+                        <span>{new Date(mention.entry.at).toLocaleDateString([], { day: 'numeric', month: 'short' })}</span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => dismiss(mention)}
+                      aria-label={`Dismiss mention on ${mention.item.title}`}
+                      title="Dismiss this mention"
+                      className="absolute right-1.5 top-1.5 flex h-8 items-center gap-1 rounded px-2 text-micro font-medium text-slate-500 opacity-70 transition hover:bg-rose-50 hover:text-rose-600 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-rose-300 group-hover:opacity-100 pointer-coarse:h-10"
+                    >
+                      <span>Dismiss</span>
+                      <X size={12} />
+                    </button>
+                  </div>
+                )
+              })}
             </div>
           </section>
         )}

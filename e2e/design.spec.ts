@@ -11,7 +11,7 @@ const saveBoard = (page: Page) => page.getByRole('button', { name: 'Save' }).cli
 const splitIntoColumns = (page: Page, name: string) =>
   laneRegion(page, name).getByRole('button', { name: 'Split this cell into columns' }).click()
 /**
- * The Add control belongs to the *container*, and only a leaf cell is a named region — so this is
+ * The Add control belongs to the *container*, and only a cell is a named region — so this is
  * found by its own title, and takes the first one, which is the Backlog split.
  */
 const addColumn = (page: Page) =>

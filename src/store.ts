@@ -10,6 +10,7 @@ import {
   canRenameFlow,
   canReorderFlow,
   cardsFlows,
+  copyCardsFlow as copyCardsFlowOperation,
   FLOW_DESCRIPTION_LIMIT,
   initiativesFlow,
   kindOf,
@@ -137,6 +138,8 @@ export interface ViewState {
    * the panel focuses the field, and never persisted.
    */
   titleFocusItemId: string | null
+  /** The comment a mention opened, so the drawer can scroll to it and mark it. View state. */
+  commentFocusId: string | null
   search: string
   /** Board design controls (split / add / rename / delete lanes) only show in edit mode. */
   editMode: boolean
@@ -309,6 +312,8 @@ export interface Actions {
   openItemDependencies: (id: string) => void
   /** Choose the open drawer's face. */
   setPanelTab: (tab: ItemPanelTab) => void
+  /** Point the drawer at one comment — what a mention in My work asks for. */
+  focusComment: (entryId: string | null) => void
   /** Consume the one-shot title focus requested by a newly made card. */
   clearTitleFocus: () => void
   setSearch: (q: string) => void
@@ -556,6 +561,11 @@ export interface Actions {
    * has. Answers the new flow's id, or `undefined` on a board that makes no cards.
    */
   addCardsFlow: (name?: string) => string | undefined
+  /**
+   * Copy a cards flow's columns and description, with "Copy" appended to its name. Its cards stay
+   * in the source; the copy is an empty design.
+   */
+  copyCardsFlow: (flowId: string) => string | undefined
   /** Name a cards flow. Empty is refused; the initiatives flow is not the team's to name. */
   renameFlow: (flowId: string, name: string) => boolean
   /**
@@ -1278,6 +1288,7 @@ const initialView: ViewState = {
   selectedItemId: null,
   panelTab: 'overview',
   titleFocusItemId: null,
+  commentFocusId: null,
   search: '',
   editMode: false,
   draft: null,
@@ -2044,6 +2055,7 @@ export const useStore = create<Store>()(
           panelTab: 'overview',
           // A focus request belongs to the card that asked for it; opening another card ends it.
           titleFocusItemId: null,
+          commentFocusId: null,
           multiSelect: [],
           // An item's own connections belong to its open drawer; opening another item or closing
           // the drawer ends that reading, the same way it ends the boundary focus below.
@@ -2055,7 +2067,6 @@ export const useStore = create<Store>()(
           ...(selectedItemId
             ? {
                 showFilters: false,
-                showMyWork: false,
                 showBoardActivity: false,
                 // Opening a card is what "recently" means: the list is the order cards were
                 // opened in, and re-opening one moves it back to the front rather than doubling it.
@@ -2066,6 +2077,7 @@ export const useStore = create<Store>()(
       },
       clearTitleFocus: () => set({ titleFocusItemId: null }),
       setPanelTab: (panelTab) => set({ panelTab }),
+      focusComment: (commentFocusId) => set({ commentFocusId }),
       openItemDependencies: (itemId) => {
         // The badge is a toggle: the same card, already open on its scoped connections, closes
         // both the reading and the drawer. That is the second press a reader expects from a door
@@ -2097,16 +2109,17 @@ export const useStore = create<Store>()(
         }),
       toggleFilters: () => {
         const show = !get().showFilters
-        // One side panel at a time: opening filters dismisses an open card, My work or activity.
-        set({ showFilters: show, ...(show ? { selectedItemId: null, showMyWork: false, showBoardActivity: false } : {}) })
+        // The cards drawer, filter and activity panels replace each other. My work is a second
+        // sidebar and stays where it is.
+        set({ showFilters: show, ...(show ? { selectedItemId: null, showBoardActivity: false } : {}) })
       },
       toggleBoardActivity: () => {
         const show = !get().showBoardActivity
-        // One side panel at a time, the same rule the card and filter drawers follow.
-        set({ showBoardActivity: show, ...(show ? { selectedItemId: null, showFilters: false, showMyWork: false } : {}) })
+        // The cards drawer, filter and activity panels replace each other; My work stays.
+        set({ showBoardActivity: show, ...(show ? { selectedItemId: null, showFilters: false } : {}) })
       },
       setShowBoardActivity: (v) =>
-        set({ showBoardActivity: v, ...(v ? { selectedItemId: null, showFilters: false, showMyWork: false } : {}) }),
+        set({ showBoardActivity: v, ...(v ? { selectedItemId: null, showFilters: false } : {}) }),
       appendBoardActivity: (event, redactItemId) => {
         const current = get().boardActivity ?? []
         // Typing is many accepted writes; one card edit should be one row. Coalesce a card update
@@ -2508,12 +2521,9 @@ export const useStore = create<Store>()(
       },
       saveEdit: () => set({ editMode: false, draft: null }),
       toggleBoardSettings: () => set({ showBoardSettings: !get().showBoardSettings }),
-      setMyWork: (v) =>
-        set({
-          showMyWork: v,
-          // The right side holds one drawer: My work takes the place of an open card, filter or activity panel.
-          ...(v ? { selectedItemId: null, showFilters: false, showBoardActivity: false } : {}),
-        }),
+      // My work is a secondary sidebar: it opens beside whatever work is being read, and closing
+      // it leaves the card, filter or activity panel where it was.
+      setMyWork: (v) => set({ showMyWork: v }),
       /** Whose work the My work view shows — no default: the person picks themselves. */
       setUser: (id: string | undefined) => set({ meUserId: id }),
       // The nav is tabs, not toggles: a tab selects its view and never switches off, and the
@@ -3209,6 +3219,17 @@ export const useStore = create<Store>()(
         })
         recordBoardChange(board.id, `added the workflow “${label}”`)
         return flowId
+      },
+
+      copyCardsFlow: (flowId) => {
+        const state = get()
+        const source = state.flows.find((flow) => flow.id === flowId)
+        if (!source) return undefined
+        const copy = copyCardsFlowOperation(source, state.flows, state.lanes, uid)
+        if (!copy) return undefined
+        set({ flows: [...state.flows, copy.flow], lanes: [...state.lanes, ...copy.lanes] })
+        recordBoardChange(source.boardId, `copied the workflow “${source.name}”`)
+        return copy.flow.id
       },
 
       renameFlow: (flowId, name) => {

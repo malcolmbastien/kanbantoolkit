@@ -18,6 +18,26 @@ async function choose(page: Page, level: 'Mini' | 'Summary' | 'Full'): Promise<v
   await expect(page.getByRole('radio', { name: level })).toHaveAttribute('aria-checked', 'true')
 }
 
+test('opening a Mini or Summary card explains its warnings', async ({ page }) => {
+  await openBoard(page)
+
+  for (const level of ['Mini', 'Summary'] as const) {
+    await choose(page, level)
+    await page.locator('[data-card-id="st-enterprise-sso"]').click()
+
+    const panel = page.locator('[data-item-panel]')
+    const warnings = panel.locator('[data-card-warnings]')
+    await expect(panel).toBeVisible()
+    await expect(warnings).toBeVisible()
+    // The face kept only a marker; opening it names the rule and its reason.
+    await expect(warnings).toContainText('blocked', { ignoreCase: true })
+    await expect(warnings).toContainText('Waiting on the identity contract')
+
+    await page.keyboard.press('Escape')
+    await expect(panel).toHaveCount(0)
+  }
+})
+
 test('a blocked card wears its state on the card, not only in the badge row', async ({ page }) => {
   await openBoard(page)
   const blocked = page.locator('[data-card-id="st-enterprise-sso"]')
@@ -87,7 +107,7 @@ test('Summary keeps an initiative’s progress bar', async ({ page }) => {
   await expect(initiative).toHaveAttribute('data-card-detail', 'summary')
   const bar = initiative.locator('[data-stage-progress]')
   await expect(bar).toBeVisible()
-  await expect(bar).toHaveAttribute('aria-label', /0 of 5 leaves done/)
+  await expect(bar).toHaveAttribute('aria-label', /0 of 5 items done/)
   await expect(initiative).toContainText('0%')
 })
 

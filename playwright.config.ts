@@ -23,7 +23,32 @@ export default defineConfig({
   },
   // A device's viewport is part of the device, so it has to be overridden after the spread: the
   // board puts the cards workflow below the initiatives one, and a drag needs both ends visible.
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1600, height: 1200 } } }],
+  //
+  // The full suite is Chromium. The other engines carry the smoke in `cross-browser.spec.ts`:
+  // enough to know the app draws, opens a card and moves one, without tripling a desktop suite
+  // that is mostly about this product's own layout. A project listed here runs unless
+  // `--project` narrows it, so `npm run test:e2e` is the whole matrix.
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1600, height: 1200 } },
+    },
+    {
+      name: 'firefox',
+      testMatch: '**/cross-browser.spec.ts',
+      use: { ...devices['Desktop Firefox'], viewport: { width: 1600, height: 1200 } },
+    },
+    {
+      name: 'webkit',
+      testMatch: '**/cross-browser.spec.ts',
+      use: { ...devices['Desktop Safari'], viewport: { width: 1600, height: 1200 } },
+    },
+    {
+      name: 'mobile-safari',
+      testMatch: '**/cross-browser.spec.ts',
+      use: { ...devices['iPhone 15'] },
+    },
+  ],
   webServer: [
     {
       // The build, served by a forty-line host that implements the deployment's routing contract:

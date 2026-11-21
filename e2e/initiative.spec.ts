@@ -62,16 +62,16 @@ test('the progress bar is the children by stage, not a single fill', async ({ pa
   await expect(billing).toBeVisible()
   const bar = billing.locator('[data-stage-progress]')
   await expect(bar).toBeVisible()
-  // Five leaves: one Backlog, two Not Started, two In Progress, none done.
+  // Five items: one Backlog, two Not Started, two In Progress, none done.
   await expect(bar).toHaveAttribute(
     'aria-label',
-    '0 of 5 leaves done — 0 done, 2 in progress, 2 not started, 1 backlog',
+    '0 of 5 items done — 0 done, 2 in progress, 2 not started, 1 backlog',
   )
   await expect(bar.locator('[data-stage-segment="backlog"]')).toHaveAttribute('style', /width: 20%/)
   await expect(bar.locator('[data-stage-segment="notStarted"]')).toHaveAttribute('style', /width: 40%/)
   await expect(bar.locator('[data-stage-segment="inProgress"]')).toHaveAttribute('style', /width: 40%/)
   await expect(bar.locator('[data-stage-segment="done"]')).toHaveCount(0)
-  // A leaf whose planned start has passed is a warning on the initiative's face, not only in the drawer.
+  // An item whose planned start has passed is a warning on the initiative's face, not only in the drawer.
   await expect(billing).toContainText('1 late start')
 
   // The pips read in the bar's order too: in progress, not started, backlog. The stage is its own
@@ -82,12 +82,12 @@ test('the progress bar is the children by stage, not a single fill', async ({ pa
       .evaluateAll((elements) => elements.map((element) => element.getAttribute('data-pip-stage'))),
   ).toEqual(['inProgress', 'inProgress', 'notStarted', 'notStarted', 'backlog'])
 
-  // A finished leaf is the first segment, and the rest of the work is still its own share.
+  // A finished item is the first segment, and the rest of the work is still its own share.
   const signup = page.locator('[data-card-id="init-signup-redesign"]')
   const signupBar = signup.locator('[data-stage-progress]')
   await expect(signupBar.locator('[data-stage-segment="done"]')).toBeVisible()
   await expect(signupBar.locator('[data-stage-segment="inProgress"]')).toBeVisible()
-  await expect(signupBar).toHaveAttribute('aria-label', /1 of 3 leaves done/)
+  await expect(signupBar).toHaveAttribute('aria-label', /1 of 3 items done/)
 })
 
 test('an initiative wears its due date and Done stamp in the footer, like a card', async ({ page }) => {
@@ -194,22 +194,22 @@ test('a pip marks a blocked child and a child that needs attention', async ({ pa
 test('a discarded child is out of the progress on the card and in the drawer', async ({ page }) => {
   await openBoard(page)
 
-  // Throw one of the three Signup redesign leaves away.
+  // Throw one of the three Signup redesign items away.
   await page.locator('[data-card-id="st-signup-validation"]').click({ button: 'right' })
   const menu = page.locator('[data-card-menu][role="menu"]').first()
   await menu.getByRole('button', { name: /Discard|Archive/ }).click()
   await page.locator('[data-confirm-dialog]').getByRole('button', { name: /Discard|Archive/, exact: true }).last().click()
   await expect(page.locator('[data-card-id="st-signup-validation"]')).toHaveCount(0)
 
-  // The card face counts the two leaves that remain, not the one that was thrown away.
+  // The card face counts the two items that remain, not the one that was thrown away.
   const card = page.locator('[data-card-id="init-signup-redesign"]')
   await expect(card).toContainText('50%')
   await expect(card.locator('[data-stage-progress]')).toHaveAttribute(
     'aria-label',
-    '1 of 2 leaves done — 1 done, 1 in progress, 0 not started, 0 backlog',
+    '1 of 2 items done — 1 done, 1 in progress, 0 not started, 0 backlog',
   )
 
-  // The drawer reads the same two leaves, so the card and its hierarchy cannot disagree.
+  // The drawer reads the same two items, so the card and its hierarchy cannot disagree.
   await card.click()
   const panel = page.locator('[data-item-panel]')
   await expect(panel).toBeVisible()
@@ -217,7 +217,7 @@ test('a discarded child is out of the progress on the card and in the drawer', a
   const progress = panel.locator('[data-hierarchy-progress]')
   await expect(progress).toContainText('50%')
   await expect(progress).toContainText('1 of 2 done')
-  await expect(progress).toContainText('2 leaves below it')
+  await expect(progress).toContainText('2 items below it')
   await expect(panel.locator('[data-hierarchy-flag="discarded"]')).toContainText('1 discarded')
 })
 
@@ -318,13 +318,12 @@ test('a new initiative is offered only in the Backlog column of the initiatives 
   await expect(card).toBeVisible()
 })
 
-test('an initiative card counts its dependencies, and the count opens Relationships with connections', async ({ page }) => {
+test('an initiative card opens its hierarchy and dependencies, and counts only open dependencies', async ({ page }) => {
   await openBoard(page)
   const initiative = page.locator('[data-workflow="initiatives"] [data-card-id="init-billing"]')
   await expect(initiative).toBeVisible()
 
-  // The door is there before any dependency exists: an initiative always has a hierarchy, so the
-  // icon is not hidden just because the count is zero.
+  // The door is there for the hierarchy; with no open dependencies it is the icon alone.
   const door = initiative.locator('[data-open-connections]')
   await expect(door).toBeVisible()
   await expect(door).not.toHaveAttribute('data-open-dependencies')
@@ -356,9 +355,11 @@ test('an initiative card counts its dependencies, and the count opens Relationsh
   await page.keyboard.press('Escape')
   await expect(panel).toHaveCount(0)
 
-  // The initiative wears the same count as a card does, and the badge is the same door.
+  // The new dependency is the only thing counted: the children are already pips, and archived or
+  // done children are not live waits.
   const badge = initiative.locator('[data-open-dependencies]')
   await expect(badge).toHaveAttribute('data-open-dependencies', '1')
+  await expect(badge).toHaveAttribute('aria-label', /^1 open dependency/)
   await badge.click()
   await expect(panel).toHaveAttribute('aria-label', 'Card details: Billing migration')
   await expect(panel.getByRole('button', { name: 'Relationships', exact: true })).toHaveClass(/text-indigo-600/)

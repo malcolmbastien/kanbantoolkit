@@ -65,6 +65,27 @@ test('a new flow is another band, with its own name, count and columns', async (
   expect((await cardsIn(page, 'Backlog', 'Cards')).length).toBeGreaterThan(0)
 })
 
+test('a cards flow is copied with its columns and description, without its cards', async ({ page }) => {
+  await openBoard(page)
+  await editBoard(page)
+
+  const cards = band(page, 'Cards')
+  await cards.getByLabel('Cards description').fill('Delivery and support.')
+  await page.keyboard.press('Enter')
+  await page.getByRole('button', { name: 'Copy Cards' }).click()
+  await saveBoard(page)
+
+  const copy = band(page, 'Cards Copy')
+  await expect(copy).toBeVisible()
+  await expect(copy).toContainText('Delivery and support.')
+  for (const column of ['Backlog', 'Not Started', 'Dev', 'Test', 'Done']) {
+    await expect(lane(page, column, 'Cards Copy')).toBeVisible()
+  }
+  // The design came across; the work did not.
+  expect(await cardsIn(page, 'Backlog', 'Cards Copy')).toEqual([])
+  expect((await cardsIn(page, 'Backlog', 'Cards')).length).toBeGreaterThan(0)
+})
+
 test('a flow is named and placed from its header, and only in edit mode', async ({ page }) => {
   await openBoard(page)
   await editBoard(page)
@@ -370,4 +391,27 @@ test('a workflow folds away and keeps its name and count in view', async ({ page
   await expect(boundary.getByRole('heading', { name: 'External dependencies' })).toBeVisible()
   await page.getByRole('button', { name: 'Expand External dependencies' }).click()
   await expect(boundary.locator('[data-boundary-stage]')).toHaveCount(4)
+})
+
+
+test('an initiative with work below refuses a cross-column drop', async ({ page }) => {
+  await openBoard(page)
+  const initiatives = page.locator('[data-workflow="initiatives"]')
+  const billing = initiatives.locator('[data-card-id="init-billing"]')
+  await expect(billing).toBeVisible()
+  const done = initiatives.locator('[data-section-id]').filter({ hasText: 'Done' }).first()
+  const card = (await billing.boundingBox())!
+  const box = (await done.boundingBox())!
+  await page.mouse.move(card.x + card.width / 2, card.y + 18)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2, box.y + 70, { steps: 12 })
+
+  // The pointer is over Done, and the section says so without a sentence: no-drop ring and cursor.
+  await expect(initiatives).toHaveAttribute('data-drop-refusal', '')
+  await page.mouse.up()
+
+  // It does not move; the card stays where its work put it.
+  const inProgress = initiatives.locator('[data-section-id]').filter({ hasText: 'In Progress' }).first()
+  await expect(inProgress.locator('[data-card-id="init-billing"]')).toBeVisible()
+  await expect(done.locator('[data-card-id="init-billing"]')).toHaveCount(0)
 })

@@ -2426,21 +2426,40 @@ describe('store actions', () => {
     expect(s().showMyWork).toBe(false)
   })
 
-  it('the right side holds one drawer: My work, filters and a card replace each other', () => {
+  it('My work is a secondary sidebar: cards, filters and activity open beside it', () => {
     s().setMyWork(true)
     s().openItem('st-email')
-    expect(s().showMyWork).toBe(false)
+    // The card opens in the standard drawer; My work remains the second sidebar.
+    expect(s().showMyWork).toBe(true)
     expect(s().selectedItemId).toBe('st-email')
 
-    s().setMyWork(true)
+    // Filters replace the card in the standard drawer, not My work.
+    s().toggleFilters()
+    expect(s().showMyWork).toBe(true)
+    expect(s().showFilters).toBe(true)
     expect(s().selectedItemId).toBe(null)
 
-    s().toggleFilters()
-    expect(s().showMyWork).toBe(false)
-    expect(s().showFilters).toBe(true)
-
-    s().setMyWork(true)
+    // Activity does the same.
+    s().toggleBoardActivity()
+    expect(s().showMyWork).toBe(true)
+    expect(s().showBoardActivity).toBe(true)
     expect(s().showFilters).toBe(false)
+
+    // Opening My work again leaves the standard drawer alone — it is already open here.
+    s().setMyWork(false)
+    expect(s().showBoardActivity).toBe(true)
+  })
+
+  it('a mention points the open drawer at its comment, and another card ends that focus', () => {
+    s().openItem('st-email')
+    s().setPanelTab('comments')
+    s().focusComment('entry-1')
+    expect(s().panelTab).toBe('comments')
+    expect(s().commentFocusId).toBe('entry-1')
+
+    // Opening another card is a new reading; the old comment is not its focus.
+    s().openItem('st-sso')
+    expect(s().commentFocusId).toBe(null)
   })
 
   it('every view has one name, and the name is the view: the URL round trip', () => {
@@ -3495,6 +3514,37 @@ describe('the flows of a board', () => {
     expect(topLevelLanes(s().lanes, id).map((l) => l.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
     // The work stays where it was: a new flow is an empty one.
     expect(leafLanes(s().lanes, id).every((l) => !s().placements.some((p) => p.laneId === l.id))).toBe(true)
+  })
+
+  it('copies a cards flow’s columns and description, and leaves its cards behind', () => {
+    const source = flow('b-atlas')
+    s().setFlowDescription(source, 'Delivery and support.')
+    const sourceLanes = s().lanes.filter((l) => l.flowId === source)
+    const sourcePlacements = s().placements.filter((p) => sourceLanes.some((l) => l.id === p.laneId))
+
+    const id = s().copyCardsFlow(source)!
+    const copy = s().flows.find((f) => f.id === id)!
+    expect(copy).toMatchObject({ boardId: 'b-atlas', kind: 'cards', name: 'Cards Copy', description: 'Delivery and support.' })
+    expect(cardsFlows(s().flows, 'b-atlas').at(-1)?.id).toBe(id)
+
+    const copiedLanes = s().lanes.filter((l) => l.flowId === id)
+    expect(copiedLanes).toHaveLength(sourceLanes.length)
+    expect(copiedLanes.every((l) => !sourceLanes.some((src) => src.id === l.id))).toBe(true)
+    // The tree is the same design: the same names, stages, limits and parent relationships.
+    const shape = (lanes: Lane[]) => {
+      const nameOf = new Map(lanes.map((l) => [l.id, l.name]))
+      return lanes
+        .map((l) => `${l.name}|${l.parentId ? nameOf.get(l.parentId) : 'root'}|${l.stage ?? ''}|${l.wipLimit ?? ''}|${l.orientation ?? ''}|${l.description ?? ''}`)
+        .sort()
+    }
+    expect(shape(copiedLanes)).toEqual(shape(sourceLanes))
+    // No card moved or duplicated: the source still holds every placement it had, the copy none.
+    expect(s().placements.filter((p) => sourceLanes.some((l) => l.id === p.laneId))).toHaveLength(sourcePlacements.length)
+    expect(s().placements.some((p) => copiedLanes.some((l) => l.id === p.laneId))).toBe(false)
+    // Copying an initiatives flow is refused, and a second copy does not collide by name.
+    expect(s().copyCardsFlow(flow('b-atlas', 'initiatives'))).toBeUndefined()
+    const second = s().copyCardsFlow(source)!
+    expect(s().flows.find((f) => f.id === second)?.name).toBe('Cards Copy 2')
   })
 
   it('refuses a cards flow on a coordination board, which aggregates rather than works', () => {

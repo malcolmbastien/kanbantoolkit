@@ -13,7 +13,7 @@ Two tones:
 - **Watch** — amber. Something to look at: nothing moving, nobody owning it, a due date inside the
   week.
 
-Three thresholds recur: **7 days** for age and staleness (`STALE_AFTER_DAYS`), the same **7 days** for
+Three thresholds recur: **14 days** for age and staleness (`STALE_AFTER_DAYS`), **7 days** for
 "due soon" (`DUE_SOON_DAYS`, the window the filter names), and a lane's own **WIP limit**. An
 initiative with nothing below it raises nothing.
 
@@ -34,7 +34,7 @@ triangle. The shape and the mark say which is which before the words are read, s
 | **3d overdue**, a rose chip | The due date has passed and the card is not done — the same reading as the **Overdue** filter and the dashboard's Overdue count. | The card reaches Done, or the date moves. |
 | **Late start**, an amber chip | The planned target start has passed and the card is still in Backlog or Not Started. A card in In Progress is not late — the stage says the work has begun. | The work starts, or the target start moves. |
 | **Unowned**, an amber chip | The card is **In Progress** and nobody is assigned. Work not started still has time to find an owner; work under way needs one now. | Somebody is assigned, or the work leaves In Progress. |
-| **Nd in lane**, a grey clock | In its current committed lane (Not Started or In Progress) for at least 7 days. Backlog is uncommitted inventory and rests; Done is finished, so neither is aged. Not **Stale**, below. | The card moves to another lane. |
+| **Nd in lane**, a grey clock | In its current committed lane (Not Started or In Progress) for at least 14 days. Backlog is uncommitted inventory and rests; Done is finished, so neither is aged. Not **Stale**, below. | The card moves to another lane. |
 
 A Done card keeps its history but not its warnings: the age cue, a blocked band and the dependency
 count are not drawn on its face. The same applies to a completed initiative's health flags.
@@ -63,14 +63,15 @@ The flags themselves:
 | **N blocked** | risk | N cards below are explicitly blocked and still open. | They are unblocked or finished. |
 | **N waiting** | risk | N cards below wait on work that is not done. | That work is done, or the links are removed. |
 | **N discarded** | watch | N items below were discarded. They remain in the hierarchy as history but no longer count toward progress. Reported in the drawer and the dashboard's health reading, not as a badge on the card face. | The items are restored, or the initiative is discarded or re-planned. |
-| **still Nd** | watch | The initiative is committed (Not Started or In Progress) and nothing below it has moved for at least 7 days. Where the last movement is unknown, the flag is not raised. | Something below moves. |
+| **still Nd** | watch | The initiative is committed (Not Started or In Progress) and nothing below it has moved for at least 14 days. Where the last movement is unknown, the flag is not raised. | Something below moves. |
 | **N unowned** | watch | N cards in progress below have no assignee. | Each gets an owner, or leaves In Progress. |
 | **N late start** | watch | N cards below are past their planned target start and have not begun. The rule is the same one a card's own **Late start** badge and the dashboard's attention list read, so a child cannot be late in one place and not another. | The work starts, or each target start moves. |
-| **N backlog** | watch | The initiative is committed, but N of its leaves are in Backlog. | Those cards leave Backlog, or the initiative returns to Backlog. |
+| **N backlog** | watch | The initiative is committed, but N of the items below are in Backlog. | Those cards leave Backlog, or the initiative returns to Backlog. |
 | **N ending later** | watch | N cards below are planned to end after the initiative's target end date. About the plan's window, not the due date: two promises on different days is not an inconsistency. | The target dates are brought into line, or the cards finish. |
 
-In the item panel, an initiative's warnings are gathered under one **N warnings** heading, and where a
-rule found particular cards its chip opens them.
+In the item panel, warnings are gathered under one **N warnings** heading. On a card it lists each
+rule and its reason, so a Mini or Summary marker is explained when the card opens. An initiative's
+chips open the particular cards a rule found.
 
 ## On the dashboard
 
@@ -85,7 +86,7 @@ them:
 | **Overdue** | risk | Its due date has passed and it is not done. | It is done, or the date is moved. |
 | **Due soon** | watch | Its due date falls inside the next seven days — the window the board's **Due soon** filter names — and it is not done. A row never carries both **Overdue** and **Due soon**: a passed day is late, not soon. | It is done, or the date moves out of the window. |
 | **Late start** | watch | Its planned target start has passed and it has **not started**: a card in Backlog or Not Started, an initiative whose derived section is Backlog or Not Started. The date is the plan; the board's stage records whether work began, so an item under way is not late. An item with no planned start says nothing. | The work starts, or the target start is moved. |
-| **Stale** | watch | On a card: it has sat in Not Started or In Progress for at least 7 days. On an initiative: the health rule **still Nd**. A card in Backlog can show an age badge but is not stale. | It moves. |
+| **Stale** | watch | On a card: it has sat in Not Started or In Progress for at least 14 days. On an initiative: the health rule **still Nd**. A card in Backlog can show an age badge but is not stale. | It moves. |
 | **Unowned** | watch | On a card: it is **In Progress** and nobody is assigned. On an initiative: the health rule **N unowned**, counting In Progress cards below with no owner. Work that has not started does not need an owner yet. | Assign somebody, or the work leaves In Progress. |
 
 The table also names each item's **Priority** — Urgent, High, Medium or Low; an unprioritised item

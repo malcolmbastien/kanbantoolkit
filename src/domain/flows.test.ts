@@ -4,6 +4,7 @@ import {
   canRenameFlow,
   canReorderFlow,
   cardsFlows,
+  copyCardsFlow,
   flowLaneIds,
   flowOf,
   flowsOf,
@@ -71,6 +72,42 @@ describe('a board’s flows', () => {
     expect(rootLane(lanes, 'f-gone')?.id).toBe('x')
     expect(rootLane(lanes, 'f-delivery')).toBeUndefined()
     expect(leafLanes(lanes, 'f-delivery')).toEqual([])
+  })
+
+  it('copies a cards flow’s columns and description, with fresh ids and Copy in the name', () => {
+    const source: BoardFlow = { ...flow('f-support', 'cards', 'Support', 1), description: 'Tickets from customers.' }
+    const lanes = [
+      lane('s-root', 'f-support'),
+      { ...lane('s-backlog', 'f-support', 's-root', 0), stage: 'backlog' as const, wipLimit: 3, description: 'Not picked up.' },
+      { ...lane('s-doing', 'f-support', 's-root', 1), stage: 'inProgress' as const, orientation: 'rows' as const },
+      { ...lane('s-doing-a', 'f-support', 's-doing', 0), stage: 'inProgress' as const },
+    ]
+    let n = 0
+    const copied = copyCardsFlow(source, flows, lanes, () => `copy${++n}`)!
+
+    expect(copied.flow).toMatchObject({
+      boardId: 'b',
+      kind: 'cards',
+      name: 'Support Copy',
+      description: 'Tickets from customers.',
+      order: 2,
+    })
+    expect(copied.flow.id).not.toBe(source.id)
+    // Only its own columns come across: the other flow's lanes and the initiatives flow's do not.
+    expect(copied.lanes).toHaveLength(4)
+    expect(copied.lanes.every((l) => l.flowId === copied.flow.id)).toBe(true)
+    expect(new Set(copied.lanes.map((l) => l.id)).size).toBe(4)
+    // The tree keeps its shape and its column design, under fresh ids.
+    const byName = new Map(copied.lanes.map((l) => [l.name, l]))
+    expect(byName.get('s-backlog')).toMatchObject({ stage: 'backlog', wipLimit: 3, description: 'Not picked up.' })
+    expect(byName.get('s-doing')).toMatchObject({ orientation: 'rows' })
+    expect(byName.get('s-doing-a')?.parentId).toBe(byName.get('s-doing')?.id)
+    expect(copied.lanes.find((l) => l.parentId === null)?.id).toBe(byName.get('s-root')?.id)
+    // The source is untouched, and an initiatives flow is not the team's to copy.
+    expect(flows.find((f) => f.id === 'f-support')?.name).toBe('Support')
+    expect(copyCardsFlow(flows[2], flows, lanes, () => 'x')).toBeUndefined()
+    // A second copy of the same name gets a number rather than colliding with the first.
+    expect(copyCardsFlow(source, [...flows, copied.flow], lanes, () => 'y')?.flow.name).toBe('Support Copy 2')
   })
 
   it('keeps two cards flows apart: a walk from one root never reaches the other', () => {

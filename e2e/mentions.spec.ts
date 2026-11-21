@@ -9,7 +9,14 @@ import { openBoard } from './support'
  * in My work — the two places a mention has to be readable from.
  */
 test('a comment mentions a teammate, and the mention comes back in My work', async ({ page }) => {
+  // Say who this browser is before writing: the note records its author, and My work names them.
+  await page.goto('/app?view=mywork')
+  const identity = page.locator('[data-my-work]')
+  await expect(identity).toBeVisible()
+  await identity.getByLabel('Whose work to show').selectOption('u-mb')
+  await identity.getByRole('button', { name: 'Close My work' }).click()
   await openBoard(page)
+
   await page.locator('[data-card-id="st-signup-rebuild"]').click()
   const panel = page.locator('[data-item-panel]')
   await expect(panel).toBeVisible()
@@ -43,8 +50,21 @@ test('a comment mentions a teammate, and the mention comes back in My work', asy
   await expect(mentions).toBeVisible()
   await expect(mentions).toContainText('Rebuild the signup form')
   await expect(mentions).toContainText('can you review the copy?')
+  await expect(mentions.locator('[data-my-work-mention-author]')).toContainText('Maya Blake')
 
-  // Reading it from My work opens the card again, in the drawer that replaces it.
+  // Reading it from My work opens the card in the standard drawer on its conversation, with the
+  // named comment in view, while the list stays open beside it as a second sidebar.
   await mentions.locator('[data-my-work-mention]').first().click()
-  await expect(page.locator('[data-item-panel]')).toHaveAttribute('aria-label', 'Card details: Rebuild the signup form')
+  const drawer = page.locator('[data-item-panel]')
+  await expect(drawer).toHaveAttribute('aria-label', 'Card details: Rebuild the signup form')
+  await expect(drawer.getByRole('button', { name: 'Comments', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(drawer.locator('[data-comment-focus]')).toContainText('can you review the copy?')
+  await expect(myWork).toBeVisible()
+
+  // The mention can be dismissed from the list without touching the comment itself. The label is
+  // part of the button, not only its tooltip.
+  const dismiss = myWork.getByRole('button', { name: /Dismiss mention on/ })
+  await expect(dismiss).toContainText('Dismiss')
+  await dismiss.click()
+  await expect(myWork.locator('[data-my-work-mentions]')).toHaveCount(0)
 })

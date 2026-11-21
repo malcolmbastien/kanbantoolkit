@@ -26,7 +26,7 @@ test('a fresh instance offers the first administrator, and closes behind them', 
   // The front door is the page itself, and it says what it is: the first run, with no default
   // credentials to fall back on. Behind it there is no board — a fresh deployment holds nobody's
   // work, and the demo is the static tier's welcome rather than this instance's data.
-  await expect(page.getByText('Sign in to this instance')).toBeVisible()
+  await expect(page.getByText('Sign in to your instance')).toBeVisible()
   await expect(page.getByText('This instance has no accounts yet')).toBeVisible()
   await expect(page.locator('[data-workflow]')).toHaveCount(0)
 

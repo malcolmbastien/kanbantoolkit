@@ -70,7 +70,7 @@ export function StageProgressBar({
   if (counts.total <= 0) return null
   const parts = SEGMENTS.filter((segment) => counts[segment.stage] > 0)
   const summary = SEGMENTS.map((segment) => `${counts[segment.stage]} ${STAGE_LABELS[segment.stage].toLowerCase()}`).join(', ')
-  const noun = counts.total === 1 ? 'leaf' : 'leaves'
+  const noun = counts.total === 1 ? 'item' : 'items'
   return (
     <div
       data-stage-progress

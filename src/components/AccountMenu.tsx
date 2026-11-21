@@ -108,7 +108,7 @@ export function AccountMenu() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+        <div className="absolute right-0 top-full z-50 mt-1 max-h-[calc(100vh-4rem)] w-64 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
           {auth.user ? (
             <>
               <div className="px-1.5 pb-2">

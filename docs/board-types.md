@@ -137,8 +137,8 @@ objective, and a mapped initiative's percentage is its own rollup. An initiative
 mapped cannot be rolled up under another; unmap it first if the work belongs elsewhere.
 
 **See the gaps.** An objective that nothing serves says so on the board and has no percentage at
-all, because there is no work to read. An objective's completeness is the union of the leaves below
-its initiatives — each leaf once.
+all, because there is no work to read. An objective's completeness is the union of the work below
+its initiatives — each item once.
 
 **Read the risk.** Above the flows, **Portfolio at a glance** is one row per objective, grouped by
 period: the period's window, how many initiatives are mapped to it, its completeness and the health

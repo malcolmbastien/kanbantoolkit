@@ -485,7 +485,7 @@ function DoneStamp() {
   return (
     <span
       className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-micro font-bold text-emerald-800 ring-1 ring-emerald-200"
-      title="Every leaf below this is finished"
+      title="Everything below this is finished"
     >
       <Check size={11} strokeWidth={3} /> Done
     </span>
@@ -960,7 +960,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           <div className="px-2 pt-1">
             <div className="flex items-center justify-between gap-2">
               <span className="text-micro text-slate-500">
-                {summaryStages.total} {summaryStages.total === 1 ? 'leaf' : 'leaves'} below
+                {summaryStages.total} {summaryStages.total === 1 ? 'item' : 'items'} below
               </span>
               {summaryPercent !== undefined && (
                 <span

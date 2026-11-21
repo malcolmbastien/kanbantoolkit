@@ -91,3 +91,44 @@ export function nextFlowName(flows: BoardFlow[], boardId: string): string {
   while (taken.has(`cards workflow ${n}`)) n += 1
   return `Cards Workflow ${n}`
 }
+
+/**
+ * Copy a cards flow: its columns and its description, never its cards.
+ *
+ * The copy is an empty flow — `placements` are not touched, so the work stays in the source —
+ * and every lane gets a fresh id so editing one tree cannot change the other. Its name is the
+ * source's with "Copy" appended, then a number if that name is already taken.
+ */
+export function copyCardsFlow(
+  flow: BoardFlow,
+  flows: BoardFlow[],
+  lanes: Lane[],
+  uid: () => string,
+): { flow: BoardFlow; lanes: Lane[] } | undefined {
+  if (flow.kind !== 'cards') return undefined
+  const source = lanes.filter((lane) => lane.flowId === flow.id)
+  // A flow without its structural root is not a design this can copy.
+  if (!source.some((lane) => lane.parentId === null)) return undefined
+
+  const idOf = new Map(source.map((lane) => [lane.id, uid()] as const))
+  const copyId = uid()
+  const taken = new Set(cardsFlows(flows, flow.boardId).map((f) => f.name.trim().toLowerCase()))
+  let name = `${flow.name} Copy`
+  let n = 2
+  while (taken.has(name.toLowerCase())) name = `${flow.name} Copy ${n++}`
+
+  return {
+    flow: {
+      ...flow,
+      id: copyId,
+      name,
+      order: cardsFlows(flows, flow.boardId).length,
+    },
+    lanes: source.map((lane) => ({
+      ...lane,
+      id: idOf.get(lane.id)!,
+      flowId: copyId,
+      parentId: lane.parentId ? idOf.get(lane.parentId) ?? null : null,
+    })),
+  }
+}

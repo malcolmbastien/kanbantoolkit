@@ -117,7 +117,7 @@ test('signing out everywhere ends this browser too', async ({ page }) => {
 
   // Signing out everywhere ends the session here too, so the page falls back to the instance's front
   // door.
-  await expect(page.getByText('Sign in to this instance')).toBeVisible()
+  await expect(page.getByText('Sign in to your instance')).toBeVisible()
   await expect(page.getByPlaceholder('you@example.com')).toBeVisible()
   // The cookie it was holding is not a credential any more.
   expect((await page.request.get(`${SELF_HOSTED}/api/me`)).status()).toBe(401)

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Activity, Archive, ChevronDown, ChevronUp, Plus, SlidersHorizontal, Trash2, X } from 'lucide-react'
+import { Activity, Archive, ChevronDown, ChevronUp, CopyPlus, Plus, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BoardCanvas } from './BoardCanvas'
 import { DetailDial } from './DetailDial'
@@ -43,6 +43,7 @@ export function BoardView({ requestMove }: Props) {
   const addCardsFlow = useStore((s) => s.addCardsFlow)
   const renameFlow = useStore((s) => s.renameFlow)
   const moveFlow = useStore((s) => s.moveFlow)
+  const copyCardsFlow = useStore((s) => s.copyCardsFlow)
   const removeFlow = useStore((s) => s.removeFlow)
   const archiveDoneOnBoard = useStore((s) => s.archiveDoneOnBoard)
   const askConfirm = useStore((s) => s.askConfirm)
@@ -310,6 +311,14 @@ export function BoardView({ requestMove }: Props) {
                           className="grid h-6 w-6 place-items-center rounded text-slate-600 transition hover:bg-indigo-100 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-30"
                         >
                           <ChevronDown size={13} />
+                        </button>
+                        <button
+                          onClick={() => copyCardsFlow(flow.id)}
+                          title="Copy this flow and its columns"
+                          aria-label={`Copy ${name}`}
+                          className="grid h-6 w-6 place-items-center rounded text-slate-600 transition hover:bg-indigo-100 hover:text-indigo-800"
+                        >
+                          <CopyPlus size={13} />
                         </button>
                         <button
                           onClick={() =>

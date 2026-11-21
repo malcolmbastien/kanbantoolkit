@@ -37,9 +37,9 @@ Every board has a **Detail** dial in its secondary bar, beside **Archive done** 
 - **Summary** keeps the title, type, due date and people, with the due date and people in the same
   footer band Full uses. An initiative also keeps its **progress bar** and percentage, because that
   reading is what the summary is for. It carries no **warning words**: a small red or amber triangle
-  marks that warnings exist, with their sentences in its title, and Full is where each one explains
-  itself. The description, tags, checklist, links, parent, age, priority, counts and warning badges
-  are not drawn.
+  marks that warnings exist, with their sentences in its title — and opening the card gathers those
+  warnings at the top of the drawer, whichever detail level drew it. The description, tags, checklist,
+  links, parent, age, priority, counts and warning badges are not drawn.
 - **Mini** draws each item as a small colour tile in a wrapping grid: the type's colour, a red marker
   when the card is blocked, and an amber marker when it has a warning. Hovering or focusing a tile
   opens a reading card with the title and type, what it rolls up to, who is assigned (or
@@ -136,7 +136,7 @@ A board has exactly **one initiatives flow** and **one or more cards flows**.
   named Backlog can then be seen to mean different things.
 - A card belongs to exactly one cards flow. Dragging it into another flow is a move: the target
   flow's columns and WIP limits apply, and the card keeps its identity and history.
-- **Edit board** is where a cards flow is added, renamed, reordered or removed. A flow can only be
+- **Edit board** is where a cards flow is added, copied, renamed, reordered or removed. A flow can only be
   removed while it is empty, and while another cards flow remains.
 - The board's **WIP enforcement** is board-wide, so a card moved from elsewhere follows the policy
   of the column it lands in. A new card is made from a workflow's own Backlog, or from the toolbar
@@ -203,9 +203,9 @@ beside it. The same drawer opens from search, the dashboard, the timeline and th
   the board's p85 when the sample can carry it, and the caveat when the log begins after creation.
   A delivered card's clocks stop at delivery and a filed card's at the archive. The drawer reads
   the whole log, not its first page, so an age is never under-reported behind a shorter page.
-  An initiative has **no cycle of its own**: its section and progress are derived from the leaves.
-  Its Flow section, at the top of **Flow & History**, shows **Progress**, **Leaves done** and **Open** as
-  three numbers, then the distribution of its leaves, the oldest open leaf, and one quiet line for
+  An initiative has **no cycle of its own**: its section and progress are derived from the work below.
+  Its Flow section, at the top of **Flow & History**, shows **Progress**, **Items done** and **Open** as
+  three numbers, then the distribution of the work below, the oldest open item, and one quiet line for
   blocked/waiting/unowned work or the last movement of its children. When the child history is not loaded it says
   **Movement not loaded** rather than treating the initiative's creation as a movement, and there
   is deliberately no section-age clock until the work below can support one.
@@ -248,8 +248,9 @@ no title, no assignee, no snapshot, and its earlier rows lose the reference too.
 changes read as a sentence — a lane split, a workflow added, a WIP policy changed.
 
 Events are grouped by the day they happened and read newest first; **Load earlier activity** pages
-back. One side panel is open at a time: opening Activity closes an open card, Filters or My work,
-and opening a card from Activity replaces it with that card. A board made before this stream
+back. The standard side panel holds one thing at a time: opening Activity closes an open card or
+Filters, and opening a card from Activity replaces it. **My work** is a second sidebar and stays
+open beside it. A board made before this stream
 existed starts empty and says so, pointing at each card's Flow & History tab rather than inventing events.
 
 <img src="img/guide/board-activity.webp" alt="The Board activity drawer beside Team Atlas: Today's card creation, card update, design change and an anonymous card deletion, each with actor and time" width="420">
@@ -266,11 +267,11 @@ flow for the initiatives flow's section of its stage, and its kind is left unset
 choose. One card at a time, and only where the board has an initiatives cell.
 
 An initiative is the outcome above the cards. It has no status field and no estimate of its own:
-its status is read from the leaves below it, and its size is the number of those leaves.
+its status is read from the work below it, and its size is the number of items below it.
 
 <img src="img/guide/initiative-rollup.webp" alt="An initiative card for Signup redesign showing three child pips, a segmented progress bar in done and in-progress colours, and the people on it" width="640">
 
-*An initiative card: the pips are its direct children, the percentage is the share of leaves done,
+*An initiative card: the pips are its direct children, the percentage is the share of the work below that is done,
 and the roll-up label says what it rolls up to.*
 
 ### Card pips
@@ -287,6 +288,9 @@ Started** (blue), then **Backlog** (grey), so the state of the work reads left t
   when the pointer leaves; the initiative's own panel remains the keyboard path to every child.
 - Pips are direct children, not every descendant. The work beneath a child is behind that child's
   own card.
+- The card's **Connections** door opens the initiative's Relationships tab with the hierarchy and
+  connection lens. It counts **open dependencies only** — the children are already the pips, and a
+  done or archived child is not a live wait.
 - A blocked child's pip **becomes** a rose alert box with a centred ban mark; a child with a
   warning — overdue, due soon, late to start, stale, unowned in progress, or an initiative flag —
   becomes an amber box with a warning triangle. Risk supersedes the stage colour on that pip: the
@@ -302,13 +306,13 @@ Started** (blue), then **Backlog** (grey), so the state of the work reads left t
 
 ### The progress bar
 
-The percentage and the bar beside the pips are the same number: the share of the **leaf issues
-below** the initiative that are done. The bar itself keeps the whole answer, not only the
+The percentage and the bar beside the pips are the same number: the share of the **items below**
+the initiative that are done. The bar itself keeps the whole answer, not only the
 finished share: its segments are **Done**, **In Progress**, **Not Started** and **Backlog**, in the
-order a reader moves through the work, and every segment is the leaves in that stage. Every leaf
-counts once — however many levels of decomposition sit above it — and an archived leaf that was
+order a reader moves through the work, and every segment is the items in that stage. Every item
+counts once — however many levels of decomposition sit above it — and an archived item that was
 completed still counts, so filing away finished work does not lower a parent's progress.
-**Discarded** leaves are not in the counts at all — thrown away, not a plan that remains unfinished
+**Discarded** items are not in the counts at all — thrown away, not a plan that remains unfinished
 — so they cannot flatter the bar or the percentage. The bar's title and accessible name carry every
 count. The same bar, in the same order and the board's stage colours, is drawn on the card face, at
 **Summary**, and under the drawer's **Relationships** tab.
@@ -316,46 +320,47 @@ count. The same bar, in the same order and the board's stage colours, is drawn o
 The due date, external link, **Done** stamp and people sit in the footer band, as they do on a card.
 The progress bar above is the initiative's own reading; the footer is what a reader can act on.
 
-The denominator is all the leaves, including those still in Backlog, so planning more uncommitted
-work moves the percentage back. A Backlog leaf does not drag the initiative's *status* backwards, but
-it does count in the percentage. An initiative with nothing below it has no percentage and no bar,
-which is a different fact from 0%. **Done** on the card means every leaf below is done.
+The denominator is all the items below, including those still in Backlog, so planning more
+uncommitted work moves the percentage back. A Backlog item does not drag the initiative's *status*
+backwards, but it does count in the percentage. An initiative with nothing below it has no
+percentage and no bar, which is a different fact from 0%. **Done** on the card means everything
+below is done.
 
 ### The Hierarchy reading
 
 An initiative's **Relationships** tab opens with a reading of the work below, before the direct children.
 It is the same model every other surface reads, not a second tracker:
 
-- **Progress below** shows the leaf count, the four stage counts, the percentage and the
+- **Progress below** shows the item count, the four stage counts, the percentage and the
   `done of total` count, with a bar that carries no meaning on its own — the numbers beside it do.
   **Waiting** is Backlog plus Not Started, **Working** is In Progress, and **Finished** is Done.
-- **Needs attention** carries the risks among the leaves: blocked, waiting, unowned, stale, overdue,
+- **Needs attention** carries the risks among the items below: blocked, waiting, unowned, stale, overdue,
   due soon, late start, still-uncommitted Backlog work, and discarded work. A chip is a way to
   narrow the direct children to the branches that carry it; **All children** restores the list. The
   counts are the rules' own counts, so the Overview warning row, the card badges and this summary
   cannot disagree.
-- **Planned dates** is the envelope over the leaves' target windows: the earliest target start and the
-  latest target finish, beside the initiative's own target start and end. If only some leaves carry a
+- **Planned dates** is the envelope over the items' target windows: the earliest target start and the
+  latest target finish, beside the initiative's own target start and end. If only some items carry a
   date the panel says so — `8 of 12 dated` — rather than implying the envelope is complete. A due date
   is a promise; it is never used as a plan date.
 - **Actual start** and **Actual finish** appear only when the move history can support them. The start
-  is the earliest commitment among the leaves; a leaf that never left Backlog has not started, and a
+  is the earliest commitment among the items; an item that never left Backlog has not started, and a
   history that was not loaded says **Not loaded** rather than inventing a date. The finish is shown
-  only when every leaf is done and every one carries a resolved stamp; otherwise it says **Not
+  only when every item below is done and every one carries a resolved stamp; otherwise it says **Not
   finished**.
 
 <img src="img/guide/hierarchy-reading.webp" alt="An initiative's Relationships tab with Progress below, Needs attention chips, Planned dates and the direct children grouped by stage" width="420">
 
-*The hierarchy reading: the leaves' progress, the risks they carry, and the plan beside the work.
+*The hierarchy reading: the items' progress, the risks they carry, and the plan beside the work.
 The direct children stay below, and a flag narrows them to the branch that carries it.*
 
 ### Roll-up and automatic movement
 
 An initiative's **section** is derived from the same rollup:
 
-| The leaves below | The initiative reads as |
+| The work below | The initiative reads as |
 | --- | --- |
-| Every leaf Done | **Done** |
+| Every item Done | **Done** |
 | Anything started | **In Progress** |
 | Nothing started, but something committed | **Not Started** |
 | Everything still in Backlog, or nothing below | **Backlog** |

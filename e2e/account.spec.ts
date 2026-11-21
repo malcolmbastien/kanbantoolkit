@@ -60,7 +60,7 @@ test('the front door is the instance’s, and a session survives a reload', asyn
 
   // Nothing is drawn behind the door: a fresh instance belongs to nobody yet, and the demo is the
   // static tier's welcome, not this deployment's data.
-  await expect(page.getByText('Sign in to this instance')).toBeVisible()
+  await expect(page.getByText('Sign in to your instance')).toBeVisible()
   await expect(page.locator('[data-workflow]')).toHaveCount(0)
 
   await page.getByPlaceholder('you@example.com').fill(MAYA.email)
@@ -79,7 +79,7 @@ test('the front door is the instance’s, and a session survives a reload', asyn
   // Signing out closes the door behind you.
   await page.getByRole('button', { name: /Maya Blake/ }).click()
   await page.getByRole('button', { name: 'Sign out' }).click()
-  await expect(page.getByText('Sign in to this instance')).toBeVisible()
+  await expect(page.getByText('Sign in to your instance')).toBeVisible()
 })
 
 test('an empty workspace makes its first board, and the board outlives the browser', async ({ page }) => {

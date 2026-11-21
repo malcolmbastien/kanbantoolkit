@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { initiativeHealth, HEALTH_META } from './health'
 import { rollupOf, type Graph } from './derive'
+import { STALE_AFTER_DAYS } from './filters'
 import type { Edge, Item, ItemLink, Lane, Placement, Stage } from './types'
 
 const DAY = 86_400_000
@@ -195,7 +196,7 @@ describe('initiative health', () => {
   it('names no cards for the rule about the shape of the whole', () => {
     // "Nothing has moved for nine days" is a statement about all the work below, not a list of it.
     const graph = healthy()
-    graph.placements = graph.placements.map((p) => ({ ...p, laneEnteredAt: NOW - 9 * DAY }))
+    graph.placements = graph.placements.map((p) => ({ ...p, laneEnteredAt: NOW - (STALE_AFTER_DAYS + 1) * DAY }))
     const shaped = initiativeHealth('init', graph, NOW).flags
     expect(shaped.map((f) => f.flag)).toEqual(['stale'])
     for (const f of shaped) expect(f.items).toBeUndefined()

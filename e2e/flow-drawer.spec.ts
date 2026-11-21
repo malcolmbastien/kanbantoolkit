@@ -6,7 +6,7 @@ import { addCardTo, lane, openBoard } from './support'
  *
  * The numbers are derived from the card's log, so these tests read the shape a person sees rather
  * than a fixed date: an in-flight card has an open age, a cycle once committed and the cell it is
- * in; a delivered card has a final lead and cycle; an initiative reads its rollup and leaves and
+ * in; a delivered card has a final lead and cycle; an initiative reads its rollup and items and
  * never claims a cycle of its own. The reading is in History, with the stage breakdown, so a busy
  * Overview stays about the card's fields.
  */
@@ -74,7 +74,7 @@ test('a card with no recorded moves still says how long it has been open', async
   await expect(flow.locator('[data-flow-stat="position"]')).toContainText('Backlog')
 })
 
-test('an initiative reads its rollup and leaves, and never invents a cycle', async ({ page }) => {
+test('an initiative reads its rollup and items, and never invents a cycle', async ({ page }) => {
   await openBoard(page)
   await page.locator('[data-card-initiative]').first().click()
   await openHistory(page)
@@ -82,8 +82,8 @@ test('an initiative reads its rollup and leaves, and never invents a cycle', asy
   const flow = page.locator('[data-initiative-flow]')
   await expect(flow).toBeVisible()
   await expect(flow.locator('[data-flow-stat="progress"]')).toContainText('%')
-  await expect(flow.locator('[data-flow-stat="leaves"]')).toContainText('/')
-  await expect(flow.locator('[data-flow-stat="leaves"]')).toContainText('Leaves done')
+  await expect(flow.locator('[data-flow-stat="items"]')).toContainText('/')
+  await expect(flow.locator('[data-flow-stat="items"]')).toContainText('Items done')
   await expect(flow.locator('[data-flow-distribution]')).toContainText('Backlog')
   await expect(flow.locator('[data-flow-distribution]')).toContainText('Done')
   await expect(flow.locator('[data-flow-movement]')).toContainText(/Last moved|Movement not loaded/)

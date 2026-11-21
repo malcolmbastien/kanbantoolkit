@@ -213,7 +213,7 @@ test('deleting the workspace asks for its name, and takes its accounts with it',
   // The page was never navigated by the API call, so it is told to look again — and lands on the
   // instance's front door, because there is no session left to draw anything with.
   await page.reload()
-  await expect(page.getByText('Sign in to this instance')).toBeVisible()
+  await expect(page.getByText('Sign in to your instance')).toBeVisible()
   await expect(page.getByPlaceholder('you@example.com')).toBeVisible()
   // The deployment is still there, and so is the operator appointed before the deletion.
   expect((await page.request.get(`${ORIGIN}/api/auth/providers`)).ok()).toBeTruthy()

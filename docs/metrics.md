@@ -56,8 +56,8 @@ delivered or filed) — with a short note only when there is blocked time or rew
 opens **History**, where the stage bar and rows carry the detail: the scope, waiting/working and
 finished time, blocked time, the last move, the board's p85 when the sample can carry it, and any
 caveat about a short log. The drawer reads the whole log rather than the first page, and scopes the
-reading to the board it is open on. An initiative is read from its leaves instead: progress, leaves
-done, open age, the distribution of the work below it, its oldest open leaf and a conditional line
+reading to the board it is open on. An initiative is read from the work below it instead: progress, items
+done, open age, the distribution of that work, its oldest open item and a conditional line
 for health or movement. It has no cycle of its own. The drawer's own description is in
 [`reading-a-board.md`](reading-a-board.md#the-side-drawer).
 

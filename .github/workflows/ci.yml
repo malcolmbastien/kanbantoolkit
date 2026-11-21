@@ -222,12 +222,12 @@ jobs:
   e2e:
     name: e2e
     runs-on: ubuntu-latest
-    # The suite runs in about thirty seconds. The slow part is not the tests: installing the
-    # browser's system packages with apt on every run, whether or not the browser itself was
-    # cached, has taken nine minutes on a runner. GitHub's Ubuntu image already carries the
-    # libraries Chromium needs, so this job installs the browser alone; `--with-deps` would put a
-    # DNS blip while fetching optional fonts on the critical path.
-    timeout-minutes: 15
+    # The suite runs in about a minute. The slow part is not the tests: installing browsers and
+    # their system packages with apt on every run, whether or not the binaries were cached, has
+    # taken nine minutes on a runner. GitHub's Ubuntu image already carries the libraries Chromium
+    # needs, so Chromium installs alone; Firefox and WebKit need their own packages, which is what
+    # `--with-deps` is for. The extra engine time is two smoke checks each.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -244,6 +244,8 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Install Chromium
         run: npx playwright install chromium
+      - name: Install Firefox and WebKit with their system packages
+        run: npx playwright install --with-deps firefox webkit
       - name: End-to-end
         run: npm run test:e2e
       # A failed run is only worth having if it can be read: traces, screenshots and video.

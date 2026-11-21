@@ -117,7 +117,7 @@ test('the terms stand beside the door, and every page carries the support addres
   // The door is the instance's own front screen — a deployment with a way in shows it before it
   // shows a board — and the terms stand beside it.
   await page.goto(`${SELF_HOSTED}/app`)
-  await expect(page.getByText('Sign in to this instance')).toBeVisible()
+  await expect(page.getByText('Sign in to your instance')).toBeVisible()
 
   // The pages are the *project's*, and the instance links them where they actually live — this
   // e2e's instance is told the static host's address in `PROJECT_URL`.

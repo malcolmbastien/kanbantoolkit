@@ -59,22 +59,27 @@ export function InstanceGate({ children }: { children: React.ReactNode }) {
 
   if (signIn) {
     return (
-      <div className="flex min-h-full items-start justify-center bg-slate-100 px-4 py-12">
-        <div className="w-full max-w-sm rounded-xl border border-slate-300 bg-white p-5 shadow-sm">
-          <p className="flex items-center gap-2 text-title font-semibold tracking-tight text-slate-900">
-            <span className="grid h-7 w-7 place-items-center rounded-lg bg-slate-800">
-              <svg viewBox="0 0 32 32" className="h-4 w-4" aria-hidden>
+      <div className="flex min-h-full items-center justify-center bg-slate-100 px-4 py-10">
+        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60 sm:p-8">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-indigo-600 shadow-sm">
+              <svg viewBox="0 0 32 32" className="h-5 w-5" aria-hidden>
                 <rect x="4" y="6" width="4" height="20" rx="1.2" fill="#f8fafc" />
-                <rect x="12" y="6" width="4" height="12" rx="1.2" fill="#a5b4fc" />
-                <rect x="20" y="6" width="4" height="7" rx="1.2" fill="#67e8f9" />
+                <rect x="12" y="6" width="4" height="12" rx="1.2" fill="#c7d2fe" />
+                <rect x="20" y="6" width="4" height="7" rx="1.2" fill="#a5f3fc" />
               </svg>
             </span>
-            Kanban Toolkit
-          </p>
-          <p className="mt-1 text-meta text-slate-600">Sign in to this instance.</p>
-          <Suspense fallback={<p className="mt-4 text-meta text-slate-600">One moment…</p>}>
-            <SignInPanel onSignedIn={(next) => signedInAs(next)} />
-          </Suspense>
+            <p className="truncate text-body font-semibold tracking-tight text-slate-900">Kanban Toolkit</p>
+          </div>
+
+          <h1 className="mt-6 text-2xl font-semibold tracking-tight text-slate-900">Sign in to your instance</h1>
+          <p className="mt-1 text-meta text-slate-600">Access your team’s boards, initiatives and work.</p>
+
+          <div className="mt-6">
+            <Suspense fallback={<p className="text-meta text-slate-600">One moment…</p>}>
+              <SignInPanel onSignedIn={(next) => signedInAs(next)} />
+            </Suspense>
+          </div>
         </div>
       </div>
     )

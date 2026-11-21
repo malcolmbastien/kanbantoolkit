@@ -127,9 +127,10 @@ flow is a band of its own, stacked the way the initiatives flow is, with its own
 columns and its own count. Two columns named Backlog can mean different things on different flows, so each
 band names its flow, and a card belongs to exactly one of them.
 
-In **Edit board** a cards flow can be added (**Add a cards flow**), renamed, moved up or down, and
-removed — but only while it is empty and another cards flow remains, so a board never drops to none
-and work is never thrown away with a column set. A program or portfolio board aggregates other
+In **Edit board** a cards flow can be added (**Add a cards flow**), copied, renamed, moved up or
+down, and removed — but only while it is empty and another cards flow remains, so a board never
+drops to none and work is never thrown away with a column set. **Copy** keeps the flow's columns and
+description under a name ending in “Copy”; its cards stay where they are, so the copy starts empty. A program or portfolio board aggregates other
 boards and has no cards flow of its own. While **Edit board** is open the board switcher is disabled;
 the workspace-home link asks before leaving, because leaving would discard the unsaved design.
 
@@ -195,7 +196,9 @@ Comments, the parent in Relationships, and the Flow reading and changes in Flow 
 A comment is written at the bottom of **Comments**, and typing `@` offers a teammate to mention.
 Mentions are flat: there are no replies and no threads. The person is recorded on the comment and
 shown as a pill in the sentence, and the comment appears under **Mentions** in **My work** — the
-place that brings a mention back to the person it names.
+place that brings a mention back to the person it names. Clicking the mention opens the card on
+**Comments** with that comment in view; the dismiss control beside it hides the notification for you
+without changing the comment.
 
 <img src="img/guide/mention-comments.webp" alt="Comments in the card drawer showing a comment with a mention of Riley Kim marked as a pill in the sentence" width="420">
 
@@ -267,9 +270,10 @@ a program's outcome is decomposed into a team's initiative.
 
 None of these is a second copy: they read the same items, placements and edges.
 
-**My work** sits under your name in the top right and opens as a right-hand drawer beside the board,
-because it is about the person rather than the open board. The board stays in front; clicking a card
-replaces the drawer with that card's item panel on the same side.
+**My work** sits under your name in the top right and opens as a second right-hand sidebar beside the
+board, because it is about the person rather than the open board. Clicking a card opens its item panel
+beside the list; My work stays where it is, so navigating the work does not lose the list. Its sky
+tint and left rule keep it distinct from a card's white side drawer.
 
 Objectives and key results live on a **Portfolio** board: read them on the board, then choose
 **Edit objectives** to manage periods, write the objectives, their key results and descriptions, and

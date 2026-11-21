@@ -31,10 +31,10 @@ Placement  { id, boardId, itemId, laneId }                  # the card's board +
   mixes flows, so a lane walk is given a flow id rather than a kind. A card keeps one placement
   per board, so it is in exactly one cards flow and a move between cards flows is a move.
 - **Lanes are a recursive tree.**
-  - A lane with **no children is a leaf: a cell**. Placements reference leaf lanes.
+  - A lane with **no children is a cell**. Placements reference cells.
   - A lane with children is a **container**; `orientation` says how children are arranged:
     `columns` (side by side) or `rows` (stacked).
-  - Any **leaf can be split** into a container of either orientation (its cards move into
+  - Any **cell can be split** into a container of either orientation (its cards move into
     the first sub-lane); containers can gain **added** sub-lanes. Splits are local, so the grid
     is **non-uniform** — exactly LeanKit.
   - **All design actions live behind edit mode.**

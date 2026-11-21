@@ -322,13 +322,9 @@ export default function App() {
             )}
           </Suspense>
         </main>
-        {showMyWork ? (
-          <Suspense
-            fallback={<aside aria-busy="true" className="h-full w-[420px] shrink-0 border-l border-slate-300 bg-slate-100" />}
-          >
-            <MyWorkView />
-          </Suspense>
-        ) : showFilters && boardSurface ? (
+        {/* The standard side drawer first: a card, filters or activity. My work is a second
+            sidebar at the far right, so a card opened from it leaves the list where it was. */}
+        {showFilters && boardSurface ? (
           <Suspense fallback={<aside aria-busy="true" className="h-full w-[460px] shrink-0 border-l border-slate-300 bg-slate-100" />}>
             <FilterPanel />
           </Suspense>
@@ -341,6 +337,13 @@ export default function App() {
             fallback={<aside aria-busy="true" className="h-full w-[460px] shrink-0 border-l border-slate-300 bg-white" />}
           >
             <ItemPanel key={selectedItemId} itemId={selectedItemId} />
+          </Suspense>
+        ) : null}
+        {showMyWork ? (
+          <Suspense
+            fallback={<aside aria-busy="true" className="h-full w-[420px] shrink-0 border-l-2 border-sky-300 bg-slate-50" />}
+          >
+            <MyWorkView />
           </Suspense>
         ) : null}
       </div>

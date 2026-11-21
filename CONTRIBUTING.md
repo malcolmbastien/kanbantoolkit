@@ -28,6 +28,17 @@ npm run scan         # the dependency rule: no forbidden services
 CI runs those and the rest — `npm run build`, `npm run lint`, `npm run test:e2e`, `npm run site:check`,
 `npm run docs:check`, `npm run size`, `npm run smoke:node`. Run the ones your change touches.
 
+The browser suite needs its engines once:
+
+```bash
+npx playwright install --with-deps chromium firefox webkit
+npm run test:e2e
+```
+
+The full suite runs on **Chromium**. A smoke spec — the board draws, a card opens, a card moves —
+runs on **Firefox**, **WebKit** and a **mobile Safari** profile. That is the matrix CI enforces;
+the other engines are where a layout or pointer difference shows up first.
+
 The browsable guide in the wiki is generated from a curated map in `scripts/wiki.mjs`, so it is never
 edited there: after a change to one of its pages, `npm run docs:wiki` republishes it. `npm run
 docs:check` fails when the map names a document that is gone.

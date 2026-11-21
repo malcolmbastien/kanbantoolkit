@@ -3,8 +3,8 @@ import { expect, test } from '@playwright/test'
 /**
  * An initiative's Hierarchy reading.
  *
- * The tab is no longer only a list of what sits below: it reads the leaves' progress, the risks
- * those same leaves carry, and the planned and actual window the work supports. The child list
+ * The tab is no longer only a list of what sits below: it reads the items' progress, the risks
+ * those same items carry, and the planned and actual window the work supports. The child list
  * stays the direct children, and a flag narrows it to the branch that carries it.
  */
 
@@ -22,7 +22,7 @@ test('an initiative reads its progress, risks and dates above its children', asy
   const progress = panel.locator('[data-hierarchy-progress]')
   await expect(progress).toContainText('0%')
   await expect(progress).toContainText('0 of 5 done')
-  await expect(progress).toContainText('5 leaves below it')
+  await expect(progress).toContainText('5 items below it')
   await expect(progress).toContainText('Waiting 3 · Working 2 · Finished 0')
   await expect(panel.locator('[data-hierarchy-stage="backlog"]')).toContainText('1')
   await expect(panel.locator('[data-hierarchy-stage="notStarted"]')).toContainText('2')
@@ -43,12 +43,14 @@ test('an initiative reads its progress, risks and dates above its children', asy
   ).toEqual(['rgb(124, 58, 237)', 'rgb(59, 130, 246)', 'rgb(203, 213, 225)'])
 
   // The flags are the work below, with the rules' own words and the count in the text.
-  for (const flag of ['blocked', 'unowned', 'stale', 'overdue', 'dueSoon', 'lateStart', 'uncommitted']) {
+  for (const flag of ['blocked', 'unowned', 'overdue', 'dueSoon', 'lateStart', 'uncommitted']) {
     await expect(panel.locator(`[data-hierarchy-flag="${flag}"]`)).toBeVisible()
   }
+  // The demo's oldest open item is 11 days into its lane, under the 14-day staleness threshold.
+  await expect(panel.locator('[data-hierarchy-flag="stale"]')).toHaveCount(0)
   await expect(panel.locator('[data-hierarchy-flag="blocked"]')).toContainText('1 blocked')
 
-  // The plan is the leaves' target window, beside the initiative's own. Actual dates appear only
+  // The plan is the items' target window, beside the initiative's own. Actual dates appear only
   // because the demo's move history supports them.
   await expect(panel.getByText('4 of 5 dated')).toBeVisible()
   const plan = panel.locator('[data-hierarchy-plan]')

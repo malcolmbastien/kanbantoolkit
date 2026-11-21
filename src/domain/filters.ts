@@ -99,9 +99,10 @@ export const DUE_SOON_DAYS = 7
 /**
  * The staleness threshold, in days — the point where a card stops staying quiet about how
  * long it has sat still. One constant for the card's aging cue and the dashboard's oldest
- * numbers, so every surface speaks at the same moment.
+ * numbers, so every surface speaks at the same moment. Fourteen days gives a card one sprint
+ * to move lanes before the board calls it stale.
  */
-export const STALE_AFTER_DAYS = 7
+export const STALE_AFTER_DAYS = 14
 
 /**
  * Every known age inside a lane's subtree, in days: the card's placement names the leaf it

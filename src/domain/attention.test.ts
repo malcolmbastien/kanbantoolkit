@@ -98,7 +98,7 @@ describe('board attention on a cards board', () => {
     const graph = cardsBoard(
       items,
       [
-        at('a', 'ip', NOW - 10 * DAY),
+        at('a', 'ip', NOW - STALE_AFTER_DAYS * DAY),
         at('b', 'ip', NOW - DAY),
         at('c', 'done', NOW - 30 * DAY),
         at('d', 'ip', NOW - 30 * DAY),
@@ -141,7 +141,7 @@ describe('board attention on a cards board', () => {
     const a = attention.rows.find((r) => r.item.id === 'a')!
     expect(a.signals.map((s) => s.key)).toEqual(['overdue', 'stale', 'unassigned'])
     expect(a.status).toBe('inProgress lane')
-    expect(a.ageDays).toBe(10)
+    expect(a.ageDays).toBe(STALE_AFTER_DAYS)
     expect(a.signals.find((s) => s.key === 'overdue')?.tone).toBe('risk')
     expect(a.signals.find((s) => s.key === 'stale')?.tone).toBe('watch')
     expect(a.signals.find((s) => s.key === 'stale')?.why).toContain(`${STALE_AFTER_DAYS}-day`)

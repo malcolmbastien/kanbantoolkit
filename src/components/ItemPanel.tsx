@@ -166,6 +166,7 @@ export function ItemPanel({ itemId }: Props) {
 
   const tab = useStore((s) => s.panelTab)
   const setTab = useStore((s) => s.setPanelTab)
+  const commentFocusId = useStore((s) => s.commentFocusId)
   // The card's history from the server: `undefined` while asking, `null` when this deployment has
   // nobody to ask. A page of it is merged with what this browser already has, because the drawer
   // may be opened on a card whose log arrived with the workspace (a static build) or never did.
@@ -515,6 +516,22 @@ export function ItemPanel({ itemId }: Props) {
   // tabs read the same log, split by what a reader is looking for.
   const comments = log.filter((entry) => entry.kind === 'noted')
   const historyEntries = log.filter((entry) => entry.kind !== 'noted')
+  const focusedComment = useRef<string | null>(null)
+  // A mention in My work opens the card on Comments and names one entry. Scroll to it once the
+  // entry is in the log — on an instance the whole log may still be arriving — and mark it while
+  // the drawer is open on this card.
+  useEffect(() => {
+    if (tab !== 'comments' || !commentFocusId || focusedComment.current === commentFocusId) return
+    if (!comments.some((entry) => entry.id === commentFocusId)) return
+    focusedComment.current = commentFocusId
+    const frame = requestAnimationFrame(() => {
+      const target = [...document.querySelectorAll<HTMLElement>('[data-comment-entry]')].find(
+        (element) => element.dataset.commentEntry === commentFocusId,
+      )
+      target?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [tab, commentFocusId, comments])
   const historyTotal = historyPage?.total ?? log.length
   const historyLoading = historyPage === undefined && log.length === 0
   const itemPlacements = placements.filter((p) => p.itemId === item.id)
@@ -678,6 +695,22 @@ export function ItemPanel({ itemId }: Props) {
     return rows
   }, [isInitiative, item.id, item.archived, complete, items, edges, links, placements, lanes, issueTypes, today])
   const openWarningRow = warnings.find((w) => w.key === openWarning)
+
+  /**
+   * A card's own warnings, in the same words its face uses.
+   *
+   * Mini and Summary keep only a marker; this is where a reader who opened the card can see
+   * which rule fired and why. The signals are `attentionSignals`' — the same reading the
+   * dashboard's attention band uses — rather than a second warning vocabulary. An initiative
+   * reads its rollup instead, so this is the card half of the same question.
+   */
+  const cardWarnings = (() => {
+    if (isInitiative || item.archived || complete) return []
+    const placement = boardPlacement ?? itemPlacements[0]
+    const ownStage = placement ? effectiveStage(lanes, placement.laneId) ?? stage : stage
+    const ownAge = ageDays(placement, now)
+    return attentionSignals(item, ownStage, ownAge, now, graph)
+  })()
 
   /**
    * The hierarchy reading above the children: the rollup, the risks the health rules and the card
@@ -1067,7 +1100,7 @@ export function ItemPanel({ itemId }: Props) {
     <section
       data-initiative-flow
       aria-label="Flow"
-      title="An initiative’s section and progress come from the leaves below it, so it has no cycle of its own."
+      title="An initiative’s section and progress come from the work below it, so it has no cycle of its own."
       className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200"
     >
       <div className="flex items-center justify-between gap-2">
@@ -1079,11 +1112,11 @@ export function ItemPanel({ itemId }: Props) {
           <p className="truncate text-meta font-semibold tabular-nums text-slate-800">{initiativeReading.percent}%</p>
           <p className="truncate text-micro text-slate-500">Progress</p>
         </div>
-        <div data-flow-stat="leaves" className="min-w-0" title="Leaves below it that are done, of all leaves below it.">
+        <div data-flow-stat="items" className="min-w-0" title="Items below it that are done, of all items below it.">
           <p className="truncate text-meta font-semibold tabular-nums text-slate-800">
             {initiativeReading.leaves.done} / {initiativeReading.leaves.total}
           </p>
-          <p className="truncate text-micro text-slate-500">Leaves done</p>
+          <p className="truncate text-micro text-slate-500">Items done</p>
         </div>
         <div
           data-flow-stat="open"
@@ -1118,7 +1151,7 @@ export function ItemPanel({ itemId }: Props) {
             >
               <ArrowRight size={11} className="shrink-0 text-slate-400" />
               <span className="min-w-0 flex-1 truncate">
-                Oldest open leaf: <span className="font-medium">{initiativeReading.oldest.title}</span>,{' '}
+                Oldest open item: <span className="font-medium">{initiativeReading.oldest.title}</span>,{' '}
                 {spanLabel(initiativeReading.oldest.ms)}{' '}
                 {initiativeReading.oldest.clock === 'commitment' ? 'since commitment' : 'in its column'}
               </span>
@@ -1642,6 +1675,29 @@ export function ItemPanel({ itemId }: Props) {
                     )}
                   </div>
                 )}
+              </section>
+            )}
+
+            {!isInitiative && !archived && cardWarnings.length > 0 && (
+              <section
+                data-card-warnings
+                aria-label={`${cardWarnings.length} warning${cardWarnings.length === 1 ? '' : 's'}`}
+                className="rounded-xl bg-amber-50 p-3 ring-1 ring-amber-200"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 text-meta font-semibold text-amber-900">
+                    <TriangleAlert size={14} className="shrink-0" />
+                    {cardWarnings.length} {cardWarnings.length === 1 ? 'warning' : 'warnings'}
+                  </span>
+                </div>
+                <ul className="mt-2 space-y-1.5">
+                  {cardWarnings.map((warning) => (
+                    <li key={warning.key} data-card-warning={warning.key} className="flex flex-wrap items-start gap-1.5">
+                      <span className={cn(FLAG_BADGE_SHAPE, FLAG_BADGE[warning.tone], 'shrink-0')}>{warning.label}</span>
+                      <span className="min-w-0 flex-1 text-meta leading-snug text-slate-700">{warning.why}</span>
+                    </li>
+                  ))}
+                </ul>
               </section>
             )}
 
@@ -2361,7 +2417,7 @@ export function ItemPanel({ itemId }: Props) {
                           {hierarchy.progress.done} of {hierarchy.progress.total} done
                         </span>
                         <span className="ml-auto text-micro text-slate-600">
-                          {hierarchy.progress.total} {hierarchy.progress.total === 1 ? 'leaf' : 'leaves'} below it
+                          {hierarchy.progress.total} {hierarchy.progress.total === 1 ? 'item' : 'items'} below it
                         </span>
                       </div>
                       <StageProgressBar
@@ -2452,7 +2508,7 @@ export function ItemPanel({ itemId }: Props) {
                         <PlanRow label="Actual finish" own="—" children={actualFinish} />
                       </div>
                       <p className="border-t border-slate-100 px-2.5 py-1.5 text-micro text-slate-600">
-                        Planned dates are the leaves&apos; target windows; a due date is a promise and is not used here. Actual dates appear only when the move history can support them.
+                        Planned dates are the items&apos; target windows; a due date is a promise and is not used here. Actual dates appear only when the move history can support them.
                       </p>
                     </div>
                   )}
@@ -2589,8 +2645,12 @@ export function ItemPanel({ itemId }: Props) {
                   return (
                     <article
                       key={entry.id}
-                      data-comment-entry
-                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-2"
+                      data-comment-entry={entry.id}
+                      data-comment-focus={commentFocusId === entry.id ? '' : undefined}
+                      className={cn(
+                        'rounded-lg border border-slate-200 bg-white px-2.5 py-2',
+                        commentFocusId === entry.id && 'border-indigo-300 bg-indigo-50/60 ring-2 ring-indigo-200',
+                      )}
                     >
                       <div className="flex items-center gap-1.5 text-micro text-slate-600">
                         {entry.by ? (

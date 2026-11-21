@@ -1,4 +1,4 @@
-import { Children, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Card, type CardParent } from './Card'
 import { stageCountsOf } from './StageProgressBar'
 import { DragLayer } from './DragLayer'
@@ -22,6 +22,7 @@ import { detailFor, type BoardDetail } from '@/domain/boardDetail'
 import { childrenOf, isLeaf, lanePath, leavesUnder, topLevelLanes } from '@/domain/lanes'
 import { STAGE_ACCENT, STAGE_COLUMN, tintOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
+import { announce } from '@/lib/announce'
 import {
   ArrowLeftRight,
   BetweenHorizontalStart,
@@ -31,7 +32,6 @@ import {
   ChevronUp,
   ChevronsRight,
   Columns3,
-  Hourglass,
   CopyPlus,
   Plus,
   Rows3,
@@ -50,6 +50,13 @@ import { ageDays, STALE_AFTER_DAYS } from '@/domain/filters'
  * holds whether or not a lane carries a count or is being edited.
  */
 const HEAD_ROW = 'grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1'
+
+/** Why a cell under an initiative in the air will not take it. */
+interface DropRefusal {
+  sectionId: string
+  /** Said by the live region; the board itself answers with the ring and the cursor. */
+  announcement: string
+}
 
 /**
  * A summary band for the management view: only the board's initiative-level work
@@ -229,6 +236,8 @@ export function BoardSummary({
   // the tallest section shorter before the gap appears under the pointer; hold the starting
   // height until the card is down, and let the board settle afterwards.
   const dragStartHeight = useRef<number | null>(null)
+  /** The section the pointer is over that will not take this initiative, while it is in the air. */
+  const [dropRefusal, setDropRefusal] = useState<DropRefusal | null>(null)
 
   /** The initiative currently in flight, if any. */
   // The same lift the cards workflow uses — one implementation, so a card in the air behaves
@@ -244,11 +253,14 @@ export function BoardSummary({
       // is a hierarchy edit there, and a rearrangement here, and never both at once.
       const parent = parentTargetUnder(x, y, itemId, graph, issueTypes)
       setDropTarget(parent)
-      setDropCell(parent ? null : cellUnder(x, y, itemId))
+      const target = parent ? null : cellUnder(x, y, itemId)
+      setDropCell(target)
+      setDropRefusal(target || parent ? null : refusalUnder(x, y, itemId, Boolean(parent)))
     },
     onDrop: (itemId, x, y) => {
       setDropCell(null)
       setDropTarget(null)
+      setDropRefusal(null)
       const parent = parentTargetUnder(x, y, itemId, graph, issueTypes)
       if (parent) {
         // An initiative rolls up to another initiative. It stays in its own cell: the section is
@@ -257,19 +269,29 @@ export function BoardSummary({
         return
       }
       const target = cellUnder(x, y, itemId)
-      if (target) moveInitiativeToIndex(itemId, boardId, target.cellId, target.index)
+      if (target) {
+        moveInitiativeToIndex(itemId, boardId, target.cellId, target.index)
+        return
+      }
+      // A drop the section will not take is still an answer: the ring and the cursor showed it
+      // while the card was in the air, and the live region says it once for a reader who cannot
+      // see either.
+      const refusal = refusalUnder(x, y, itemId, false)
+      if (refusal) announce(refusal.announcement)
     },
   })
   const [dropCell, setDropCell] = useState<{ cellId: string; index: number } | null>(null)
   // Measure before the lift's first render, while the card is still in its cell.
   const beginLift = (event: React.PointerEvent, itemId: string) => {
     dragStartHeight.current = flowRef.current?.getBoundingClientRect().height ?? null
+    setDropRefusal(null)
     startLift(event, itemId)
   }
   // The highlighted cell is live only while an initiative is actually in the air — the same
   // rule the cards workflow keeps. A pointercancel ends a gesture without a drop, so the
   // preview must answer to the gesture, not to whichever cell was last under the pointer.
   const previewCell = lift !== null ? dropCell : null
+  const previewRefusal = lift !== null ? dropRefusal : null
   /** The cell under the pointer, if it is one an initiative may move into. */
   const cellUnder = (x: number, y: number, itemId: string | undefined) => {
     const here = itemId ? initiativeCellOf(itemId, boardId, graph, flows) : undefined
@@ -290,6 +312,41 @@ export function BoardSummary({
     // order they render in — and how many of them sit above the pointer.
     const cards = [...cell.querySelectorAll<HTMLElement>('[data-card-id]')].filter((el) => el.dataset.cardId !== itemId)
     return { cellId, index: insertionIndex(cards, x, y, detail === 'mini') }
+  }
+
+  /**
+   * Why the pointer is over an initiatives column that will not take this initiative.
+   *
+   * A column is derived from the work below, so an initiative with descendants can only be
+   * rearranged inside its own section. The pointer may also be over a section's body rather than
+   * one of its cells. Both are refusals worth naming: a drop that silently springs back reads as
+   * a broken board. `undefined` means the pointer is not over an initiatives column at all.
+   */
+  const refusalUnder = (x: number, y: number, itemId: string | undefined, parent: boolean): DropRefusal | null => {
+    if (!itemId || parent) return null
+    const here = initiativeCellOf(itemId, boardId, graph, flows)
+    if (!here) return null
+    const hit = document.elementFromPoint(x, y)
+    const flow = hit?.closest<HTMLElement>('[data-workflow="initiatives"]')
+    const sectionEl = hit?.closest<HTMLElement>('[data-section-id]')
+    const sectionId = sectionEl?.dataset.sectionId
+    if (!flow || !sectionId) return null
+    const sectionName = lanes.find((l) => l.id === sectionId)?.name || 'this column'
+    const cellId = hit?.closest<HTMLElement>('[data-cell-id]')?.dataset.cellId
+    const title = items.find((i) => i.id === itemId)?.title ?? 'The initiative'
+
+    if (sectionId === here.sectionId) {
+      if (cellId && isLeaf(lanes, cellId) && canPlaceInSection(itemId, cellId, graph)) return null
+      return {
+        sectionId,
+        announcement: `${title} was not moved: choose a cell inside ${sectionName}.`,
+      }
+    }
+    if (cellId && isLeaf(lanes, cellId) && canPlaceInSection(itemId, cellId, graph)) return null
+    return {
+      sectionId,
+      announcement: `${title} was not moved: its column follows the work below it. Move its cards to change the column.`,
+    }
   }
   const parentPickId = useStore((s) => s.parentPickId)
   const setParent = useStore((s) => s.setParent)
@@ -525,7 +582,8 @@ export function BoardSummary({
     <div
       ref={flowRef}
       data-workflow="initiatives"
-      className="flex gap-2 px-2 py-1.5"
+      data-drop-refusal={previewRefusal ? '' : undefined}
+      className={cn('relative flex gap-2 px-2 py-1.5', previewRefusal && 'cursor-not-allowed')}
       style={lift && dragStartHeight.current !== null ? { minHeight: dragStartHeight.current } : undefined}
     >
       {lift && (
@@ -548,6 +606,7 @@ export function BoardSummary({
             editMode={editMode}
             detail={detail}
             onAddInitiative={interactive && addsInitiatives ? addInitiativeTo : undefined}
+            refused={previewRefusal?.sectionId === section.id}
             // A section with more cells claims more of the width, so every *cell* gets an
             // equal share of the board — splitting a column doesn't squeeze its own cells.
             // A section with more cells claims more of the width, so every *cell* gets an
@@ -624,6 +683,7 @@ function Cell({
   editMode,
   detail,
   onAddInitiative,
+  refused = false,
   className,
   style,
   children,
@@ -640,6 +700,8 @@ function Cell({
   detail: BoardDetail
   /** Make a new initiative in this cell — offered only by the Backlog section. */
   onAddInitiative?: (laneId: string) => void
+  /** The initiative in the air is over this section, and it will not take it. */
+  refused?: boolean
   className?: string
   style?: React.CSSProperties
   children: React.ReactNode
@@ -680,11 +742,6 @@ function Cell({
   const headCount = isSection && stage
     ? cn('rounded-full px-1.5 py-0.5 font-bold', STAGE_COLUMN[stage].count)
     : 'rounded-full bg-white/70 px-1.5 py-0.5 font-semibold text-slate-600 ring-1 ring-slate-300/60'
-  // A cell with nothing in it still needs to read as a place work can go. The drag gap counts
-  // as content: while an initiative is in the air over an empty cell, the shadow is what the
-  // cell shows.
-  const empty = count === 0 && Children.count(children) === 0
-
   const removeWithConfirm = () => {
     const kids = leavesUnder(lanes, lane.id).filter((l) => l.id !== lane.id)
     const target = kids[0]
@@ -747,7 +804,10 @@ function Cell({
 
   return (
     <div
-      className={className ?? 'flex min-w-0 flex-1 basis-0 flex-col'}
+      className={cn(
+        className ?? 'flex min-w-0 flex-1 basis-0 flex-col',
+        refused && 'cursor-not-allowed ring-2 ring-inset ring-rose-400/70',
+      )}
       style={style}
       // A leaf marks its whole widget — header included — so pointing at a row's header bar
       // means that row. A container never marks itself: its body would answer otherwise, and
@@ -882,16 +942,7 @@ function Cell({
             : 'flex min-h-[96px] min-w-0 flex-1 flex-col gap-2 p-1.5'
         }
       >
-        {empty ? (
-          // Words, not another box: the column is already a place, and a dashed frame inside
-          // every empty one would be the nested enclosure this surface is trying to shed.
-          <div className="flex flex-1 flex-col items-center justify-center gap-1 p-4 text-center">
-            <Hourglass size={16} className="text-slate-400/80" />
-            <span className="text-micro text-slate-600">No initiatives</span>
-          </div>
-        ) : (
-          children
-        )}
+        {children}
       </div>
 
       {onAddInitiative && !editMode && detail !== 'mini' && stage === 'backlog' && leaf ? (
