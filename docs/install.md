@@ -1,35 +1,65 @@
 # Install
 
-Kanban Toolkit is one Node process, one SQLite file and a directory of static files. [configure.md](configure.md)
-is what to set once it runs, and [tls.md](tls.md) is what to put in front of it.
+Kanban Toolkit is meant to run as the **published Docker image**, so the install is one
+container, one SQLite file on a volume, and one secret; there is nothing to clone and nothing to
+compile. [configure.md](configure.md) is what to set once it runs, and [tls.md](tls.md) is what to put
+in front of it.
 
-You edit no configuration to start except a salt: the commands below generate it, and everything else
-uses defaults and creates the database itself.
-
-## With Docker, after cloning
+## Run the published image
 
 ```bash
-git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit
-cd kanbantoolkit
 printf 'ERROR_SALT=%s\n' "$(openssl rand -hex 32)" > .env
-docker compose up -d
+docker run -d --name kanbantoolkit --restart unless-stopped \
+  -p 127.0.0.1:8787:8787 \
+  -v kanbantoolkit-data:/data \
+  --env-file .env \
+  ghcr.io/malcolmbastien/kanbantoolkit:latest
 ```
 
-That builds the image from this checkout, creates the database on a named volume, applies the
-migrations and answers on <http://localhost:8787/app>. The port is bound to `127.0.0.1`: a reverse
-proxy is the way in ([tls.md](tls.md)).
+The container creates the database on the named volume, applies the migrations and answers on
+<http://localhost:8787/app>. The port is bound to `127.0.0.1`: a reverse proxy is the way in
+([tls.md](tls.md)).
 
 `ERROR_SALT` is the only value the image will not guess: it is mixed into the hash of an address
 before it is stored, so it must be a secret. Without it the container exits at start and says why.
 Keep the value you generate; it is what lets one hour's rate-limit counts match the next.
 
+The image is `ghcr.io/malcolmbastien/kanbantoolkit`, built by CI on every green `main` and tagged by
+commit, by version and `latest`. Pin `<version>` or `<commit>` for an instance you keep; `latest` is
+the last green `main`, for a trial, not a release. [docker.md](docker.md) has the tags, the volume,
+backups taken inside the container, and upgrades.
+
+Prefer Compose to a long `docker run`? The same image in a Compose file (save it as `compose.yaml`
+beside the `.env`):
+
+```yaml
+services:
+  kanbantoolkit:
+    image: ghcr.io/malcolmbastien/kanbantoolkit:<version>
+    container_name: kanbantoolkit
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8787:8787"
+    environment:
+      WORKSPACE_NAME: ${WORKSPACE_NAME:-Kanban Toolkit}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8787}
+      ERROR_SALT: ${ERROR_SALT:?set ERROR_SALT in .env}
+    volumes:
+      - kanbantoolkit-data:/data
+
+volumes:
+  kanbantoolkit-data:
+```
+
+```bash
+printf 'ERROR_SALT=%s\n' "$(openssl rand -hex 32)" > .env
+docker compose up -d
+```
+
 **An instance serves the application and nothing else.** `/` sends you to `/app`; `/assets`, the icon
 and `/api` answer; anything else is the instance's own 404, naming the workspace. This project's
 website — `/install/`, `/privacy/`, its sitemap — is a separate deployment. An instance links to it for
 the terms and privacy pages only when `PROJECT_URL` says where that site is.
-
-A published image exists too, `ghcr.io/malcolmbastien/kanbantoolkit`, built by CI on every green `main`
-and tagged by commit, by version and `latest`; [docker.md](docker.md) has the command and the tags.
 
 Two more values are worth setting before the machine has a public address:
 
@@ -42,9 +72,24 @@ Two more values are worth setting before the machine has a public address:
 [docker.md](docker.md) is this road in full: the volume, backups taken inside the container, the
 unprivileged user, and what SQLite means when you want a second one.
 
-## Or by hand, without Docker
+<details>
+<summary>Build the image from this repository</summary>
 
-Node 26, a directory you own, and a reverse proxy for TLS:
+For working on the code, this checkout's Compose file builds the same image locally:
+
+```bash
+git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit
+cd kanbantoolkit
+printf 'ERROR_SALT=%s\n' "$(openssl rand -hex 32)" > .env
+docker compose up -d --build
+```
+
+</details>
+
+## From source, without Docker
+
+This is the development path, or for an operator who cannot run a container; it is not the install
+users are expected to run. Node 26, a directory you own, and a reverse proxy for TLS:
 
 ```bash
 git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit
@@ -72,8 +117,8 @@ the salt from the unit file below, so a restart does not forget the addresses it
 - **Starts empty.** Signing in lands on a workspace with no boards. A board is made from *Workspace
   Home → New board*, and people are brought in from *Admin → This workspace*.
 - **Names the workspace**, from `WORKSPACE_NAME` (default `Kanban Toolkit`).
-- **Creates the database.** By hand that is `./kanbantoolkit.db` beside the process; in the container it is
-  `/data/kanbantoolkit.db` on the volume.
+- **Creates the database.** In the container it is `/data/kanbantoolkit.db` on the volume; from source it is
+  `./kanbantoolkit.db` beside the process.
 
 Everybody after the first person arrives by invitation, as the role the invitation names. There is no
 sign-up page: an instance *is* a workspace.

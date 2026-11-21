@@ -13,10 +13,12 @@ varies between deployments is where the process runs and where the database live
 | **Hosted** | `dist/` + the Worker + D1 | the public instance | Cloudflare |
 
 The tiers are cumulative: one client build, one API codebase, and two entry files that are the only
-place code knows where it is running. The static tier is the whole app — every board, every card,
-every rule — because the workspace lives in the browser, so a person with no Docker, no SMTP and no
-identity provider still has a working board. The server adds accounts, sharing and a second device,
-and takes nothing away.
+place code knows where it is running. **The container is the install this project expects a team to
+run**; the static and hosted tiers are how this project's own site and demo run, and how the same
+code can be deployed elsewhere. The static tier is the whole app — every board, every card, every
+rule — because the workspace lives in the browser, so a person with no Docker, no SMTP and no identity
+provider still has a working board. The server adds accounts, sharing and a second device, and takes
+nothing away.
 
 ### What this project deploys, and what a team deploys
 

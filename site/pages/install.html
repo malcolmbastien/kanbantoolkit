@@ -1,44 +1,70 @@
 <!--
 title: Install — Kanban Toolkit
-description: Kanban Toolkit on your machine: one command after cloning, with Docker, or three with Node. One process, one SQLite file, the same routes and rules as the Cloudflare build, and no service in between.
+description: Kanban Toolkit on your machine as a published container image: one container, one SQLite file, and no service in between.
 path: /install/
 -->
 <h1>Install it</h1>
 <p class="lede">
-  Kanban Toolkit is free software, and it is the same application however you run it: the same routes, the
-  same SQLite schema and the same server as the Cloudflare build. One Node process, one file, a
-  directory of static pages — no service in between.
+  Kanban Toolkit is free software, and it is meant to run as a <strong>Docker image</strong>. The image is
+  published: one container, one SQLite file, and no service in between. There is nothing to clone and
+  nothing to compile.
 </p>
 
-<h2 id="container">After cloning, if you have Docker</h2>
-<pre><code>git clone {{repo}} kanbantoolkit
-cd kanbantoolkit
-printf 'ERROR_SALT=%s\n' "$(openssl rand -hex 32)" &gt; .env
-docker compose up -d</code></pre>
+<h2 id="container">Run the published image</h2>
+<pre><code>printf 'ERROR_SALT=%s\n' "$(openssl rand -hex 32)" &gt; .env
+docker run -d --name kanbantoolkit --restart unless-stopped \
+  -p 127.0.0.1:8787:8787 \
+  -v kanbantoolkit-data:/data \
+  --env-file .env \
+  ghcr.io/malcolmbastien/kanbantoolkit:latest</code></pre>
 <p>
-  That builds the image, creates the database on a volume, applies the migrations and answers on
+  That creates the database on a volume, applies the migrations and answers on
   <code>http://localhost:8787/app</code>. The port is bound to loopback: a reverse proxy is the way
-  in, which is the next section of this page. <code>docker compose down</code> stops it and keeps the
-  work; <code>down -v</code> does not.
+  in, which is the next section of this page. <code>docker stop kanbantoolkit</code> keeps the work
+  on the volume; removing the volume does not.
 </p>
 <p>
-  The <code>.env</code> line is the one value the image will not guess. <code>ERROR_SALT</code> keys
-  the hash of a reporter's address, so it has to be a secret rather than a default — and a default
-  published in a Compose file is not one. Generate it once and keep it; without it a production
-  instance refuses to start and says which variable is missing.
+  <code>ERROR_SALT</code> is the one value the image will not guess. It keys the hash of a reporter's
+  address, so it has to be a secret rather than a default. Generate it once and keep it; without it a
+  production instance refuses to start and says which variable is missing.
 </p>
+<p>
+  Pin a version or commit tag for an instance you keep; <code>latest</code> is the last green
+  <code>main</code>, for a trial. The repository's Compose file builds the same image from a checkout
+  when you are working on the code.
+</p>
+<p>
+  Prefer Compose? Save this as <code>compose.yaml</code> beside the <code>.env</code> from above:
+</p>
+<pre><code>services:
+  kanbantoolkit:
+    image: ghcr.io/malcolmbastien/kanbantoolkit:latest
+    container_name: kanbantoolkit
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8787:8787"
+    environment:
+      WORKSPACE_NAME: ${WORKSPACE_NAME:-Kanban Toolkit}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8787}
+      ERROR_SALT: ${ERROR_SALT:?set ERROR_SALT in .env}
+    volumes:
+      - kanbantoolkit-data:/data
 
-<h2 id="commands">Or by hand, if you would rather see the parts</h2>
+volumes:
+  kanbantoolkit-data:</code></pre>
+<pre><code>docker compose up -d</code></pre>
+
+<h2 id="commands">From source, without Docker</h2>
 <pre><code>git clone {{repo}} kanbantoolkit
 cd kanbantoolkit &amp;&amp; npm ci &amp;&amp; npm run build
 NODE_ENV=production ERROR_SALT=$(openssl rand -hex 32) \
   PORT=8787 DB_PATH=./kanbantoolkit.db STATIC_DIR=./dist npm run server</code></pre>
 <p>
-  This is what the image does, in the open: a clone, a build, a process. The build writes the site
-  and the app into <code>dist/</code>; the first start applies the schema migrations and leaves you a
-  database file. There is no account to create first. The salt above is generated for this run to
-  show the shape of it; a server you keep takes the value from its unit file, so restarts keep
-  matching the addresses it hashed yesterday.
+  This is the development path, or for an operator who cannot run a container; it is not the install
+  users are expected to run. The build writes the site and the app into <code>dist/</code>; the first
+  start applies the schema migrations and leaves you a database file. There is no account to create
+  first. The salt above is generated for this run to show the shape of it; a server you keep takes
+  the value from its unit file, so restarts keep matching the addresses it hashed yesterday.
 </p>
 
 <h2 id="first-run">What happens on the first run</h2>
@@ -54,7 +80,7 @@ NODE_ENV=production ERROR_SALT=$(openssl rand -hex 32) \
 </p>
 <ul class="points">
   <li><strong>TLS.</strong> Kanban Toolkit does not terminate it. A proxy does, with a certificate, and <code>PUBLIC_URL</code> tells the server what that address is — which is also what makes the session cookie secure.</li>
-  <li><strong>Updates.</strong> You pull, build and restart. A release that adds a migration applies it at boot, and the server refuses to start rather than serve a database it does not understand.</li>
+  <li><strong>Updates.</strong> You pull the new image and recreate the container; from source, you pull and build. A release that adds a migration applies it at boot, and the server refuses to start rather than serve a database it does not understand.</li>
   <li><strong>Backups.</strong> One file, copied somewhere else, on a schedule — and a restore you have actually run once. The copy is <code>npm run backup</code>; it takes a consistent snapshot while the server keeps running.</li>
   <li><strong>Support.</strong> There is nobody on a rota. The documentation was written for this software and ships with the version you are running.</li>
 </ul>
@@ -87,7 +113,7 @@ NODE_ENV=production ERROR_SALT=$(openssl rand -hex 32) \
   <li><strong>One instance, one team.</strong> A deployment is a workspace. There is no second workspace to switch to, because there is no service above this one.</li>
   <li><strong>The file is the database.</strong> One SQLite file, on local disk. Keep it off network shares, and run one server process against it.</li>
   <li><strong>No horizontal scale.</strong> Scaling out would mean Postgres behind the same interface — a port, not a setting. One instance serves a team comfortably.</li>
-  <li><strong>The live channel is one process.</strong> A socket server in the Node process, or a Durable Object on Cloudflare. With neither, the app polls the same feed and nothing else changes.</li>
+  <li><strong>The live channel is one process.</strong> A socket server in the container. With it switched off, the app polls the same feed and nothing else changes.</li>
   <li><strong>No hosted backups, and no hosted support.</strong> The file is yours, the schedule is yours, and the person who answers when it breaks is you.</li>
 </ul>
 <p>
@@ -125,8 +151,8 @@ npm run backup -- restore ./backups/kanbantoolkit-2026-10-24T02-00-00.db ./kanba
   the version you are running:
 </p>
 <ul class="points">
-  <li><a href="{{repo}}/blob/main/docs/install.md"><strong>Install, in full</strong></a> — the systemd unit, the health check, and what the first run writes.</li>
-  <li><a href="{{repo}}/blob/main/docs/docker.md"><strong>In a container</strong></a> — the volume, backups taken inside it, upgrading, and what SQLite means.</li>
+  <li><a href="{{repo}}/blob/main/docs/docker.md"><strong>In a container</strong></a> — the published image and tags, the volume, backups taken inside it, upgrading, and what SQLite means.</li>
+  <li><a href="{{repo}}/blob/main/docs/install.md"><strong>Install, in full</strong></a> — the published image, the Compose file, the health check, and the source/systemd path.</li>
   <li><a href="{{repo}}/blob/main/docs/configure.md"><strong>Configure</strong></a> — every environment variable, its default, and what an unset one does.</li>
   <li><a href="{{repo}}/blob/main/docs/tls.md"><strong>TLS and the proxy</strong></a> — Caddy and nginx, the headers, and the socket.</li>
   <li><a href="{{repo}}/blob/main/docs/upgrade.md"><strong>Upgrade</strong></a> — what a release does to your database, and how to go back.</li>

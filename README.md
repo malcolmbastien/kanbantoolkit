@@ -12,8 +12,8 @@ The wait is on the board too: how long a card has sat in its column, what it is 
 is waiting for on another board, and which committed work has nobody's name on it. All of it read
 from cards that are already there, none of it typed twice.
 
-[**Open the demo**](https://kanbantoolkit.com/app) — nothing to sign up for ·
-[Run it yourself](#run-it) · [Documentation](docs/README.md)
+[**Run it with Docker**](#run-it) — one container, one SQLite file ·
+[Open the demo](https://kanbantoolkit.com/app) · [Documentation](docs/README.md)
 
 [![CI](https://github.com/malcolmbastien/kanbantoolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/malcolmbastien/kanbantoolkit/actions/workflows/ci.yml) &nbsp; [![Licence](https://img.shields.io/badge/licence-AGPL--3.0-brightgreen)](LICENSE)
 
@@ -109,12 +109,13 @@ browser. There is no account and nothing is collected.
   - Browser snapshots, a warning when storage is full, and quarantine of saved data a build cannot
     read.
 - **Running it and machine access**
-  - A static build that runs with no server, keeping the workspace in the browser, or a self-hosted
-    instance: one Node process and one SQLite file.
-  - Docker image, Compose file and a Cloudflare Worker entry.
+  - A published Docker image for a self-hosted instance: one container and one SQLite file.
   - Personal API tokens with scopes, expiry and rate limits; REST at `/api/v1`; an MCP server over
     HTTP or stdio, with a tool per read and write. `add_note` lets an agent report back without
     changing the plan, and the activity names the token it came through.
+  - The same application as a static build (the demo), from the Node entry directly, or on a
+    Cloudflare Worker (this project's site, and an optional hosted instance). The container uses none
+    of those.
   - A skill in [`skills/kanbantoolkit/SKILL.md`](skills/kanbantoolkit/SKILL.md) teaches a model the
     board's shape, the rules that will refuse it, and the order to read in.
   - Keyboard access, screen-reader labels and focus handling.
@@ -123,24 +124,49 @@ browser. There is no account and nothing is collected.
 
 ## Run it
 
+Kanban Toolkit is meant to run as a **Docker image**. The image is published, so there is nothing to
+clone and nothing to compile:
+
+```bash
+printf 'ERROR_SALT=%s\n' "$(openssl rand -hex 32)" > .env
+docker run -d --name kanbantoolkit --restart unless-stopped \
+  -p 127.0.0.1:8787:8787 \
+  -v kanbantoolkit-data:/data \
+  --env-file .env \
+  ghcr.io/malcolmbastien/kanbantoolkit:latest
+# open http://localhost:8787/app
+```
+
+The container creates the database on the volume, and the first visit sets up the account that runs
+the instance. `ERROR_SALT` is the one value the image will not guess: it is mixed into the hash of a
+reporter's address, so it must be a secret, and the image **refuses to start without it**. Put
+`WORKSPACE_NAME` and `PUBLIC_URL` in the same env file when the machine has a public address;
+[configure.md](docs/configure.md) says what each one does. The port is bound to loopback, so a
+reverse proxy is the way in ([tls.md](docs/tls.md)).
+
+The tags are `<commit>`, `<version>` and `latest`; pin a version for a real instance, and use
+`latest` only for a trial. [docker.md](docs/docker.md) is the full container path — the volume,
+backups taken inside it, upgrades, and what SQLite means.
+
+<details>
+<summary>Build the image from this repository</summary>
+
+For working on the code, the checkout's Compose file builds the same image locally:
+
 ```bash
 git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit
 cd kanbantoolkit
 printf 'ERROR_SALT=%s\n' "$(openssl rand -hex 32)" > .env
-docker compose up -d
-# open http://localhost:8787/app
+docker compose up -d --build
 ```
 
-The image builds, the database is created on a volume, and the first visit sets up the account that
-runs the instance. `ERROR_SALT`, in the `.env` file above, is the one value the image will not guess:
-it is mixed into the hash of a reporter's address, so it has to be a secret rather than a default,
-and the image **refuses to start without it**. `PUBLIC_URL` is the other one worth setting, when the
-machine has a public address. [configure.md](docs/configure.md) says what each one does.
+</details>
 
 <details>
-<summary>Run it without Docker</summary>
+<summary>Run from source without Docker</summary>
 
-Node 26 and a directory you own:
+Node 26 and a directory you own. This is the development path, not the install users are expected
+to run:
 
 ```bash
 git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit
@@ -150,15 +176,14 @@ NODE_ENV=production ERROR_SALT=$(openssl rand -hex 32) \
   PORT=8787 DB_PATH=./kanbantoolkit.db STATIC_DIR=./dist npm run server
 ```
 
-The build writes the site and the application into `dist/`. The server applies every pending
-migration on start and prints the schema version it reached. A run without `ERROR_SALT` is a
-development run: it starts with a salt generated for the process, so a real instance should keep the
-value in its unit file ([docs/install.md](docs/install.md)).
+The server applies every pending migration on start and prints the schema version it reached. A run
+without `ERROR_SALT` is a development run: it starts with a salt generated for the process, so a real
+instance should keep the value in its unit file ([docs/install.md](docs/install.md)).
 
 </details>
 
-For TLS, backups, configuration and the full install path — including the published container image —
-see [`docs/install.md`](docs/install.md) and [`docs/docker.md`](docs/docker.md).
+For TLS, configuration and the full install path, see [`docs/install.md`](docs/install.md) and
+[`docs/docker.md`](docs/docker.md).
 
 ## Documentation
 

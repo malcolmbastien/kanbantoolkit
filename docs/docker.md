@@ -1,40 +1,26 @@
 # In a container
 
-One instance, one container, one volume. The image builds from this repository: you need Docker and a
-clone. A published image also exists, described below.
+Kanban Toolkit is meant to run as a **Docker image**. The image is published, so the install is one
+container and one SQLite file on a volume; cloning and building are for working on the code, not for
+running an instance.
 
-```bash
-git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit
-cd kanbantoolkit
-docker compose up -d
-```
-
-Then open <http://localhost:8787/app>. The first start creates the database on the volume, the
-migrations run on boot, and the first person to sign in administers the instance and its one
-workspace.
-
-The container runs an **instance of the application**: `/` redirects to `/app`, and the project's
-website is not inside it. `/install/`, `/privacy/` and the rest answer the instance's own 404; they
-belong to this project's site, at this project's address.
-
-`compose.yaml` holds a service, a port bound to loopback, a named volume, and the environment. The
-container is named **`kanbantoolkit`**, so `docker exec kanbantoolkit …` and Docker Desktop show the
-same name; Compose's generated name would otherwise be `<project>-kanbantoolkit-1`. The project and its
-volume keep the name Compose gives them, so updating the file does not move your data. The fixed name
-means one container and one volume per host, and [the notes
-below](#the-volume-is-the-instance) explain why a second container does not scale this app.
-
-## The published image
+## Run the published image
 
 CI builds and tests the image on every push — health, the unprivileged user, the database it creates,
 the first sign-in — and on `main` publishes it for `amd64` and `arm64`:
 
 ```bash
-docker run -d --name kanbantoolkit -p 127.0.0.1:8787:8787 -v kanbantoolkit-data:/data \
+printf 'ERROR_SALT=%s\n' "$(openssl rand -hex 32)" > .env
+docker run -d --name kanbantoolkit --restart unless-stopped \
+  -p 127.0.0.1:8787:8787 \
+  -v kanbantoolkit-data:/data \
+  --env-file .env \
   ghcr.io/malcolmbastien/kanbantoolkit:latest
 ```
 
-Or, in a compose file, replace `build: .` with `image: ghcr.io/malcolmbastien/kanbantoolkit:<version>`.
+Then open <http://localhost:8787/app>. The first start creates the database on the volume, the
+migrations run on boot, and the first person to sign in administers the instance and its one
+workspace.
 
 Three tags:
 
@@ -44,12 +30,38 @@ Three tags:
 | `<version>` | the release, from `package.json` |
 | `latest` | the last green `main` — not a release, and the tag to use only for a trial |
 
+Prefer Compose? Use the same image in a compose file ([install.md](install.md) has the snippet), or
+replace `build: .` in this checkout's `compose.yaml` with
+`image: ghcr.io/malcolmbastien/kanbantoolkit:<version>`.
+
 > **The package carries its own visibility, not the repository's.** A package created while the
 > repository was private stays private until somebody changes it: **Packages → kanbantoolkit → Package
 > settings → Change visibility**. If a `docker pull` asks for credentials, that is the switch.
 
+The container runs an **instance of the application**: `/` redirects to `/app`, and the project's
+website is not inside it. `/install/`, `/privacy/` and the rest answer the instance's own 404; they
+belong to this project's site, at this project's address.
+
 The container reports which build it is: `curl -s localhost:8787/api/health` answers
 `{"ok":true,"database":"ok","version":"0.2.0"}`.
+
+## Build it from this repository
+
+For working on the code, this checkout's `compose.yaml` builds the same image locally:
+
+```bash
+git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit
+cd kanbantoolkit
+printf 'ERROR_SALT=%s\n' "$(openssl rand -hex 32)" > .env
+docker compose up -d --build
+```
+
+`compose.yaml` holds a service, a port bound to loopback, a named volume, and the environment. The
+container is named **`kanbantoolkit`**, so `docker exec kanbantoolkit …` and Docker Desktop show the
+same name; Compose's generated name would otherwise be `<project>-kanbantoolkit-1`. The project and its
+volume keep the name Compose gives them, so updating the file does not move your data. The fixed name
+means one container and one volume per host, and [the notes
+below](#the-volume-is-the-instance) explain why a second container does not scale this app.
 
 ## The volume is the instance
 
@@ -57,7 +69,8 @@ The container reports which build it is: `curl -s localhost:8787/api/health` ans
 | --- | --- |
 | `docker compose down` | stops and removes the container; **the work stays** on `kanbantoolkit-data` |
 | `docker compose down -v` | removes the volume too — the workspace, its accounts and its history |
-| `docker compose up -d --build` | rebuilds from the checkout and starts again, on the same volume |
+| `docker compose pull && docker compose up -d` | replaces the image and starts again, on the same volume |
+| `docker compose up -d --build` | rebuilds from a checkout and starts again, on the same volume |
 
 The database is `/data/kanbantoolkit.db` inside the container; the volume makes it outlive the image.
 Back it up with the same command a bare-metal instance uses:
@@ -107,12 +120,18 @@ it, the session cookie is issued for whatever the request's origin was, which be
 
 ## Upgrading
 
+Take the copy first; then move the image, not the code:
+
 ```bash
 docker exec kanbantoolkit npm run backup -- backup /data/kanbantoolkit.db /data/backups   # 1. a copy
-git pull --ff-only                                                              # 2. the new code
-docker compose up -d --build                                                    # 3. rebuild, restart
-docker compose logs --tail 20 kanbantoolkit                                          # 4. the schema it reached, or why not
+docker pull ghcr.io/malcolmbastien/kanbantoolkit:<version>                       # 2. the new image
+docker compose up -d                                                             # 3. recreate on the same volume
+docker compose logs --tail 20 kanbantoolkit                                       # 4. the schema it reached, or why not
 ```
+
+If you started it with `docker run`, stop and remove the container after the pull, then run the same
+`docker run` against the same volume. If you build from this repository instead, step 2 is
+`git pull --ff-only` and step 3 is `docker compose up -d --build`.
 
 A release that adds a migration applies it on boot, inside the transaction, and stops the container
 if it cannot. [upgrade.md](upgrade.md) is the long version, including how to go back, which is a
