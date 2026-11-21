@@ -1,13 +1,10 @@
 # Kanban Toolkit — admin, identity, and roles
 
-> Design, not code. What Windshift does for sign-in, profiles, user management, active/inactive
-> accounts and workspace roles; what Kanban Toolkit already has; and the admin surface a Kanban Toolkit user
-> would need before a team can be handed an instance.
+> Design, not code.
 
 **Status:** design only. Task 117 shipped sign-in. Task 118 has not moved the workspace to the
 server, so nothing here can be enforced yet — but the **role model** has to be decided before the
-first server-side write is stored, because every log entry, invitation and session written without
-it has to be migrated afterwards.
+first server-side write is stored.
 
 **Licence note.** Windshift is AGPL-3.0. This document copies *behaviour and data shape*, not code.
 Nothing from its repository should be lifted into Kanban Toolkit; the AGPL would reach the whole app.
@@ -69,17 +66,15 @@ offers:
 | Erase | A separate data-subject operation, not a delete |
 
 Two guardrails are explicit: **you cannot deactivate or delete your own account**, and erase is a
-separate flow, because "remove the account" and "erase the person's data" are different promises.
+separate flow.
 
 ### 1.3 Groups
 
 A group is a named set of users, used so a permission or workspace role is granted once. Groups can
 be active or inactive (an inactive group grants nothing), some are system groups that cannot be
-deleted, and directory-synced groups cannot be edited by hand. A group holds global permissions and
-workspace roles; assigning a role to a group applies it to every member.
+deleted, and directory-synced groups cannot be edited by hand. Assigning a role to a group applies it to every member.
 
-Groups answer the case where the same twelve people need Editor on six boards. They are not needed on
-day one; the model leaves room for them.
+Groups answer the case where the same twelve people need Editor on six boards.
 
 ### 1.4 Sign-in policy and sessions
 
@@ -129,7 +124,7 @@ permission cache immediately.
 
 ## 2. What Kanban Toolkit has today
 
-The audit as it stood when it was written; where a finding has since been closed, it says so.
+The audit as it stood when it was written.
 Sign-in comes from the operator's own OIDC issuer, a password, or a magic link, with `AUTH_DEV=1` for
 local trials.
 
@@ -188,10 +183,9 @@ The current `members` table conflates the first two. Split it:
 
 An instance member need not belong to a particular workspace (the seed of multi-workspace support),
 and an instance administrator can administer any workspace without being listed in it — Windshift's
-`system.admin` bypass, so someone can fix a workspace they are not on.
+`system.admin` bypass.
 
-**No groups in v1.** A group table, membership table and UI is a week of work that only pays off
-after several workspaces exist. Leave the `workspace_members` row as the single assignment point so a
+**No groups in v1.** Leave the `workspace_members` row as the single assignment point so a
 `group_workspace_roles` table can join it later without rewriting the permission check.
 
 ### 3.2 Roles and what they may do
@@ -247,7 +241,7 @@ button is not a permission check.
 ### 3.3 The rules that make roles safe
 
 1. **Closed, always.** Every person needs an account, arriving by invitation or from a domain an
-   administrator lists; there is no open sign-up. This is the fix for finding #1.
+   administrator lists; there is no open sign-up.
 2. **The first person is the administrator.** First-run creates `instance_role = admin` and
    `workspace_members.role = admin` in the same transaction as the workspace.
 3. **The last administrator cannot be demoted, deactivated, deleted or removed.** The server refuses
@@ -260,8 +254,7 @@ button is not a permission check.
    implicit edit rights**: a member with no `workspace_members` row is a Viewer of the public
    surfaces at most, or has no access to that workspace at all. Make it explicit, with a test.
 6. **A role change is effective on the next request.** Read `workspace_members.role` in the
-   middleware; do not cache it in the session. A stale cache is a bug that looks like a security
-   hole.
+   middleware; do not cache it in the session.
 7. **A role does not change who you are.** History keeps the author; an inactive or removed member's
    name still appears on the log, rendered as "Former member" if the account is erased.
 
@@ -299,8 +292,7 @@ record of what happened, which is worse than a dangling name.
 **Erase** is the data-subject operation and is not the same button. It replaces name, email and
 avatar with neutral values, deletes identities and sessions, keeps the id and the log's `by` field so
 referential integrity and history survive, and writes an audit event — "we deleted the account" and
-"we erased the person" are different claims to make to a regulator. Task 126 owns the copy and the
-request flow; this document owns the mechanics.
+"we erased the person" are different claims to make to a regulator.
 
 ### 3.5 Sessions
 
@@ -510,8 +502,7 @@ refusals, and `422` for validation.
 | `DELETE /api/workspaces/:id/members/:userId` | Remove from workspace, not from the instance |
 | `POST /api/workspaces/:id/invites` | Invite into this workspace with a workspace role |
 
-`GET /api/auth/session` should grow the resolved authority as **data**, so the UI can render the
-right controls without a second round trip:
+`GET /api/auth/session` should grow the resolved authority as **data**:
 
 ```json
 {
@@ -552,8 +543,7 @@ Admin
 ```
 
 **People table** — avatar + name, email, workspace role, status, last active, provider, joined. Sort
-by last active or name; filter by role and status; search name and email. A row opens a drawer, like
-every other person-shaped surface.
+by last active or name; filter by role and status; search name and email. A row opens a drawer.
 
 **Row menu** — Edit profile, Change role, Resend invitation (if pending), Deactivate/Activate,
 Revoke sessions, Delete, Erase. Destructive items come last, separated, and delete and erase require
@@ -575,11 +565,10 @@ administrator-only entry.
 
 **Profile** — identity (avatar, name, email read-only with "Change at your provider"), regional
 (timezone, language), sessions with device and last seen, connected accounts, sign out everywhere,
-danger zone. **No password section**, because there is no password to change.
+danger zone. **No password section**.
 
 Do not build a theme editor, leave management, personal labels, calendar feeds or agents from
-Windshift's profile — features of a different product. The four that matter are identity, regional
-settings, sessions and erasure.
+Windshift's profile.
 
 ---
 
@@ -623,8 +612,7 @@ attributable.
 ### P3 — only when a customer asks
 
 19. Groups, so a role can be granted once to many.
-20. A custom role label that routes approvals but **grants no permissions** — Windshift's deliberate
-    choice, and the only safe way to offer custom roles.
+20. A custom role label that routes approvals but **grants no permissions**.
 21. API tokens with scopes (needs an API worth calling).
 22. Passkeys or a second factor (needs a password or a non-OIDC fallback; not before).
 
@@ -661,9 +649,7 @@ attributable.
 | "Tester" as a role | Kanban Toolkit has no test module; a role with nothing to gate is noise | Three roles only |
 
 Copy the **separation** (instance vs workspace, user-owned profile vs administrator-owned access) and
-the **guardrails** (last admin, self-protection, inactive means sessions end, audit every change). Not
-the **breadth**, which exists because Windshift sells to enterprises with twenty roles and directory
-sync.
+the **guardrails** (last admin, self-protection, inactive means sessions end, audit every change).
 
 ---
 
@@ -676,8 +662,7 @@ sync.
    (bypass). For a self-hosted team tool that is defensible; for a hosted multi-tenant product it is
    not. The answer changes the middleware, not the schema.
 3. **Is a non-member a Viewer or denied?** "Viewer of public boards only" is friendlier; "denied" is
-   simpler. Recommendation: denied, with an explicit Viewer invitation, so access is always a decision
-   someone made.
+   simpler. Recommendation: denied, with an explicit Viewer invitation.
 4. **Editor and board design.** The matrix above keeps design with Administrator. If teams find that
    too strict, moving `board.design` to Editor is a one-line change to `can()`.
 5. **Invitations by email or by link?** Link-only is honest about not sending mail, but a copied link

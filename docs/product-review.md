@@ -1,16 +1,16 @@
 # Product review
 
-A reading of the product as it stands, and candidates for what could come next. Nothing here is a
-commitment. Where a candidate has since been built, its row says so.
+The product as it stands, and candidates for what could come next. Nothing here is a commitment.
+Where a candidate has since been built, its row says so.
 
 ## The product in one paragraph
 
 Kanban Toolkit is a team's board and the management reading of the same work. The board is the
 team's own: four fixed stages, cards flows it can reshape, WIP limits, a card's history and a
 deliberate refusal to invent numbers. The management layer — initiatives, rollups, health,
-objectives and key results — is derived from those same cards, so there is no second tracker and no
-reporting to maintain. It runs as a static, browser-only workspace or as a self-hosted instance with
-accounts, roles, audit, an API and an MCP door.
+objectives and key results — is derived from those same cards, so there is no second tracker. It
+runs as a static, browser-only workspace or as a self-hosted instance with accounts, roles, audit,
+an API and an MCP door.
 
 The strongest idea is the **two altitudes of one dataset**: a card moving in a team's flow changes
 the initiative, its section, its percentage and its health with no one entering a status. Features
@@ -19,10 +19,10 @@ that deepen that idea fit the product better than generic project-management fea
 ## What is strong
 
 - **One dataset, two readings.** Rollups, sections, health, progress and the strategy map are all
-  derived. A board redesigned on Tuesday still reports its own past on Wednesday.
+  derived. A redesigned board still reports its own past.
 - **The model is opinionated in useful ways.** Status is the column's stage; an initiative has no
   estimate or status field; a key result is a statement, not a number; mapping is attribution, not
-  WIP. These remove whole classes of disagreement.
+  WIP.
 - **The team's work and the management view share one vocabulary.** Team, program and portfolio
   boards, links that aggregate upward, and multi-flow boards make a real organisational shape
   possible without a second system.
@@ -89,7 +89,7 @@ The board itself is mature. The gaps are mostly at its **edges**:
 
 | ID | Idea | Why it is worth doing | Effort |
 | --- | --- | --- | --- |
-| **L1** | **Read-only share links, reconsidered.** A scoped, expiring, revocable link to a board or a portfolio reading, with no account. | This is the original promise — "one clear view for everyone else" — without adding every stakeholder as a member. Task 123 was cancelled; this is a narrower design decision, not a reversal by accident. | M–L |
+| **L1** | **Read-only share links, reconsidered.** A scoped, expiring, revocable link to a board or a portfolio reading, with no account. | This is the original promise — a clear view beyond the team, from the work to the OKRs — without adding every stakeholder as a member. Task 123 was cancelled; this is a narrower design decision, not a reversal by accident. | M–L |
 | **L2** | **An email digest and notifications.** A daily or weekly summary of assigned work, mentions, blocks, due dates and health changes, with per-person preferences. *Built* — in-app watching and an inbox, plus immediate/daily/weekly plain-text email. | Work leaves the board and nothing brings the person back. It reads the outbox C6 built, so it cannot disagree with the board. A chat or phone push is a receiver, not a second event layer. | L |
 | **L3** | **Import from Trello or Jira.** A guided mapping of boards, lists/statuses and cards. *Built.* | The biggest acquisition friction is a team's existing board. CSV (C5) is the first step; a named importer is the second. | L |
 | **L4** | **Attachments.** First links with a title, then object storage for a self-hosted instance. | Specification, screenshots and contracts live beside the card. It is also a backup and storage decision, not only a UI one. | L |

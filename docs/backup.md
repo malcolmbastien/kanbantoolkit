@@ -38,14 +38,11 @@ The screen says what was verified and what to do next.
 
 <img src="img/guide/backups-admin.webp" alt="Admin → Backups: restore from a file, a list of database copies with size and time, and the confirmation that a copy was taken" width="1000">
 
-*Admin → Backups: a verified copy, a list of the copies on the machine, and the stage-and-restart
-route for putting one back.*
-
 A Worker has no filesystem. Its Backups tab says the database provider owns backup and restore, and
 points at the provider's console.
 
 **A second copy, on a different machine or with a different provider, is not optional.** A backup on
-the machine that fails is not a backup. Any of these, nightly, after the copy:
+Any of these, nightly, after the copy:
 
 ```bash
 rclone sync ./backups remote:kanbantoolkit-backups
@@ -60,16 +57,14 @@ npm run backup -- restore ./backups/kanbantoolkit-2026-10-23T02-00-00-000.db ./k
 # restored … (3 boards, 128 items)
 ```
 
-It refuses to overwrite without `--force`: a restore runs on a day something has already gone wrong.
-After copying it checks `PRAGMA integrity_check` and the row counts, so the command says *what* it
-restored.
+It refuses to overwrite without `--force`. After copying it checks `PRAGMA integrity_check` and the
+row counts, so the command says *what* it restored.
 
 Then restart the server. The migrations run on boot (`server/migrate.ts`).
 
 A restore staged from **Admin → Backups** is applied by the Node entry on the next boot when
-`RESTORE_CONFIRM=yes` is set. The live database is first copied to `pre-restore-<stamp>.db` beside it,
-so the restore has its own undo. Without the variable the pending file stays where it is and the
-startup log says so.
+`RESTORE_CONFIRM=yes` is set. The live database is first copied to `pre-restore-<stamp>.db` beside it.
+Without the variable the pending file stays where it is and the startup log says so.
 
 ## Hosted: Cloudflare D1
 

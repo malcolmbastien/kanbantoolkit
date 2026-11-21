@@ -14,10 +14,8 @@ varies between deployments is where the process runs and where the database live
 
 The tiers are cumulative: one client build, one API codebase, and two entry files that are the only
 place code knows where it is running. **The container is the install this project expects a team to
-run**; the static and hosted tiers are how this project's own site and demo run, and how the same
-code can be deployed elsewhere. The static tier is the whole app — every board, every card, every
-rule — because the workspace lives in the browser, so a person with no Docker, no SMTP and no identity
-provider still has a working board. The server adds accounts, sharing and a second device, and takes
+run**; the static and hosted tiers are how this project's own site and demo run. The static tier is the whole app — every board, every card, every
+rule — because the workspace lives in the browser. The server adds accounts, sharing and a second device, and takes
 nothing away.
 
 ### What this project deploys, and what a team deploys
@@ -27,8 +25,7 @@ documentation are the project's own — [the index](README.md) says what is in t
 instance is the application. The site behind `kanbantoolkit.com` is the static tier plus the demo:
 `wrangler.jsonc` binds no database, so `/api/health` answers `503 {"database":"not configured"}`,
 every route that needs one refuses, and `/api/auth/providers` reports no doors at all, so the sign-in
-surface does not render. The demo keeps working because its workspace is in `localStorage`, as a
-static copy on any host does.
+surface does not render. The demo keeps working because its workspace is in `localStorage`.
 
 **Uncommenting the `d1_databases` block is what makes a Worker deployment an instance**: the
 self-hosted tier on someone else's account, a supported deployment with a CPU budget the Node entry
@@ -64,14 +61,13 @@ would be roughly sixty times weaker, so the product offers no knob for it.
 ## The contract: a `fetch` handler
 
 The API is a function from `Request` to `Response`. Hono exposes one as `app.fetch`; the repository
-already writes one by hand in `worker/index.ts`. Every runtime that matters speaks it, so the same
-routes run on both:
+already writes one by hand in `worker/index.ts`. Every runtime that matters speaks it:
 
 - **Cloudflare** — `export default { fetch: app.fetch }`.
 - **Node** — `serve(app.fetch)` from `@hono/node-server`.
 
 Framework choice is an implementation detail, and a reversible one: the contract is the decision, and
-Hono is how it is met today (see the note at the end).
+Hono is how it is met today.
 
 ## The boundary
 
@@ -96,7 +92,7 @@ which is what `POST /api/workspaces` is for.
 
 The `workspace_id` columns and the seal every route goes through stay: the session decides which
 workspace a request is about, never the client. One workspace makes them redundant today, but they
-are what a fork that wanted two would need. This application serves one team per deployment.
+are what a fork that wanted two would need.
 
 ## The database
 
@@ -156,8 +152,7 @@ Four things, each a named seam rather than a scatter of `if (isCloudflare)`:
 
    The bell is rung after the write that moved the feed, in `server/workspace/routes.ts`, through
    `Runtime.live.publish`, the one line that knows a channel exists. On Cloudflare that reaches
-   `WorkspaceChannel`, one Durable Object per workspace, holding hibernatable sockets so an idle
-   channel costs nothing. On Node it reaches an in-process map of listeners, which is the whole
+   `WorkspaceChannel`, one Durable Object per workspace, holding hibernatable sockets. On Node it reaches an in-process map of listeners, which is the whole
    channel for one process. With `LIVE=0` the Node entry has no channel at all, and CI runs the
    e2e suite against both that instance and the socketed one.
 
@@ -172,8 +167,7 @@ provider is the operator's own OIDC issuer, with no vendor table in the code, or
 ## The cost: a second CI lane
 
 Two runtimes drift apart silently. CI boots the Node entry and replays the API paths the e2e suite
-already uses, so "self-hostable" is a test rather than a claim. Without that lane the second entry
-rots and the README becomes false.
+already uses, so "self-hostable" is a test rather than a claim.
 
 ## Non-goals
 
@@ -188,7 +182,7 @@ rots and the README becomes false.
 Hono was chosen in October 2026 over h3 v2 (stable only days earlier, smaller ecosystem) and over no
 framework (which would mean hand-writing body parsing, auth middleware and rate limiting). Its
 middleware, its record and its `app.fetch` contract decided it. h3 v2 is the fallback if Hono's shape
-ever chafes; because the contract is web standards, either swap is a weekend.
+ever chafes; either swap is a weekend.
 
 ## Decisions
 

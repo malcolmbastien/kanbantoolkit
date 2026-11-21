@@ -1,10 +1,6 @@
 # Architecture
 
-One application, two runtimes, one database schema: what the pieces are, what may import what, and
-what happens to a request from the moment a browser sends it.
-
-The longer arguments are in [the two runtimes](server-runtime.md), [the data model](data-model-v2.md),
-[collaboration](collaboration.md) and [the API](api.md).
+One application, two runtimes, one database schema.
 
 ## The layers
 

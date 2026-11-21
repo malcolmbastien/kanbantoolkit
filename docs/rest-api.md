@@ -1,8 +1,7 @@
 # The REST API
 
-`/api/v1` is the surface a script may build on: the same board, the same rules and the same trail as
-the app. [The API](api.md) is the internal one the client calls; this page is the one with a promise
-attached.
+`/api/v1` is the surface a script may build on. [The API](api.md) is the internal one the client
+calls.
 
 ## What it promises
 
@@ -66,8 +65,7 @@ tightens every token its holder has, with nothing to revoke.
 | `workspace:admin` | settings, people, and restoring a workspace file (`POST /workspace`) |
 
 A route that needs a scope your token does not have answers `403 scope_required`, with the scope in
-`details.scope`. A route whose *action* your role does not allow answers `403 role_forbidden`: the
-first is the token you chose, the second is the person you are.
+`details.scope`. A route whose *action* your role does not allow answers `403 role_forbidden`.
 
 ## The resources
 
@@ -98,9 +96,9 @@ first is the token you chose, the second is the person you are.
 
 `assignee=me` turns "my work" into one call: `GET /me` gives the person id the token acts as, and
 the filter takes either that id or the word `me`. `stage` accepts one or more of `backlog`,
-`notStarted`, `inProgress` and `done`, comma-separated; a cell inherits its column's stage, so the
-filter is the board's own reading rather than a word in a title. `dueBefore` takes `YYYY-MM-DD` and
-leaves out items with no due date, because a card with no promise is not late.
+`notStarted`, `inProgress` and `done`, comma-separated; a cell inherits its column's stage.
+`dueBefore` takes `YYYY-MM-DD` and
+leaves out items with no due date.
 
 **Attention** is a reading, not a stored flag: `GET /attention` answers the same signals the dashboard
 shows — Blocked, Waiting on, Overdue, Due soon, Late start, Stale and Unowned — derived from the card,
@@ -130,14 +128,14 @@ the same link, not a second one.
 A note is an item-log entry of kind `noted`. It may carry `mentions`, a list of user ids beside the
 note text; a mention is part of the note, not a thread, and the typed `@Name` stays in `note`.
 
-The board design is written through `PUT /api/workspace/structure`, which belongs to the app and
-changes with it, so it is not part of v1. A board's shape is read here through
+The board design is written through `PUT /api/workspace/structure`, which belongs to the app, so it
+is not part of v1. A board's shape is read here through
 `GET /boards/{boardId}`. The workspace's words are here too: `GET` and `PUT /vocabulary` use the same
 document, revision and per-list rules as the app.
 
 A board's lane trees are **flows**: one **initiatives** flow and one or more **cards** flows.
-`GET /boards/{boardId}` returns both views. `workflows.cards` is the board's **first** cards flow, the
-shape v1 always had, and `workflows.initiatives` is the initiatives flow. `flows` lists every flow with
+`GET /boards/{boardId}` returns both views. `workflows.cards` is the board's **first** cards flow, and
+`workflows.initiatives` is the initiatives flow. `flows` lists every flow with
 its `id`, `name`, `kind`, `order` and `lanes`. An item is a card or an initiative; its `typeId` is what
 makes it one, not a different resource.
 
@@ -150,8 +148,8 @@ rather than silently dropped.
 
 `externalLabel` and `externalUrl` are the card's reference elsewhere — a ticket, a design, a page.
 The URL must be `http` or `https`; anything else is refused, and an empty URL clears the label with
-it. The app never fetches the address, so a link is a way for a reader to leave the board, not an
-integration. `add_note` through MCP writes a note without taking a revision; the history names the
+it. The app never fetches the address. `add_note` through MCP writes a note without taking a
+revision; the history names the
 token it came through.
 
 An initiative is placed in the initiatives flow, and a card in a cards cell, in any of the board's cards
@@ -174,8 +172,8 @@ is arrangement and is still allowed. Read the card before writing; the refusal i
 sentence from a stale revision's `409`.
 
 **Revisions.** A `PATCH` carries `baseRev`: the revision you read. If the item has moved past it the
-answer is `409 stale`, and `details.item` is the current item. A move does not need one (it is
-arrangement, not content), but it may carry one and be refused the same way.
+answer is `409 stale`, and `details.item` is the current item. A move does not need one, but it may
+carry one and be refused the same way.
 
 **Idempotency.** `Idempotency-Key: <your key>` on `POST /items` and `PATCH /items/{id}` makes a retry
 safe: the key names the change, and a replay answers with what the change wrote instead of writing it
@@ -221,7 +219,7 @@ else: a token belongs to one account, and its scopes are that account's to give.
 ## A worked script
 
 Move every card on one board into the board's first Not Started cell, one at a time, and print what
-happened to each. This shell version works in a CI job:
+happened to each.
 
 ```bash
 TOKEN=$(npm run --silent kanbantoolkit -- token)
@@ -284,8 +282,6 @@ same words. See [the MCP server](mcp.md).
 
 ## What is not here
 
-- **A query language.** Search is the app's search; a filter expression language would be a second API
-  with none of this one's rules.
+- **A query language.** Search is the app's search.
 - **Unscoped tokens.** A token with no scopes reaches nothing; there is no "all" spelling.
-- **An unauthenticated mode.** The document is public; everything else needs a credential, because the
-  trail has to be able to say who acted.
+- **An unauthenticated mode.** The document is public; everything else needs a credential.

@@ -1,13 +1,14 @@
 # Kanban Toolkit documentation
 
-Kanban Toolkit is a Kanban board for a team's work, and a view of that work for the people who manage it.
-It is meant to run on a machine you own as a **Docker image**: one published image, one SQLite file on a
-volume, and no service in between. These documents live with the code, so they describe the version
-you are running.
+Kanban Toolkit is a Kanban board for the team doing the work, for program and project managers
+connecting outcomes across teams, and for directors and leaders reading how the department rolls up
+to its OKRs. It runs on a machine you own as a **Docker image**: one published image, one SQLite
+file on a volume, no service in between. These documents live with the code, so they describe the
+version you are running.
 
 ## What is in this repository
 
-Three things, and they are not the same thing:
+Three things, not the same:
 
 | | What it is | Where it runs |
 | --- | --- | --- |
@@ -15,8 +16,8 @@ Three things, and they are not the same thing:
 | **The website** | `site/`, built by `scripts/build-site.ts` — the project's own front door | this project's origin, and nowhere else |
 | **The documentation** | `docs/` — the files you are reading | GitHub, in this repository |
 
-**An instance is the application.** A team that runs the published image gets the board, its API and
-its database — with their own address, their own accounts, their own data. It does not get this
+**An instance is the application.** The published image gives a team the board, its API and
+database — their own address, accounts and data. It does not get this
 project's website: the marketing pages, the privacy notice about *this* deployment, and the project's
 `security.txt` all belong to the project's own origin, not to somebody's instance.
 
@@ -49,8 +50,8 @@ Follow these in order.
 | 4. **[Upgrade](upgrade.md)** | what a release does to your database, and how to go back |
 | 5. **[Backup and restore](backup.md)** | the copy, the schedule, and the drill that proves it |
 
-Without Docker — from source, or with a systemd unit — [install.md](install.md) has the development
-path. The container is the install this project expects a team to run.
+Without Docker — from source or a systemd unit — [install.md](install.md) has the development path;
+the container is the install this project expects.
 
 ## If you are reading the code
 
@@ -80,7 +81,7 @@ path. The container is the install this project expects a team to run.
 
 ## How this documentation is kept honest
 
-- **One home.** Every page exists once, here. The site links to these files rather than copying them.
+- **One home.** Every page exists once here; the site links to these files rather than copying them.
 - **The wiki is a guide, not a second home.** `npm run docs:wiki` publishes the reader's pages — using
   the application, install, configure, identity, TLS, upgrade, backup and the container — to the
   [GitHub Wiki](https://github.com/malcolmbastien/kanbantoolkit/wiki) with a sidebar and a search box.

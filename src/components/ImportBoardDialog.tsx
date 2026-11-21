@@ -200,7 +200,7 @@ export function ImportBoardDialog({ onClose }: { onClose: () => void }) {
               Import a board
             </h2>
             <p className="mt-0.5 text-meta text-slate-600">
-              Bring a Trello board export, a Jira CSV or a plain CSV in as one board. Nothing is written until you choose Import.
+              Bring a Trello board export, a Jira CSV or a plain CSV in as one board.
             </p>
           </div>
           <button onClick={onClose} aria-label="Close import" title="Close" className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100">

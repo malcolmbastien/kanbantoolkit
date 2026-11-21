@@ -1,10 +1,10 @@
 # The API
 
 One `fetch` handler: Hono exposes it as `app.fetch`; the Worker exports it and the Node entry serves
-it. No GraphQL, no SDK — a JSON request and a JSON answer.
+it. A JSON request and a JSON answer.
 
-This is the **internal** API: what the shipped client calls, changing with it in the same commit and
-promising nobody else anything. The surface a script may build on is [`/api/v1`](rest-api.md).
+This is the **internal** API, promising nobody else anything. The surface a script may build on
+is [`/api/v1`](rest-api.md).
 
 Everything is under `/api`. The client is a static build, so every route here is same-origin and none
 answers a request from another origin.
@@ -35,9 +35,9 @@ Authorization: Bearer ktk_…
 A token is minted once, shown once, stored as SHA-256, scoped, expiring and revocable. It is a
 credential for a *person*: whatever it does, the audit names its owner.
 
-**Two ceilings, both checked on every request:** the token's **scopes** — what the tool was allowed
-to ask for — and the owner's **role**, read from `workspace_members` at that moment. A demotion
-tightens every token its owner holds, with nothing to revoke. A token can only narrow a role, never
+**Two ceilings, both checked on every request:** the token's **scopes** and the owner's **role**,
+read from `workspace_members` at that moment. A demotion tightens every token its owner holds,
+with nothing to revoke. A token can only narrow a role, never
 widen it.
 
 | Scope | Reaches |
@@ -72,7 +72,7 @@ stay, marked: an audit asks afterwards which credential was used.
 
 ### A tool connects itself
 
-A tool can also connect itself, through a device flow:
+A tool can connect itself through a device flow:
 
 | Route | Authority | What it does |
 | --- | --- | --- |
@@ -95,7 +95,7 @@ passes through a clipboard, a shell history or a chat message.
 
 ### One credential, one owner
 
-A token belongs to a person, and an account's deletion takes its tokens with it. An administrator can
+A token belongs to a person; an account's deletion takes its tokens. An administrator can
 list and revoke somebody's, and never sees a value: the row holds a hash. Minting *for* somebody else
 is checked against **their** role, not the administrator's.
 
@@ -153,8 +153,8 @@ A provider that is not configured does not appear in `/providers` and its start 
 
 ### Writing the workspace's words
 
-Types, board templates, periods, objectives and key results are whole-list edits with no position of
-their own, so they travel as one document, beside the design and not inside it.
+Types, board templates, periods, objectives and key results travel as one document, beside the design
+and not inside it.
 
 ```http
 PUT /api/workspace/vocabulary
@@ -168,12 +168,11 @@ A period is a record — `{ "id", "name", "start"?, "end"? }` — and an objecti
 (`periodId`). An objective is `{ "id", "title", "description"?, "periodId", "status", "order"? }`,
 where `status` is `draft`, `active`, `archived` or `cancelled` and `order` is the reading order
 inside its period; `reviewed` and the older `scored` read as `archived`. It has no target date and
-no score: the period's window is when it is due, and its completeness comes from the work below it.
+no score.
 
 The document is the whole truth about those lists: a row the sender did not send is deleted, so a
 malformed list is refused rather than filtered. The answer is the next revision. A stale one is
-refused with the revision that is there, and the client re-reads rather than sending its version
-over somebody else's.
+refused with the revision that is there.
 
 | Answer | Means |
 | --- | --- |
@@ -213,8 +212,7 @@ Content-Type: application/json
 | `423 {"holder": …}` | somebody else's lease is on this card |
 | `404` | no such item here — including an item that exists in another workspace |
 
-Creation is the same route: an item the server has never seen is created whatever `baseRev` says, so
-a workspace that lived only in a browser can arrive one card at a time.
+Creation is the same route: an item the server has never seen is created whatever `baseRev` says.
 
 `log` is append-only. The client may send the entries it knows rather than the whole history, and the
 server inserts only ids it does not already hold. An entry the server has is never rewritten. A
@@ -223,7 +221,7 @@ Viewer may append only notes, and a `moved` entry is a change to the work rather
 ### Reading history
 
 The workspace document carries cards, not what happened to them: opening a board does not load every
-move and note ever written. Three reads answer the views that need history.
+move and note ever written.
 
 One card's history, newest first:
 
@@ -252,8 +250,7 @@ GET /api/workspace/movements?boardId=b-atlas&since=1751328000000
 ```
 
 Only `moved` entries, and only the stages they landed in: flow metrics rebuild each card's stages
-from stages, never lane names, so a renamed column does not rewrite the past. `since` is an
-instant in milliseconds. The cap is 50,000 moves; when it bites the *oldest* go and `truncated` says
+from stages, never lane names. `since` is an instant in milliseconds. The cap is 50,000 moves; when it bites the *oldest* go and `truncated` says
 so.
 
 The notes search and mentions read:
@@ -269,7 +266,7 @@ GET /api/workspace/notes?mention=me
 ```
 
 `q` is a case-insensitive substring of the note's words; `mention=me` is the caller's own notes and
-nobody else's, so it takes no user id. Newest first, `100` by default and `200` at most.
+nobody else's. Newest first, `100` by default and `200` at most.
 
 A move appends its entry without changing the card's revision:
 
@@ -308,7 +305,7 @@ messages are nudges and nothing else:
 ```
 
 Read `/api/workspace/changes` when one arrives. A deployment with no socket server answers `426` (or
-the route is absent) and the client polls on the same interval it always did.
+the route is absent) and the client polls.
 
 ## Account and people
 
@@ -324,8 +321,7 @@ the route is absent) and the client polls on the same interval it always did.
 
 ## Administering the deployment
 
-`/api/admin/*` is for instance administrators, `/api/admin/workspace/*` for workspace administrators:
-the deployment on one axis, the team on the other.
+`/api/admin/*` is for instance administrators, `/api/admin/workspace/*` for workspace administrators.
 
 | Route | What it does |
 | --- | --- |
@@ -372,14 +368,14 @@ the deployment on one axis, the team on the other.
 | `GET /api/invite/:token` | the invitation: the address (masked), the role, the expiry — `410` for used, expired or revoked |
 | `POST /api/invite/:token` | accept it, signed in as the address it was written for |
 
-A token is accepted before the instance's access check — that is what it is for — but only for the
-address it names. A forwarded link still needs a sign-in as that person.
+A token is accepted before the instance's access check, but only for the address it names. A
+forwarded link still needs a sign-in as that person.
 
 ## Creating a workspace
 
 `POST /api/workspaces` answers `409` with a sentence: a deployment is one workspace, created with the
-installation (see [install.md](install.md)). The route exists so that a stale tab or a script written
-against an older API is told why, rather than given a `404`.
+installation (see [install.md](install.md)). A stale tab or an older script is told why, rather than
+given a `404`.
 
 ## Health and reports
 

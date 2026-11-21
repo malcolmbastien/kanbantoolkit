@@ -327,7 +327,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
               </div>
               <div data-flow-history className="mt-1 flex flex-wrap items-center gap-x-1.5 text-micro text-slate-500">
                 {firstMove === undefined ? (
-                  'No moves recorded yet. The history starts with the first move.'
+                  'No moves recorded yet.'
                 ) : (
                   <>
                     <span>Moves recorded since {shortDate(firstMove)}</span>

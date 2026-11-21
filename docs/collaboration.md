@@ -6,14 +6,13 @@
 **Status:** partly built. The lease, its heartbeat and the revision check are in the code
 (`server/workspace/locks.ts`, `src/lib/lease.ts`, and the `/items/:id/lock` routes), and an instance uses
 them. This page is still the design record for the rest, including the takeover notices and field-level
-presence in Stage 3. The groundwork list at the end predates the lease; the code is the authority on
-what it covers.
+presence in Stage 3.
 
 ## The requirement
 
 Two people must not edit the same card's content at once. One holds it; the other sees who, and can
 still read the card and move it around the board. The pen is taken when the **drawer opens**, not at
-the first keystroke: a card somebody has open is a card they are working on.
+the first keystroke.
 
 ## What counts as editing
 
@@ -29,9 +28,7 @@ person has the card open, and name them. A move is arrangement and stays allowed
 append — an agent reporting back is never blocked by somebody reading.
 
 A `Placement` is its own record, written to the item's log by `moveCard`/`moveCardToIndex`, and
-reversible. If an open drawer froze a card's position, one person reading a card during a planning
-session would stop the whole board being arranged, and the drawer is the app's *reading* surface,
-opened by a single click. Board moves stay last-write-wins, and a card someone else is editing can
+reversible. Board moves stay last-write-wins, and a card someone else is editing can
 still be dragged.
 
 ## The lease
@@ -123,8 +120,7 @@ presence {
 ```
 
 The drawer reads `locks[itemId]`: absent or mine → editable; someone else → read-only with a banner
-naming them. Opening the card asks for the pen, and a refusal carries the holder's name, so the
-drawer is read-only from its first frame rather than from the next poll. A reader's drawer still
+naming them. Opening the card asks for the pen, and a refusal carries the holder's name. A reader's drawer still
 updates live as the holder types.
 
 ## The UI contract

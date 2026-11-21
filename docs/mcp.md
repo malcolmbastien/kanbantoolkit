@@ -27,11 +27,11 @@ Both serve the same tool list and enforce the same rules. A revoked token stops 
 request under either transport.
 
 **Docker installs use Streamable HTTP.** The container runs the server only. The stdio bridge is not
-in the image, so it needs a checkout.
+in the image.
 
 ## Get a token
 
-A token is a secret that identifies you to the instance. Create one in one of two ways.
+A token is a secret that identifies you to the instance.
 
 **From the app.** Sign in, open **Developer → Connect an agent** in your account menu, choose a name, and choose whether the
 agent may write. The app shows the configuration with the secret in it, once.
@@ -125,8 +125,7 @@ Then point the agent at the checkout:
   then carry a secret.
 - If `KANBANTOOLKIT_URL` is unset, the bridge uses `http://localhost:8787`.
 
-The bridge is a relay: it forwards each message to your instance, so the tools, the rules and the
-history are the instance's own.
+The bridge is a relay: it forwards each message to your instance.
 
 ## Your first session
 
@@ -134,19 +133,18 @@ A reasonable order for an agent:
 
 1. `whoami`: whose token this is. "My work", "my review" and "mine" all need the person's id.
 2. `list_boards`: which boards exist, and whether each one is archived or read-only.
-3. `workspace_summary`: counts and the columns of your team board, without paging through every card.
+3. `workspace_summary`: counts and the columns of your team board.
 4. `get_board`: one board, its columns and cells, and the items on it. The `laneId` values you need to
    move a card come from here. `get_vocabulary` has the issue types a new item can wear.
 5. `list_items` or `search_items`: find the work. `list_items` filters by board, lane, type, person,
    block, due date, stage and the time it last changed; `search_items` finds a title by its words.
-6. `get_item`: one item, with its `rev`. A write has to say which revision it was based on.
+6. `get_item`: one item, with its `rev`.
 7. `update_item`, `block_item` or `move_item`: make the change, passing the `rev` from step 6 as
    `baseRev`. A move and a note take no revision — an append cannot be stale.
-8. `add_note`: say what you did or what you need. It is the one write that changes nothing but the
-   card's history, and it is how an agent reports back.
+8. `add_note`: say what you did or what you need.
 
 For "what changed since yesterday", call `list_activity` with `since` — it is the same event record the
-webhooks read, so a report does not have to open every card's history.
+webhooks read.
 
 ## Questions this answers
 
@@ -206,8 +204,7 @@ relationship writes answer `423 locked` and name the holder, while a move and a 
 Read the card first; the lock is a different answer from a stale revision. A list answer includes a
 `nextCursor` when there is another page. Pass it back to continue.
 
-**There is no tool that generates work.** No tool fills a board with plausible cards, rewrites it from a
-summary, or invents history. The app records what people wrote. `create_item` records what the agent was
+**There is no tool that generates work.** The app records what people wrote. `create_item` records what the agent was
 asked to file, and the words are the agent's to choose, within that request.
 
 There is no bulk write, no `force` argument, no SQL or filter expression, and no unauthenticated mode.
@@ -216,8 +213,7 @@ A batch of twenty cards is twenty calls, and each is accepted or refused on its 
 ## Give the agent the skill
 
 [`skills/kanbantoolkit/SKILL.md`](../skills/kanbantoolkit/SKILL.md) is the same knowledge as this page, written for a model to load: the
-shape of the work, the rules that will refuse it, the order to read in, and the refusal codes. Point
-a skill-aware agent at that file and it does not have to be taught the board twice.
+shape of the work, the rules that will refuse it, the order to read in, and the refusal codes.
 
 ## When a tool refuses
 
@@ -266,8 +262,8 @@ A token that cannot write has no write tools: its `tools/list` does not include 
 
 ## The rule
 
-An agent writes what a person asked for, and may choose the words of a card it was asked to file. It
-may not invent work.
+An agent writes what a person asked for, chooses the words of a card it was asked to file, and may
+not invent work.
 
 ## Out of scope, on purpose
 

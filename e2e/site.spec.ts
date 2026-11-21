@@ -17,7 +17,7 @@ test('the front page is the site, and it is readable with no JavaScript at all',
   const page = await context.newPage()
   try {
     await page.goto('/')
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('The open-source Kanban board for teams')
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('The open-source Kanban board from team work to OKRs')
     await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible()
     await expect(page.getByRole('contentinfo')).toBeVisible()
     await expect(page.getByRole('link', { name: 'Open the demo (no account needed)' }).first()).toBeVisible()
@@ -175,7 +175,7 @@ test('the home page holds at 320 pixels wide', async ({ page }) => {
   )
   expect(overflow).toBeLessThanOrEqual(0)
   // And it is still the page: the heading and the demo action.
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('The open-source Kanban board for teams')
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('The open-source Kanban board from team work to OKRs')
   await expect(page.getByRole('link', { name: 'Open the demo (no account needed)' }).first()).toBeVisible()
 })
 

@@ -523,7 +523,7 @@ function SavedSection({
     <section>
       <SectionLabel>Saved filters</SectionLabel>
       {saved.length === 0 ? (
-        <p className="text-micro text-slate-600">Nothing saved yet. Name a set of filters to keep it here.</p>
+        <p className="text-micro text-slate-600">Nothing saved yet.</p>
       ) : (
         <div className="space-y-1">
           {saved.map((s) => (

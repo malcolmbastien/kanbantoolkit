@@ -45,7 +45,7 @@ kanbantoolkit.example {
 }
 ```
 
-Caddy passes `Upgrade` and `Connection` through by default, so the socket needs no extra directive. If
+Caddy passes `Upgrade` and `Connection` through by default; the socket needs no extra directive. If
 you put Kanban Toolkit behind another proxy in the same chain, keep HTTP/1.1 to this one.
 
 ## nginx
@@ -80,16 +80,16 @@ server {
 
 ## The parts that bite
 
-**`PUBLIC_URL` must be the https address.** It builds the redirect URI and tells the server the browser
-is on https, which makes the session cookie `Secure`. Unset, the cookie is issued for whatever the
-request's origin was — usually `http` behind a proxy.
+**`PUBLIC_URL` must be the https address.** It builds the redirect URI and makes the session cookie
+`Secure`. Unset, the cookie is issued for whatever the request's origin was — usually `http` behind a
+proxy.
 
 **The callback address must match exactly.** Register `https://kanbantoolkit.example/api/auth/callback`
-as written, with no trailing slash and no port; the provider compares it character for character.
+as written, no trailing slash or port; the provider compares it character for character.
 
-**`noindex` is for the app, not the site.** `public/_headers` applies it only to `/app/*`, because the
-project's site is meant to be indexed. The snippets above apply it to the whole origin, which is right
-if you run only the app. Serving both from one origin, narrow it:
+**`noindex` is for the app, not the site.** `public/_headers` applies it only to `/app/*`. The snippets
+above apply it to the whole origin, which is right if you run only the app. Serving both from one
+origin, narrow it:
 
 ```caddy
 @app path /app /app/*
@@ -110,8 +110,8 @@ curl -s  https://kanbantoolkit.example/api/health
 # {"ok":true,"database":"ok"}
 ```
 
-In a browser: sign in, then look at the session cookie. It should be `HttpOnly`, `SameSite=Lax`, and
-`Secure`. A cookie without `Secure` on an https page means `PUBLIC_URL` is not set.
+In a browser, sign in and check the session cookie: `HttpOnly`, `SameSite=Lax`, `Secure`. Without
+`Secure` on an https page, `PUBLIC_URL` is not set.
 
 ---
 

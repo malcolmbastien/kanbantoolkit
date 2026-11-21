@@ -1,8 +1,7 @@
 # Board types
 
-Every board has a **type** — **Team**, **Program** or **Portfolio**. The type decides what the board
-renders, what work can be entered on it, and where its initiatives roll up. Choose it when the board
-is made; it is fixed from then on, and the board settings name it without offering to change it.
+Every board has a **type** — **Team**, **Program** or **Portfolio**. Choose it when the board is
+made; it is fixed from then on, and the board settings name it without offering to change it.
 
 | | Team | Program | Portfolio |
 | --- | --- | --- | --- |
@@ -12,29 +11,17 @@ is made; it is fixed from then on, and the board settings name it without offeri
 | **Flow metrics** | Yes | Not offered | Not offered |
 | **Used for** | Doing the work | Coordinating teams and rolling work up | Deciding and communicating what the work is for |
 
-The three levels link upward. A program can aggregate team boards, or other program boards; a
+A program can aggregate team boards, or other program boards; a
 portfolio can link programs. The aggregation graph may be any depth and mix the levels, so long as
 it stays **acyclic** — a board cannot end up beneath itself.
 
 ## Team boards
 
 The working board. It carries the team's own **cards flows** — one or more sets of the four typed
-columns — and the **initiatives flow** the cards roll up into. Cards are made here, moved here, and
-limited here; the board's WIP policy, card types, tags and flow metrics all belong
-to this level.
+columns — and the **initiatives flow** the cards roll up into.
 
 An initiative on the same board is the outcome the work belongs to, and its progress is computed from
 the cards below it.
-
-**Use it for**
-
-- A product squad delivering features, with work moving Backlog → Not Started → In Progress → Done.
-- A support team whose incoming requests are a second cards flow beside its delivery work, so the
-  queue has its own columns and WIP limit without mixing with planned work.
-- A platform team whose cards roll up into an initiative that a program reads, without anyone
-  keeping a second tracker for the program.
-
-**Not for:** portfolio reporting, or a list of other teams' work. Put a program above it instead.
 
 ## Program boards
 
@@ -44,21 +31,11 @@ band shows the initiatives from the teams or programs beneath it. It carries no 
 belongs to the team that does it.
 
 A program answers what a single team cannot: which initiatives are moving, which are blocked or
-waiting, which teams depend on each other. Its dashboard and timeline read the same initiatives.
+waiting, which teams depend on each other.
 
 Each linked band is **read-only**: it is a rollup of that board's initiatives, and the band says so
 at its header. To move an initiative or change its details, use **Open board**. The work stays on the
 board that owns it.
-
-**Use it for**
-
-- A value stream over three squads: one band per squad, read for progress, risk and dependencies.
-- A program bridging two delivery teams that ship together, where each team keeps its own board
-  and the program shows what the combined delivery is doing.
-- A line of business that aggregates several programs, each of which aggregates its own teams.
-
-**Not for:** a second set of tickets, or day-to-day task management. If a card needs to move, it
-belongs on a team board beneath the program.
 
 ## Portfolio boards
 
@@ -75,16 +52,6 @@ covered rather than which squad is busiest.
 
 *A portfolio board: the risk reading at the top, then each objective with the initiatives mapped to
 it in the board's own four-stage flow.*
-
-**Use it for**
-
-- An annual or quarterly strategy with a small set of objectives, each carrying the initiatives
-  that serve it, reviewed for coverage and dropped work.
-- An investment review: what is being funded, what it is for, and where a stated objective has no
-  initiative behind it.
-- A leadership board that connects outcomes to delivery without turning into a delivery board.
-
-**Not for:** tracking cards or team flow. Use the program and team boards beneath it for that.
 
 **Its settings.** A portfolio board's settings are its title, its description and the boards it
 reads. It has none of the work-shaped settings a team board has — no card types, no initiative kinds,
@@ -175,9 +142,6 @@ and the portfolio links it to the objective; the portfolio holds no initiatives 
 **Product Delivery** links the team boards **Team Atlas** and **Team Nova**. Atlas and Nova each work
 their own cards; their initiatives appear as bands on Product Delivery; the initiatives that serve an
 objective appear on the portfolio's strategy map, whether they live on a program or a team board.
-
-The same card is read three ways without being copied: the team moves it, the program rolls it up,
-and the portfolio asks which objective it serves.
 
 ## Related
 

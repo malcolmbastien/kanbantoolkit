@@ -4,7 +4,7 @@
   <g font-family="Charter, Georgia, serif" fill="#1f2937">
     <text x="80" y="250" font-size="64" font-weight="bold">Work is a graph.</text>
     <text x="80" y="330" font-size="64" font-weight="bold">Boards are views over it.</text>
-    <text x="80" y="400" font-size="28" fill="#55657a">A board for teams: initiatives roll up from the work below.</text>
+    <text x="80" y="400" font-size="28" fill="#55657a">From team work to OKRs: initiatives roll up from the work below.</text>
     <text x="80" y="560" font-size="26" fill="#3b4a8c">Kanban Toolkit</text>
   </g>
 </svg>

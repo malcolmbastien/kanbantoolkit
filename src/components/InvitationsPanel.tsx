@@ -179,7 +179,7 @@ export function InvitationsPanel() {
       await navigator.clipboard.writeText(issued)
       setCopied(true)
     } catch {
-      setError('The clipboard is not available — select the link and copy it.')
+      setError('The clipboard is not available. Select the link and copy it.')
     }
   }
 

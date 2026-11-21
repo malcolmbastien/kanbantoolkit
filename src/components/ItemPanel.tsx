@@ -1100,7 +1100,7 @@ export function ItemPanel({ itemId }: Props) {
     <section
       data-initiative-flow
       aria-label="Flow"
-      title="An initiative’s section and progress come from the work below it, so it has no cycle of its own."
+      title="An initiative’s section and progress come from the work below it."
       className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200"
     >
       <div className="flex items-center justify-between gap-2">
@@ -1419,7 +1419,7 @@ export function ItemPanel({ itemId }: Props) {
             {typeIsFixed && (
               <p className="text-micro text-slate-600">
                 {isInitiative
-                  ? 'An initiative’s type is fixed — the initiatives workflow reads it.'
+                  ? 'An initiative’s type is fixed.'
                   : 'A sub-task is a checklist line, not an item, so it has no type to change.'}
               </p>
             )}
@@ -1539,7 +1539,7 @@ export function ItemPanel({ itemId }: Props) {
             {refusal.reason === 'held'
               ? `${refusal.holderName ?? 'Someone else'} has this card open, so this change was not saved.`
               : refusal.reason === 'changed'
-                ? 'The card changed while you were editing, so this was not saved. Your words are still here.'
+                ? 'The card changed while you were editing. This change was not saved; your words are still here.'
                 : 'This change could not be saved.'}
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -1906,7 +1906,7 @@ export function ItemPanel({ itemId }: Props) {
                 <Field
                   label="Tags"
                   className="col-span-2"
-                  hint={boardTagList.length === 0 ? 'No tags on this board yet. Type one to make it.' : undefined}
+                  hint={boardTagList.length === 0 ? 'No tags on this board yet.' : undefined}
                 >
                   {/* The shape People wears: one well, its chips inside, and the way to add one
                       on the last line. Type to find a tag the board defines — or to make a new
@@ -2007,7 +2007,7 @@ export function ItemPanel({ itemId }: Props) {
                 <Field
                   label="External link"
                   className="col-span-2"
-                  hint="Where the work lives elsewhere — a ticket, a design, a page. Only http and https."
+                  hint="Where the work lives elsewhere: a ticket, design or page. Use http or https."
                 >
                   <div className="flex flex-wrap items-center gap-1.5">
                     <div className={cn(WELL, 'flex-1')}>
@@ -2239,7 +2239,7 @@ export function ItemPanel({ itemId }: Props) {
                       </button>
                     )}
                   </div>
-                  <p className="text-micro text-slate-600">Only an initiative can be a parent. Everything under it rolls up to it.</p>
+                  <p className="text-micro text-slate-600">Only an initiative can be a parent.</p>
                 </div>
               ) : parent ? (
                 <button
@@ -2591,7 +2591,7 @@ export function ItemPanel({ itemId }: Props) {
                 noMatchLabel="No item matches."
                 triggerClassName="w-full"
               />
-              <p className="text-micro text-slate-600">A link is a dependency and nothing more. It does not block the card on its own.</p>
+              <p className="text-micro text-slate-600">A link records a dependency; it does not block the card.</p>
             </Section>
 
             {/* Placements — the boards this item is on, and the cell in each. */}
@@ -2636,7 +2636,7 @@ export function ItemPanel({ itemId }: Props) {
                   Loading comments…
                 </p>
               ) : (
-                <p className="text-meta text-slate-600">No comments yet. Write the first one below.</p>
+                <p className="text-meta text-slate-600">No comments yet.</p>
               )
             ) : (
               <div className="space-y-2">

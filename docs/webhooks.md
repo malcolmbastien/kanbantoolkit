@@ -5,7 +5,7 @@ into Slack, start a CI job, or keep a second system in step without polling the 
 database.
 
 A workspace administrator adds an endpoint under **Admin → Webhooks**. The endpoint is a URL, a set
-of events and a signing secret. The secret is shown once, when the endpoint is made.
+of events and a signing secret. The secret is shown once.
 
 <img src="img/guide/webhooks-admin.webp" alt="Admin → Webhooks: endpoint URL, event checkboxes, the endpoint list with pause, test and delete, and recent deliveries" width="1000">
 
@@ -27,8 +27,7 @@ of events and a signing secret. The secret is shown once, when the endpoint is m
 | `webhook.test` | The administrator's test delivery. |
 
 An endpoint with **no events selected** receives all of them. `initiative.health_changed` is a
-convenience: health is derived, so a receiver can also compute it from the item events and the
-workspace it already reads.
+convenience: health is derived.
 
 ## The envelope
 
@@ -65,8 +64,7 @@ Headers:
 | `X-Kanban-Timestamp` | Milliseconds since the epoch. |
 | `X-Kanban-Signature` | `v1=` followed by the HMAC-SHA256 of `` `${timestamp}.${rawBody}` `` with the endpoint secret. |
 
-Verify against the **raw body**, not a parsed object: re-serialising JSON changes the bytes and the
-signature will not match. In Node:
+Verify against the **raw body**, not a parsed object. In Node:
 
 ```js
 import { createHmac, timingSafeEqual } from 'node:crypto'
@@ -112,6 +110,5 @@ people to read it writes that part.
 The product's own readers are the **inbox** and the **email digest**, and both read the same
 `outbound_events` rather than keeping a second history. The inbox is a per-watch cursor
 (`item_watch.since_seq`) over the events on the cards a person watches; the digest is a per-person
-cursor over the same outbox, computed when it sends. So a row in the bell and a delivery to a
-receiver cannot disagree about what happened. A chat integration is a receiver, not another event
+cursor over the same outbox, computed when it sends. So a row in the bell and a delivery to a receiver cannot disagree about what happened. A chat integration is a receiver, not another event
 layer.

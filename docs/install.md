@@ -1,9 +1,8 @@
 # Install
 
-Kanban Toolkit is meant to run as the **published Docker image**, so the install is one
-container, one SQLite file on a volume, and one secret; there is nothing to clone and nothing to
-compile. [configure.md](configure.md) is what to set once it runs, and [tls.md](tls.md) is what to put
-in front of it.
+Kanban Toolkit runs as the **published Docker image**: one container, one SQLite file on a volume,
+and one secret. [configure.md](configure.md) covers what to set once it runs;
+[tls.md](tls.md) covers what to put in front of it.
 
 ## Run the published image
 
@@ -17,7 +16,7 @@ docker run -d --name kanbantoolkit --restart unless-stopped \
 ```
 
 The container creates the database on the named volume, applies the migrations and answers on
-<http://localhost:8787/app>. The port is bound to `127.0.0.1`: a reverse proxy is the way in
+<http://localhost:8787/app>. The port is bound to `127.0.0.1`; use a reverse proxy
 ([tls.md](tls.md)).
 
 `ERROR_SALT` is the only value the image will not guess: it is mixed into the hash of an address
@@ -26,11 +25,11 @@ Keep the value you generate; it is what lets one hour's rate-limit counts match 
 
 The image is `ghcr.io/malcolmbastien/kanbantoolkit`, built by CI on every green `main` and tagged by
 commit, by version and `latest`. Pin `<version>` or `<commit>` for an instance you keep; `latest` is
-the last green `main`, for a trial, not a release. [docker.md](docker.md) has the tags, the volume,
-backups taken inside the container, and upgrades.
+the last green `main`, for a trial. [docker.md](docker.md) has the tags, the volume, backups taken
+inside the container, and upgrades.
 
-Prefer Compose to a long `docker run`? The same image in a Compose file (save it as `compose.yaml`
-beside the `.env`):
+Prefer Compose to a long `docker run`? Use the same image in a Compose file (`compose.yaml`, beside
+`.env`):
 
 ```yaml
 services:
@@ -56,10 +55,10 @@ printf 'ERROR_SALT=%s\n' "$(openssl rand -hex 32)" > .env
 docker compose up -d
 ```
 
-**An instance serves the application and nothing else.** `/` sends you to `/app`; `/assets`, the icon
-and `/api` answer; anything else is the instance's own 404, naming the workspace. This project's
-website — `/install/`, `/privacy/`, its sitemap — is a separate deployment. An instance links to it for
-the terms and privacy pages only when `PROJECT_URL` says where that site is.
+**An instance serves the application.** `/` sends you to `/app`; `/assets`, the icon and `/api`
+answer; anything else is the instance's own 404, naming the workspace. This project's website —
+`/install/`, `/privacy/`, its sitemap — is a separate deployment; an instance links to it for the
+terms and privacy pages only when `PROJECT_URL` says where that site is.
 
 Two more values are worth setting before the machine has a public address:
 
@@ -69,8 +68,8 @@ Two more values are worth setting before the machine has a public address:
 | `PUBLIC_URL` | the address the outside world uses — `https://kanbantoolkit.example` behind a proxy. It is what a sign-in redirect is built from, and what makes the session cookie `Secure`. |
 
 `docker compose down` stops it and keeps the work; `down -v` removes the volume with it.
-[docker.md](docker.md) is this road in full: the volume, backups taken inside the container, the
-unprivileged user, and what SQLite means when you want a second one.
+[docker.md](docker.md) covers the volume, backups taken inside the container, the unprivileged user,
+and what SQLite means when you want a second one.
 
 <details>
 <summary>Build the image from this repository</summary>
@@ -88,8 +87,8 @@ docker compose up -d --build
 
 ## From source, without Docker
 
-This is the development path, or for an operator who cannot run a container; it is not the install
-users are expected to run. Node 26, a directory you own, and a reverse proxy for TLS:
+This is the development path, or for an operator who cannot run a container. Node 26, a directory
+you own, and a reverse proxy for TLS:
 
 ```bash
 git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit
@@ -105,9 +104,8 @@ start and prints the schema version it reached:
 kanbantoolkit schema vN
 ```
 
-`NODE_ENV=production` is what makes this a served instance rather than a development run; it is also
-what makes the salt required. The generated value above is for a first look: a server you keep takes
-the salt from the unit file below, so a restart does not forget the addresses it hashed.
+`NODE_ENV=production` makes this a served instance and makes the salt required. A server you keep
+takes the salt from the unit file below, so a restart does not forget the addresses it hashed.
 
 ## What the first run does
 
@@ -133,9 +131,8 @@ sign-up page: an instance *is* a workspace.
 - **`dist/`** — build output. It can be deleted and rebuilt from the repository at any time.
 
 **One file serves one instance.** Run one server against one database file, on local disk. SQLite's
-file locking does not work reliably across a network filesystem, so a shared network volume is the
-wrong place for it. Scaling out means Postgres behind the same interface (`server/db.ts`), not a
-second server on the same file. One deployment per team.
+file locking does not work reliably across a network filesystem. Scaling out means Postgres behind
+the same interface (`server/db.ts`), not a second server on the same file.
 
 ## Checking it is up
 
@@ -149,8 +146,8 @@ always `DB_PATH` pointing at a directory it cannot write, or at a file owned by 
 
 ## Keeping it running
 
-With Docker that is the compose file's own `restart: unless-stopped`. By hand, whatever keeps a process
-alive on your machine. With systemd the whole unit is:
+With Docker, the compose file's own `restart: unless-stopped` does this. By hand, whatever keeps a
+process alive on your machine. With systemd:
 
 ```ini
 [Unit]

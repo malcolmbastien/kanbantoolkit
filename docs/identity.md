@@ -1,9 +1,9 @@
 # Identity: signing in, and being provisioned
 
 **OIDC** says who a person is when they arrive. **SCIM** says who the team *is*: the identity
-provider pushes arrivals and departures in, so nobody maintains the roster twice.
+provider pushes arrivals and departures in.
 
-An instance without an IdP is complete. People sign in with a password or a magic link, and an
+People sign in with a password or a magic link, and an
 administrator invites them; SCIM is for a team that already runs a directory.
 
 ## Signing in (OIDC)
@@ -86,19 +86,18 @@ Creating a person whose address already exists is a **`409`**, not a second acco
 merge. The detail names the existing id; the recovery is `GET /Users?filter=userName eq "…"` and
 continue with that resource. `externalId` is unique too, and a collision is a `409`.
 
-`DELETE` is the RFC's answer: `204` the first time, `404` after — a sync that retries a removal gets
-an answer it can live with rather than an error to escalate.
+`DELETE` is the RFC's answer: `204` the first time, `404` after.
 
 ### Groups, and the boundary
 
-SCIM creates groups and changes their membership, because that is what a directory knows. **A group
+SCIM creates groups and changes their membership. **A group
 carries authority only when an administrator granted it a role in the app** — the group's own people,
 its "Role in this workspace" select. Adding somebody to a group through SCIM does not change their
 seat, and a SCIM request cannot set a role: there is no field for one.
 
 ### The account that arrives with no password
 
-A provisioned person has no password: the directory is the door. Tell them how to sign in:
+A provisioned person has no password. Tell them how to sign in:
 
 - if the deployment has a mail relay, they can ask for a **magic link** on the sign-in screen;
 - if it does not, an administrator can hand them an **invitation link**, which is also where they set

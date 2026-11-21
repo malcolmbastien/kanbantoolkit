@@ -1,9 +1,8 @@
 # Kanban Toolkit — generic model (v2)
 
-> Supersedes the fixed `initiative > epic > story` hierarchy. Types are user-defined
-> labels; the hierarchy is structural (parent/child); a card's board and cell are explicit
-> **placement** records; board columns are a **recursive LeanKit lane tree** — any cell can
-> be split into columns or rows, locally.
+> Supersedes the fixed `initiative > epic > story` hierarchy. Types are user-defined labels;
+> hierarchy is structural; a card's board and cell are **placement** records; board columns are a
+> **recursive lane tree** split locally.
 
 ## Entities
 
@@ -20,7 +19,7 @@ Placement  { id, boardId, itemId, laneId }                  # the card's board +
 
 ## Rules
 
-- **One parent, many children.** `setParent` replaces any existing parent, so a card has at
+- **One parent, many children.** `setParent` replaces any existing parent; a card has at
   most one.
 - **A dependency runs across the decomposition, never along it.** A link may not join an item to
   its own parent or to anything below it, and may not close a loop through links already made.
@@ -44,8 +43,7 @@ Placement  { id, boardId, itemId, laneId }                  # the card's board +
   - `statusOf(item)` = the `stage` of the top-level column the card's cell sits under
     (sub-lanes inherit it); dependency state is arithmetic over two cells.
   - attribution never counts as work.
-- **Placement is explicit but many-to-many.** One placement record per board, so an item
-  can sit on several boards with one identity.
+- **Placement is explicit but many-to-many.** One placement record per board.
 - **Templates describe cards flows.** `TemplateFlow { key, kind, name, order }` and
   `TemplateLane.flowKey`; the initiatives flow a board starts with is the standard one and is never
   captured.

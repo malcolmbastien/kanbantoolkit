@@ -105,7 +105,7 @@ export function MembersPanel() {
   function remove(member: Member) {
     askConfirm({
       title: `Remove ${member.name} from this workspace?`,
-      body: 'Their account is deleted. The work and comments stay, and every place that names them reads “Former member”. Coming back takes a new invitation.',
+      body: 'Their account is deleted. The work and comments stay, and every place that names them reads “Former member”.',
       confirmLabel: 'Remove them',
       danger: true,
       onConfirm: () => {
@@ -174,7 +174,7 @@ export function MembersPanel() {
       await navigator.clipboard.writeText(issued)
       setCopied(true)
     } catch {
-      setMessage({ tone: 'bad', text: 'The clipboard is not available — select the link and copy it.' })
+      setMessage({ tone: 'bad', text: 'The clipboard is not available. Select the link and copy it.' })
     }
   }
 

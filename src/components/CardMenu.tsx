@@ -156,8 +156,7 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
       title: `Convert “${only.title}” to an initiative?`,
       body:
         'The same item, with its people, links, comments and history. It leaves the cards flow for ' +
-        'the initiatives section of its stage, and its type becomes Initiative; the old type is ' +
-        'recorded in its history.',
+        'the initiatives section of its stage; its type becomes Initiative.',
       confirmLabel: 'Convert',
       onConfirm: () => {
         if (!promoteToInitiative(only.id)) announce('This card could not be converted to an initiative.')

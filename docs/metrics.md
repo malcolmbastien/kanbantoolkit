@@ -2,9 +2,6 @@
 
 The plan for the **Flow** view: what it measures now, what to add, and what it stays out of.
 
-All four references agree on the short version: show distributions rather than averages, make old
-work visible, and forecast with a range instead of a date.
-
 ## What the Flow view is now
 
 The screen is the header reading, the two-way service-level explorer, the cycle-time scatter and its
@@ -17,7 +14,7 @@ The **service level** reads both ways. Choose a confidence and it names the days
 it names the share of the window's cards that finished within it. It can read **cycle time**
 (committed → done) or **lead time** (created → done), and on cycle time the chosen percentile is the
 line drawn on the scatter and the distribution. The confidence, clock and window are part of the
-place, so a link carries the reading.
+place.
 
 **WIP and age** draws the window a day at a time (a week at a time for the 26-week and all-history
 readings): work in flight stacked by time since commitment, the total on top, and the window's
@@ -39,8 +36,7 @@ Clicking a week picks its deliveries out on the scatter; the rest of the window 
 Under the header a short **How times are measured** glossary defines the four moments the numbers
 are built from: **Created** (when the card was made), **Committed** (the first time it leaves
 Backlog; a card made into a committed column counts from creation), **Lead time** (Created → Done,
-including the wait in Backlog) and **Cycle time** (Committed → Done). It sits before the charts so
-the terms are defined where they are first read.
+including the wait in Backlog) and **Cycle time** (Committed → Done). It sits before the charts.
 
 The cycle-time dots and the throughput bars are coloured by the card's **type**, using the board's
 own type colours. Each chart carries a legend naming the types in its window; the tooltip names the
@@ -91,8 +87,7 @@ a high percentile, so the tail does not squash the bulk. A trend line on a scatt
 not predictive.
 
 **What this plan takes from that.** The additions that pay first are the distribution (scatter and
-histogram) and aging work. Forecasting comes next, because it needs enough
-history to be honest. Flow efficiency waits, because the model cannot yet tell a queue from active
+histogram) and aging work. Forecasting comes next. Flow efficiency waits, because the model cannot yet tell a queue from active
 work without a new lane setting.
 
 ## Rules the work follows

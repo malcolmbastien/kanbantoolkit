@@ -3,8 +3,7 @@
 The application flags work worth looking at without storing a warning anywhere. Every signal is
 derived from state the board already keeps — a card's blocked flag, its placement and arrival stamp,
 the dependency links, the people and priorities, the rollup, the target window and the day a piece of
-work is due — so a badge cannot disagree with the work it describes, and nothing has to be cleared by
-hand.
+work is due — so a badge cannot disagree with the work it describes.
 
 Two tones:
 
@@ -70,7 +69,7 @@ The flags themselves:
 | **N ending later** | watch | N cards below are planned to end after the initiative's target end date. About the plan's window, not the due date: two promises on different days is not an inconsistency. | The target dates are brought into line, or the cards finish. |
 
 In the item panel, warnings are gathered under one **N warnings** heading. On a card it lists each
-rule and its reason, so a Mini or Summary marker is explained when the card opens. An initiative's
+rule and its reason. An initiative's
 chips open the particular cards a rule found.
 
 ## On the dashboard
@@ -95,7 +94,7 @@ before a low card with several. Within a priority the order is unchanged: more s
 the longest-known age, then the title. Work nobody has prioritised comes after the judged rows.
 
 The band opens with **All issues**, the default view: every item carrying at least one signal. It is a
-way back from a filter rather than a signal of its own, so it is the one tile with no tone.
+way back from a filter rather than a signal of its own, the one tile with no tone.
 
 The dashboard's initiatives table also shows the **Health** column with each flag. Its **Dates**
 column reads the target window, with the initiative's due date — and its own overdue chip — under it.

@@ -48,7 +48,7 @@ export function WorkspaceDataPanel() {
     const items = (read.state.items as unknown[]).length
     askConfirm({
       title: `Import “${file.name}”?`,
-      body: `It replaces this workspace: ${boards.length} board${boards.length === 1 ? '' : 's'}, ${items} work item${items === 1 ? '' : 's'}. The current workspace is overwritten. Export first if you want to keep it.`,
+      body: `It replaces this workspace: ${boards.length} board${boards.length === 1 ? '' : 's'}, ${items} work item${items === 1 ? '' : 's'}. Export first if you want to keep the current one.`,
       confirmLabel: 'Import',
       danger: true,
       onConfirm: () => importWorkspace(read.state!, read.version!),

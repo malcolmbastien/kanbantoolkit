@@ -1,14 +1,14 @@
 # The public site
 
 Kanban Toolkit is open-source software people self-host, and each workspace is a separately hosted
-instance of it (the decision of 2026-10-24). That makes the site a *project's* site: there is nothing
-to sell, no plan to compare and no shared sign-in page, because a person signs in at their own
-instance, on their own domain. What the site owes a visitor is what this is, how to run it, where the
-documentation is, and what the licence lets them do.
+instance of it (the decision of 2026-10-24). That makes this a *project's* site: nothing to sell, no
+plan to compare, no shared sign-in page — a person signs in at their own instance, on their own
+domain. The site owes a visitor four answers: what this is, how to run it, where the documentation
+is, and what the licence lets them do.
 
-The site was built in tasks **151** and **163–167**, which are done. The commercial pages were cancelled
-(153, 155, 156, 161, 162), and so was the help section (158). The backlog holds the task history; this
-page holds the shape, the page inventory, the content and the decisions.
+The site was built in tasks **151** and **163–167**, which are done; the commercial pages (153, 155,
+156, 161, 162) and the help section (158) were cancelled. The backlog holds the task history; this
+page holds the shape, the inventory, the content and the decisions.
 
 ## What this is, and what it is not
 
@@ -18,10 +18,6 @@ the documentation, which lives with the code rather than on this site.
 
 **It is not** a shop. No pricing table, no plans, no trials, no invoices, no refund policy, and no
 account created from a form on this domain.
-
-**It is not** a content-marketing program either. There is no blog, no customer stories and no
-careers page in this plan, for the reasons at the end. A stale blog and a testimonial nobody gave are
-both worse than an empty slot.
 
 ## The shape
 
@@ -33,10 +29,9 @@ backend; the site is the same kind of thing and must not change that.
   link that exists today breaks.
 - **The site is static HTML, and it needs no JavaScript to read.** Pages are rendered at build from
   `site/` into `dist/`, each with its own `<title>`, description, Open Graph tags and canonical URL.
-  There is no server-rendered page: nothing on the site has to check something now.
+  There is no server-rendered page.
 - **The site's CSS is its own and small.** The app's bundle is not downloaded to read the home page.
-  No third-party fonts, scripts or images: the same rule as the app, and the reason there is no
-  cookie banner to show.
+  No third-party fonts, scripts or images — the same rule as the app.
 - **No tracking, so nothing to consent to.** The only cookie is the session's, set after sign-in.
 - **The crawler policy is per surface.** Public pages are indexable; the app is not — its pages are
   private work, and a search result naming a board would be the leak. `X-Robots-Tag: noindex` belongs
@@ -188,7 +183,7 @@ not a page — it is three sentences on the home page, and the licence.
 
 The docs are markdown in this repository, rendered by GitHub, and readable in a clone (task 167). The
 site carries **Docs** in the navigation and the footer and points at them; it does not hold a second
-copy, because a page that exists twice will drift and one of the two will be wrong.
+copy.
 
 If the docs later need search or a version per release, a `docs.` subdomain is generated from the same
 files. It is not a second manuscript.

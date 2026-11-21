@@ -1,8 +1,8 @@
 # Configure
 
-Almost every value Kanban Toolkit reads is an environment variable with a default that works. Set
-nothing and you get a running board with no way in, which is the static tier. `ERROR_SALT` is the
-exception: an instance refuses to start without it.
+Almost every setting is an environment variable with a working default. Set nothing and you get a
+running board with no way in, which is the static tier. `ERROR_SALT` is the exception: an instance
+refuses to start without it.
 
 Two rules hold everywhere:
 
@@ -19,7 +19,7 @@ Two rules hold everywhere:
 | **Cloudflare** | Worker bindings and `vars` in `wrangler.jsonc`; secrets with `wrangler secret put` |
 
 The application code never reads either directly. `server/config.ts` is the only file that maps a
-binding or an environment variable to a setting, which lets one set of routes run on both.
+binding or an environment variable to a setting.
 
 ## The core
 
@@ -43,17 +43,15 @@ binding or an environment variable to a setting, which lets one set of routes ru
 secrets — the `.env` a Compose install loads, the unit file a bare machine runs, `wrangler secret put`
 on Cloudflare — and not in a file that is committed. Generate it once, on the machine that keeps it. A
 Worker has no start to refuse: on Cloudflare an isolate with no salt generates its own, and the
-per-hour report limit then only counts within that isolate; the secret is what makes one number hold
-across them.
+per-hour report limit then only counts within that isolate.
 
 ## The doors
 
 The identity provider is **the one you already run**. No vendor is built in and there is no endpoint
-list to keep current: any OIDC issuer works — Google Workspace, Entra, Keycloak, authentik, Okta —
-because they all speak the same protocol.
+list to keep current: any OIDC issuer works — Google Workspace, Entra, Keycloak, authentik, Okta.
 
-Every provider is optional, and an instance with none is valid: the doors that do not need one are
-still there. A **password** works wherever an account has one — the first administrator sets one at
+Every provider is optional, and an instance with none is valid. A **password** works wherever an
+account has one — the first administrator sets one at
 first run, an invitation is where a colleague chooses theirs — and a **magic link** appears when a mail
 relay is configured. With neither a provider nor a relay, an instance is still reachable by password
 and by the reset link an administrator mints.
@@ -71,13 +69,12 @@ and by the reset link an administrator mints.
 SCIM is not configured by environment: an administrator mints its token in **Admin → Directory
 provisioning**, named, with the workspace role a provisioned person gets. The endpoints, the lifecycle
 and the boundary (a group carries no authority by itself) are in [Identity](identity.md). One instance
-may have several tokens, so two directories can be told apart and one revoked without the other.
+may have several tokens, so one can be revoked without the other.
 
 ## Mail
 
-Mail is a capability of the runtime, like the live channel. The Node entry can speak SMTP to a relay. A
-deployment without one still runs, without a magic link; an administrator hands over a reset link
-instead.
+The Node entry can speak SMTP to a relay. A deployment without one still runs, without a magic link;
+an administrator hands over a reset link instead.
 
 | Variable | Default | What it does |
 | --- | --- | --- |
@@ -86,9 +83,8 @@ instead.
 | `MAIL_CONSOLE` | off | `MAIL_CONSOLE=1` writes each message to the log instead of sending it — development, and the test suite, which must not open a socket to a mail server. |
 | `MAIL_DIGEST` | on | `MAIL_DIGEST=0` turns off the watched-work digest for a relay used only for sign-in links. The digest is only offered when a relay exists. |
 
-A relay on `127.0.0.1`, `::1` or `localhost` may be plain SMTP, which is how a self-hoster usually
-runs postfix beside the app. Anything else must offer STARTTLS; a server that does not is refused
-rather than spoken to in the clear.
+A relay on `127.0.0.1`, `::1` or `localhost` may be plain SMTP. Anything else must offer STARTTLS;
+a server that does not is refused rather than spoken to in the clear.
 
 When a relay exists, people may turn on **Email me about the work I watch** in their profile, and
 choose *as it happens*, *daily* or *weekly*. One plain-text message per person per period is computed
@@ -126,8 +122,8 @@ A Worker reads bindings rather than variables it can invent. `wrangler.jsonc` de
 | `WORKSPACE_CHANNEL` | the Durable Object that holds the live sockets, one per workspace |
 
 Without `DB` the API answers `503` and says the database is not configured, and no sign-in surface is
-drawn. That is how the project's own hosted site runs: the Worker serves the site and the demo, and
-nothing else. Uncommenting the `DB` block turns the deployment into an instance. Read
+drawn. That is how the project's own hosted site runs: the Worker serves the site and the demo.
+Uncommenting the `DB` block turns the deployment into an instance. Read
 [Passwords on Workers](server-runtime.md#passwords-on-workers-cost-more-cpu-than-the-free-plan-gives)
 first, because the free plan's CPU budget cannot cover a password check. Without the
 `WORKSPACE_CHANNEL` binding, clients poll for changes.
@@ -139,8 +135,7 @@ curl -s https://kanbantoolkit.example/api/auth/providers
 # {"providers":[{"id":"oidc","label":"login.example.com"}],"dev":false}
 ```
 
-That is what the sign-in surface reads: a provider missing from the list is missing because both of its
-credentials were not set.
+That is what the sign-in surface reads: a provider is absent when both of its credentials are unset.
 
 ---
 

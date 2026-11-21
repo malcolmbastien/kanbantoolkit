@@ -1,12 +1,12 @@
 # Roadmap
 
-The order of the work, and the reason for it. The backlog holds the detail and the requirements; the
-task numbers are its own. Each phase below ends with something a person can check, not a percentage.
+The backlog holds the detail and the requirements; the
+task numbers are its own.
 
 ## Where the project is
 
-Most of the plan is built. An instance is a Node process (or a Cloudflare Worker) with one SQLite file or
-a D1 database, and a browser holds a cache of the workspace. The pieces that make that work are:
+An instance is a Node process (or a Cloudflare Worker) with one SQLite file or
+a D1 database, and a browser holds a cache of the workspace:
 
 - **The board.** Boards with several cards flows, the initiatives flow, rollups, the archive, templates,
   filters, the timeline, flow metrics and the strategy map (177 and earlier).
@@ -22,25 +22,22 @@ a D1 database, and a browser holds a cache of the workspace. The pieces that mak
 
 ## What was cancelled
 
-Planned, then dropped.
-
 - **Paid plans, billing and the merchant of record** (153, 155, 156, 161). The project is free software that
-  you run yourself. There is no plan to buy.
+  you run yourself.
 - **Read-only board sharing** (123). Cancelled before it was built.
-- **Board-level history** (127). A card can sit on several boards, so its history belongs to the card. The
-  card's History tab is that record.
-- **The home-page rewrite and the help pages** (152, 158). The current site covers the same ground.
+- **Board-level history** (127). A card can sit on several boards, so its history belongs to the card.
+- **The home-page rewrite and the help pages** (152, 158).
 
 ## Deferred
 
-- **One permanent origin** (104). Deferred. Testers still use a temporary address, and the move to a
+- **One permanent origin** (104). Testers still use a temporary address, and the move to a
   permanent one waits for the real domain.
 - **Usage analytics** (108). Not built. The project does not track people, and self-hosted instances must
   never report anything.
 
 ## What is left
 
-The open work is in the backlog. The main items are:
+The open work is in the backlog:
 
 - **The sign-in task title** (117 names Google and Microsoft, but the built form is the operator's own OIDC
   issuer, with a password and a magic link).
@@ -61,9 +58,6 @@ could test:
 4. **Collaboration.** One person holds a card's content at a time. A refused write keeps the words and says
    what happened. Members have roles.
 5. **Operations.** A backup that has been restored, and a container that runs with one volume.
-
-The reason for the order: the first route the app ever had had to be written where a self-hoster could run
-it, so the seam came first. Collaboration needs real identity, so identity came before the lease.
 
 ## The decision that was made early
 

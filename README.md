@@ -2,15 +2,15 @@
 
 # Kanban Toolkit
 
-**One board for the team. One clear view for everyone else.**
+**One board for the team. One view for the program. One line of sight to the OKRs.**
 
-Kanban Toolkit is a Kanban board for a team's own work, and a way to show that work to the people
-outside the team. The team keeps its board; other groups read the same cards as **initiatives** —
-progress, risk and what depends on what — without a status meeting or a second set of tickets.
+Teams run their day-to-day work on one board; program and project managers read the same cards rolled
+up as initiatives across teams; directors and leaders see how the department rolls up to its OKRs.
+Nobody keeps a second set of tickets, and nobody waits for a status meeting.
 
-The wait is on the board too: how long a card has sat in its column, what it is blocked on, what it
-is waiting for on another board, and which committed work has nobody's name on it. All of it read
-from cards that are already there, none of it typed twice.
+The board shows the wait: how long a card has sat in its lane, what is blocking it, what it is
+waiting for on another team's board, and which work in progress has nobody's name on it. All read
+from cards that are already there, none typed twice.
 
 [**Run it with Docker**](#run-it) — one container, one SQLite file ·
 [Open the demo](https://kanbantoolkit.com/app) · [Documentation](docs/README.md)
@@ -21,21 +21,20 @@ from cards that are already there, none of it typed twice.
 
 </div>
 
-The demo is the application itself. A first visit seeds a complete board and keeps the work in your
-browser. There is no account and nothing is collected.
+The demo is the application itself: a first visit seeds a complete board and keeps the work in
+your browser. No account, nothing collected.
 
 ## How it works
 
-1. **The team works on its board.** Cards move through four fixed stages — **Backlog → Not Started →
-   In Progress → Done**. Drag one into a column and the column's stage is the card's status.
-2. **The board is shaped around the work.** Split a stage into the steps your team actually uses,
-   name them, arrange them in columns or rows, and set a limit on work in flight where that helps.
-   The stage stays underneath, so reporting does not change when the board does. A board can carry
-   more than one cards flow — delivery and support, say — each with its own columns and limits,
-   stacked as separate bands.
-3. **Cards roll up into initiatives.** A card dragged onto an initiative becomes its child. The
-   initiative's progress and delivery risk are computed from the work below it, so the wider view
-   cannot drift from the board.
+1. **The team works on its board.** Four fixed stages — **Backlog → Not Started → In Progress →
+   Done**. Drag a card into a column: the column's stage is its status.
+2. **The board is shaped around the work.** Split a stage into named steps in columns or rows, with
+   a limit on work in flight where that helps. The stage stays underneath, so reporting does not
+   change when the board does. A board can carry more than one cards flow — delivery and support,
+   say — each with its own columns and limits, stacked as separate bands.
+3. **Cards roll up into initiatives.** Drag a card onto an initiative to make it a child. Its progress
+   and delivery risk are computed from the work below it, so the wider view cannot drift from the
+   board.
 4. **Other groups read the same work.** A program board, a portfolio or another team reads the
    initiatives flow — what is planned, what is moving and what depends on what — from the same
    cards.
@@ -45,7 +44,6 @@ browser. There is no account and nothing is collected.
 ## Features
 
 - **Boards**
-  - Four fixed stages. A stage splits into named cells, arranged in columns or rows.
   - One or more cards flows per board, stacked as bands, each with its own columns and limits.
   - Drag a card between cells, or between the board's flows.
   - Per-column WIP limits; a limit can tint the column, ask for a reason, or refuse the move.
@@ -83,9 +81,9 @@ browser. There is no account and nothing is collected.
     they are done.
   - My work for the signed-in person, an inbox for the cards and initiatives you watch, search
     across every board, and a command palette.
-  - A watch starts when you make it: the card's earlier record stays on the card, and the inbox shows
-    only what happens next — moved, blocked, edited, commented, filed, a due-date change or an
-    initiative's health. Mark all read, and a deleted item drops out rather than leaving a dead link.
+  - A watch starts when you make it: the earlier record stays on the card, and the inbox shows only
+    what happens next — moved, blocked, edited, commented, filed, a due-date change or an initiative's
+    health. Mark all read; a deleted item drops out rather than leaving a dead link.
   - The palette also acts on the open card: assign to me, move to Done, block with a reason, watch,
     set the due date or open the panel, through the same rules the board enforces.
   - Filters for text, type, assignee or unassigned, priority, tags, blocked, overdue, due soon and
@@ -124,8 +122,7 @@ browser. There is no account and nothing is collected.
 
 ## Run it
 
-Kanban Toolkit is meant to run as a **Docker image**. The image is published, so there is nothing to
-clone and nothing to compile:
+Kanban Toolkit runs as a **published Docker image** — nothing to clone, nothing to compile:
 
 ```bash
 printf 'ERROR_SALT=%s\n' "$(openssl rand -hex 32)" > .env
@@ -151,7 +148,7 @@ backups taken inside it, upgrades, and what SQLite means.
 <details>
 <summary>Build the image from this repository</summary>
 
-For working on the code, the checkout's Compose file builds the same image locally:
+The checkout's Compose file builds the same image locally:
 
 ```bash
 git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit
@@ -165,8 +162,7 @@ docker compose up -d --build
 <details>
 <summary>Run from source without Docker</summary>
 
-Node 26 and a directory you own. This is the development path, not the install users are expected
-to run:
+Node 26 and a directory you own — the development path, not what users are expected to run:
 
 ```bash
 git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit

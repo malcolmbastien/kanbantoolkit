@@ -86,7 +86,7 @@ export function TagInput({
   // already wears is not a miss, and a word nobody has used yet is a tag waiting to be made.
   const empty =
     tags.length === 0
-      ? 'This board has no tags yet — type a name to create one.'
+      ? 'This board has no tags yet.'
       : !term && available.length === 0
         ? 'Every tag this board defines is already on this item.'
         : 'Already on this item.'
@@ -162,7 +162,7 @@ export function TagInput({
                 onMouseEnter={() => setActive(i)}
                 title={
                   option.kind === 'create'
-                    ? `Create “${option.name}” on this board — recolour it any time in board settings`
+                    ? `Create “${option.name}” on this board`
                     : undefined
                 }
                 className={cn(

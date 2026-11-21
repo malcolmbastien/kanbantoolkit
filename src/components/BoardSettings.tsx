@@ -272,10 +272,9 @@ export function BoardSettings() {
               value={board.description}
               onChange={(e) => setBoardDescription(board.id, e.target.value)}
               rows={3}
-              placeholder="What this board is for. A newcomer reads this first."
+              placeholder="What this board is for."
               className="w-full resize-y rounded border border-slate-200 px-2 py-1.5 text-body text-slate-800 outline-none focus:ring-2 focus:ring-indigo-400"
             />
-            <p className="mt-1 text-micro text-slate-600">The command palette searches it too.</p>
           </div>
 
           {/* WIP enforcement — the board's policy for its own lanes, offered beside the identity
@@ -319,8 +318,8 @@ export function BoardSettings() {
               </button>
               <span className="text-meta text-slate-600">
                 {board.band === 'program'
-                  ? 'Keeps the initiatives flow and its cells. Not the cards or the linked boards.'
-                  : 'Keeps the cards flows, the initiatives flow, the default card type and WIP policy. Not the cards or the linked boards.'}
+                  ? 'Keeps the initiatives flow and its cells. Not cards or linked boards.'
+                  : 'Keeps both flows, the default card type and WIP policy. Not cards or linked boards.'}
               </span>
             </div>
             {savedTemplate && (
@@ -342,13 +341,9 @@ export function BoardSettings() {
                   data-board-export
                   onClick={exportCsv}
                   className="flex shrink-0 items-center gap-1 rounded border border-slate-200 px-2 py-1.5 text-meta font-medium text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700"
-                  title="This board's cards as CSV: title, type, column, people, dates, parent"
                 >
                   <Download size={13} /> Export CSV
                 </button>
-                <span className="text-meta text-slate-600">
-                  This board's cards as a table: title, type, column, people, dates and parent.
-                </span>
               </div>
             </div>
           )}
@@ -710,7 +705,6 @@ export function BoardSettings() {
         </div>
 
         <div className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/60 px-5 py-3">
-          <span className="text-micro text-slate-500">Saved as you edit.</span>
           <button
             type="button"
             onClick={close}

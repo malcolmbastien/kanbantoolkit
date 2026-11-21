@@ -1,15 +1,16 @@
 <!--
-title: Kanban Toolkit — An open-source Kanban board for teams
-description: An open-source Kanban board for teams: shape your team's cards flow, roll the work up into initiatives, and read team, program and portfolio boards from the same cards — with warnings that clear themselves.
+title: Kanban Toolkit — An open-source Kanban board from team work to OKRs
+description: An open-source Kanban board for teams, program and project managers, and leaders reading the department's OKRs: shape the team's cards flow, roll work up into initiatives, and read team, program and portfolio boards from the same cards.
 path: /
 -->
 <section class="hero" id="product">
   <div class="wrap">
     <div class="hero-copy">
-      <h1>The open-source <br class="hero-break" /><span>Kanban board for teams</span></h1>
+      <h1>The open-source <br class="hero-break" /><span>Kanban board from team work to OKRs</span></h1>
       <p class="lede">
-        Manage day-to-day work and see how it connects to larger initiatives. Where the work waits —
-        and why — is on the card, so progress and risk need no separate status report.
+        The team works on cards. Program managers read the same cards as initiatives; leaders see which
+        OKRs the work serves. The rollups come from the work below, so nobody writes a second status
+        report.
       </p>
       <p class="cta">
         <a class="button" href="/app">Open the demo (no account needed)</a>
@@ -87,7 +88,7 @@ path: /
     </div>
 
     <ul class="facts" id="facts">
-      <li><a href="/product/"><strong>One shared board</strong> Everyone works on the same copy, so there is no second version to reconcile.</a></li>
+      <li><a href="/product/"><strong>One shared board</strong> Everyone works on the same copy.</a></li>
       <li><a href="/product/#many-boards"><strong>One card, every view</strong> A card keeps its identity, history and owner wherever it is read.</a></li>
       <li><a href="/product/"><strong>Progress, counted from the cards</strong> Initiatives roll up from the work beneath them, as it happens.</a></li>
       <li><a href="{{repo}}/blob/main/LICENSE"><strong>Open source</strong> Free to use, change, and run on your own terms.</a></li>
@@ -100,12 +101,6 @@ path: /
     <div class="section-head">
       <p class="kicker">For the whole team</p>
       <h2>The cards hold the detail. The initiatives show how it adds up.</h2>
-      <p>
-        A team board does both at once. Its <strong>cards flows</strong> are a kanban the team shapes
-        for its own work — columns, splits and WIP limits, and a second flow when another kind of work
-        needs its own lane. The <strong>initiatives lane</strong> above reads those same cards as the
-        summary that leaders and stakeholders see, so nothing is entered twice.
-      </p>
     </div>
 
     <div class="split">
@@ -121,8 +116,6 @@ path: /
           columns and its own limit.
         </p>
         <ul class="checked">
-          <li>One or more cards flows, each with its own columns</li>
-          <li>Split a column into the steps the team uses</li>
           <li>A WIP limit per column, at or over the line</li>
           <li>Every card reachable without the mouse</li>
         </ul>
@@ -139,20 +132,15 @@ path: /
           progress, dates and health from the cards beneath it — the same work, not a second report.
         </p>
         <ul class="checked">
-          <li>Progress and health rolled up as the cards move</li>
-          <li>One summary to share with leaders and stakeholders</li>
           <li>The working detail stays with the team, not in the summary</li>
-          <li>Both views read one board and one set of cards</li>
         </ul>
       </article>
     </div>
 
     <div class="signals-block">
       <p class="signals-head">
-        <strong>Warnings and roll-ups, counted from the work.</strong> A card says when its planned
-        start has slipped, when it is overdue or stale, when it is blocked, or when it is waiting on a
-        dependency. The same rules read the hierarchy, so an initiative reports what needs attention
-        below it. No flag is set by hand, and each clears when the work moves.
+        <strong>Warnings and roll-ups, counted from the work.</strong> An initiative reports what needs
+        attention below it. No flag is set by hand, and each clears when the work moves.
       </p>
       <ul class="signals">
         <li><span class="signal watch">late start</span>The planned start has passed, but the work has not begun.</li>
@@ -170,11 +158,6 @@ path: /
     <div class="section-head">
       <p class="kicker">Every level of work</p>
       <h2>Team, program and portfolio boards, in one workspace.</h2>
-      <p>
-        A board's type decides what it shows. Team boards hold the cards; program boards coordinate
-        the teams beneath them; portfolio boards read the work against the strategy it serves. Each
-        level is a view of the same work, not another copy of it.
-      </p>
     </div>
 
     <div class="split split-3">
@@ -189,7 +172,6 @@ path: /
           rolls up into. This is where cards are created and moved.
         </p>
         <ul class="checked">
-          <li>Cards, cards flows and the initiatives lane</li>
           <li>Dashboard, timeline and flow metrics</li>
           <li>The work each person holds now</li>
         </ul>
@@ -206,7 +188,6 @@ path: /
           linked board, read for progress, dependencies, and where one team is waiting on another.
         </p>
         <ul class="checked">
-          <li>One band per linked team or program</li>
           <li>Progress and risk rolled up, read-only</li>
           <li>Dependencies across team boundaries</li>
         </ul>
@@ -223,9 +204,7 @@ path: /
           with coverage gaps stated in words and progress counted from the work.
         </p>
         <ul class="checked">
-          <li>Objectives and the initiatives mapped to them</li>
           <li>Coverage: objectives with no initiative, and initiatives serving no objective</li>
-          <li>Progress and health for each objective</li>
         </ul>
       </article>
     </div>
@@ -246,7 +225,7 @@ path: /
     <div class="section-head">
       <p class="kicker">Private by default</p>
       <h2>Your board stays on your own server</h2>
-      <p>Nothing leaves the machine unless you turn on webhooks or mail.</p>
+      <p>Except for webhooks and the mail relay you configure, nothing leaves the machine.</p>
     </div>
 
     <div class="privacy-points">
@@ -316,7 +295,7 @@ path: /
   <div class="wrap cta-row">
     <div>
       <h2>Set up your team's board in minutes.</h2>
-      <p>One command, one file, no ads or analytics.</p>
+      <p>One container, one SQLite file.</p>
     </div>
     <p class="cta-actions">
       <a class="button-light" href="/app">Open the demo</a>

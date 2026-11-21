@@ -149,13 +149,13 @@ function SnapshotsPanel() {
   const restoreSnapshot = async (meta: SnapshotMeta) => {
     const snap = await readSnapshot(meta.id)
     if (!snap) {
-      setSnapshotError('That snapshot cannot be read, so nothing was changed.')
+      setSnapshotError('That snapshot cannot be read. Nothing was changed.')
       return
     }
     setSnapshotError(null)
     askConfirm({
       title: `Restore the workspace from ${new Date(snap.at).toLocaleString()}?`,
-      body: 'This replaces the workspace with that copy. A snapshot of the current state is taken first, so the restore can be undone.',
+      body: 'This replaces the workspace. A snapshot of the current state is taken first.',
       confirmLabel: 'Restore',
       danger: true,
       onConfirm: () => {
@@ -218,7 +218,7 @@ function SnapshotsPanel() {
             onClick={() =>
               askConfirm({
                 title: 'Start the demo over?',
-                body: 'The demo workspace replaces every board, lane and card here. A snapshot of what is here is taken first.',
+                body: 'The demo workspace replaces every board, lane and card here. A snapshot is taken first.',
                 confirmLabel: 'Reset the demo',
                 danger: true,
                 onConfirm: () => {

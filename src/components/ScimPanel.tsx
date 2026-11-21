@@ -83,7 +83,7 @@ export function ScimPanel() {
       {/* ...the secret, once. */}
       {secret && (
         <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-2">
-          <p className="text-micro font-semibold text-amber-900">Paste this into your provider once — it is not shown again.</p>
+          <p className="text-micro font-semibold text-amber-900">Paste this into your provider once; it is not shown again.</p>
           <div className="mt-1 flex items-center gap-1">
             <code data-scim-secret className="min-w-0 flex-1 select-all truncate rounded bg-white px-1.5 py-1 text-micro text-slate-800 ring-1 ring-amber-200">
               {secret}

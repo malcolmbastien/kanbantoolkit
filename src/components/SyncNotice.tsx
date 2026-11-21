@@ -33,7 +33,7 @@ export function SyncNotice() {
   if (overflow) {
     return (
       <span
-        title="Too many changes are waiting for a connection, so this one was not held. It is still in this browser."
+        title="Too many changes are waiting for a connection. This change was not held; it is still in this browser."
         className="flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-meta font-medium text-amber-800"
       >
         <AlertTriangle size={13} /> Not saved

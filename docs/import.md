@@ -14,7 +14,7 @@ import reads:
 - archived cards only if **Include archived cards** is chosen.
 
 Attachments and comments are not imported. A Trello card's **last activity** is used as its created
-date, and as the completion date of a done card; both produce a warning so the inference is visible.
+date, and as the completion date of a done card; both produce a warning.
 
 ## Jira
 
@@ -48,9 +48,6 @@ never uploaded. Dates that cannot be read are warnings, not guesses.
 ## The mapping step
 
 <img src="img/guide/import-mapping.webp" alt="The Import a board dialog after reading a Trello file: source and file, lists mapped to stages, people mapping and a preview of three cards" width="1000">
-
-*The mapping step: what the source calls a list becomes a stage, a person becomes somebody here, and
-the preview says what will be created.*
 
 - **Lists → stages.** Every source list maps to Backlog, Not Started, In Progress or Done. Two
   source lists mapped to the same stage become two **cells** in that column, named after the lists.

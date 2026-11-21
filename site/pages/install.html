@@ -75,9 +75,6 @@ NODE_ENV=production ERROR_SALT=$(openssl rand -hex 32) \
 </ul>
 
 <h2>What you take on</h2>
-<p>
-  Self-hosting means the machine and the four jobs that come with it.
-</p>
 <ul class="points">
   <li><strong>TLS.</strong> Kanban Toolkit does not terminate it. A proxy does, with a certificate, and <code>PUBLIC_URL</code> tells the server what that address is — which is also what makes the session cookie secure.</li>
   <li><strong>Updates.</strong> You pull the new image and recreate the container; from source, you pull and build. A release that adds a migration applies it at boot, and the server refuses to start rather than serve a database it does not understand.</li>
@@ -105,7 +102,7 @@ NODE_ENV=production ERROR_SALT=$(openssl rand -hex 32) \
   app says in words that it has no way in configured rather than drawing a button that cannot work.
   Mail is optional too: without a relay, no magic link is offered and nobody is offered an email
   digest; with one, each person chooses in their profile whether to receive a plain-text message and
-  how often. Every variable, with its default and what an unset one does, is in the documentation.
+  how often.
 </p>
 
 <h2 id="limits">The honest limits</h2>
@@ -147,8 +144,7 @@ npm run backup -- restore ./backups/kanbantoolkit-2026-10-24T02-00-00.db ./kanba
 
 <h2>Where to go next</h2>
 <p>
-  This page is the short version on purpose. The documentation lives with the code, so it is always
-  the version you are running:
+  The documentation lives with the code, so it is always the version you are running:
 </p>
 <ul class="points">
   <li><a href="{{repo}}/blob/main/docs/docker.md"><strong>In a container</strong></a> — the published image and tags, the volume, backups taken inside it, upgrading, and what SQLite means.</li>

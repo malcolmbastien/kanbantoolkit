@@ -324,7 +324,7 @@ export function BoardView({ requestMove }: Props) {
                           onClick={() =>
                             askConfirm({
                               title: `Remove the “${name}” flow?`,
-                              body: 'Its columns go with it. A flow holding cards cannot be removed.',
+                              body: 'Its columns go with it.',
                               confirmLabel: 'Remove flow',
                               danger: true,
                               onConfirm: () => removeFlow(flow.id),

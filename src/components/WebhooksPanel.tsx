@@ -121,7 +121,7 @@ export function WebhooksPanel() {
       setSecret(created.secret ? { url: created.url, secret: created.secret } : undefined)
       await load()
       setSelected(created.id)
-      setNotice('Endpoint created. Copy the signing secret now — it is not shown again.')
+      setNotice('Endpoint created. Copy the signing secret now; it is not shown again.')
     })
 
   const endpoint = endpoints.find((entry) => entry.id === selected)

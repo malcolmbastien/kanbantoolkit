@@ -1,7 +1,7 @@
 # Reading a board
 
 A board has columns, one or more cards flows, initiatives that roll work up, a side drawer for the
-detail, and external dependencies for work that lives somewhere else. This page explains what each part shows.
+detail, and external dependencies for work that lives somewhere else.
 
 <img src="img/guide/board-overview.webp" alt="The Team Atlas board with its initiatives flow above the Cards flow, and the four typed columns in each" width="1100">
 
@@ -21,12 +21,10 @@ Every flow has the same four top-level columns, and they are fixed:
 
 The column is the card's status. There is no separate status field to keep in step: moving a card
 into a column is what changes its stage, and a card that leaves Done is open again. The same four
-stages are the sections of the initiatives flow, so a card and the outcome above it are read in the
-same vocabulary.
+stages are the sections of the initiatives flow.
 
 A column can be **split** into named cells, arranged in columns or rows. Every cell stays in the
-stage of the column it came from, so a split makes the board more precise without inventing a fifth
-stage. The top-level columns themselves are not added, removed or reordered.
+stage of the column it came from. The top-level columns themselves are not added, removed or reordered.
 
 ## Level of detail
 
@@ -35,8 +33,7 @@ Every board has a **Detail** dial in its secondary bar, beside **Archive done** 
 
 - **Full** is the card described on this page — every field, badge and control.
 - **Summary** keeps the title, type, due date and people, with the due date and people in the same
-  footer band Full uses. An initiative also keeps its **progress bar** and percentage, because that
-  reading is what the summary is for. It carries no **warning words**: a small red or amber triangle
+  footer band Full uses. An initiative also keeps its **progress bar** and percentage. It carries no **warning words**: a small red or amber triangle
   marks that warnings exist, with their sentences in its title — and opening the card gathers those
   warnings at the top of the drawer, whichever detail level drew it. The description, tags, checklist,
   links, parent, age, priority, counts and warning badges are not drawn.
@@ -52,15 +49,13 @@ Changing the Detail dial redraws the cards; it does not close the open card draw
 active card selection.
 
 Every card ends in a **footer band**, at Full and Summary alike: the promise (due date), the link,
-the checklist, the finished stamp and the people sit on one opaque strip at the foot, so the facts a
-reader acts on are found in the same place on every card. A blocked card's band is rose, like its
+the checklist, the finished stamp and the people sit on one opaque strip at the foot. A blocked card's band is rose, like its
 surface; a done card's is grey; a card with nothing in its foot draws no band rather than an empty
 one.
 
 The level changes only the drawing. The same items are in the same cells, with the same counts, WIP,
 filters, search, selection, drag, card menu and keyboard moves. It is remembered in this
-browser per board, not in the workspace, so two people may read one board differently and a shared
-link opens the reader's own choice. It is not a permission — a Viewer gets it too. **Board design
+browser per board, not in the workspace. It is not a permission — a Viewer gets it too. **Board design
 mode** always draws Full and disables the dial; Save or Cancel returns to the chosen level.
 
 ## Search: a jump and a reading
@@ -98,8 +93,6 @@ The **Connections** toggle in the secondary bar draws the board's relationships 
 Turning it on or off is a reading of the board, not a click away from the card being read: it does
 not close the open drawer or clear a selection.
 
-It draws the board's relationships over the work:
-
 - **Hierarchy** — a parent → child decomposition edge, as a solid blue string with a circle where
   it leaves the parent and an arrow at the child.
 - **Dependency** — a waiting item → blocker link, as a solid red string with a circle where it
@@ -119,8 +112,7 @@ Only edges with **both ends rendered on this board** are drawn. A card that is a
 out or in a folded flow has no element to connect to; attribution to an objective is not a
 card-to-card edge. An **external dependency** link is included: it is the same dependency string,
 running from the card here that waits to the external dependency card below — circle on the waiting
-card, arrow on the external card — so the external dependencies band is the same graph seen at its
-edge. The strings sit above the workflow headers, never take a click, and are `aria-hidden` — the
+card, arrow on the external card. The strings sit above the workflow headers, never take a click, and are `aria-hidden` — the
 dependency counts, the external dependency cards and the drawer already say the same relationships
 in words.
 
@@ -149,14 +141,13 @@ A board has exactly **one initiatives flow** and **one or more cards flows**.
   the board's initiative kinds. A **portfolio** tracks objectives, coverage and the four typed
   columns rather than holding a design, so it is never a template.
 
-Each flow's header stays on screen while its columns scroll, so a reader in a long lane keeps the
-flow, and its set of columns, in view. The initiatives and external dependency bands behave the same
+Each flow's header stays on screen while its columns scroll. The initiatives and external dependency bands behave the same
 way. A cards
 flow lines up with the bands above and below it, and a wide flow takes the width its columns need.
 
 A workflow's chevron folds that whole band away to its header: the name, the count and the controls
 stay, and the columns give their room to the workflow below. Opening it brings the header to the top
-and the columns back underneath, so the band opens where you are looking. The initiatives, cards and
+and the columns back underneath. The initiatives, cards and
 external dependency bands each fold on their own, and the state is a view choice rather than an edit.
 
 Every column folds too, at any depth: a top-level column becomes a narrow rail, and a subcolumn such
@@ -195,7 +186,7 @@ beside it. The same drawer opens from search, the dashboard, the timeline and th
 - **Comments** is the conversation about the item; write at the bottom of that tab. A comment is
   Markdown and `@` mentions a teammate.
 - **Flow** is the drawer's reading of time, and it sits at the top of the **Flow & History** tab rather than in
-  Overview: a card's overview stays about its fields. It is derived from the card's own moves, not
+  Overview. It is derived from the card's own moves, not
   from a field somebody keeps up to date. Three numbers lead: **Open** (or **Lead** once the card
   has stopped), **Cycle** from the first commitment, and the current cell — or
   **Delivered**/**Filed** with the day it stopped. Below them the same section draws the stage bar
@@ -208,13 +199,12 @@ beside it. The same drawer opens from search, the dashboard, the timeline and th
   three numbers, then the distribution of the work below, the oldest open item, and one quiet line for
   blocked/waiting/unowned work or the last movement of its children. When the child history is not loaded it says
   **Movement not loaded** rather than treating the initiative's creation as a movement, and there
-  is deliberately no section-age clock until the work below can support one.
+  is no section-age clock until the work below can support one.
 - **Flow & History** is the item's own record of changes: every move, edit, block and link, with
-  who and when. The **Flow** section at the top draws the time reading, with the stage breakdown for
-  a card; Comments stay in Comments rather than being mixed into the record.
+  who and when.
 
 Opening a card also brings it into view: the board scrolls the card into the middle of what is left
-beside the drawer, so its column and neighbours are in front of the reader. A card already in view is
+beside the drawer. A card already in view is
 left where it is.
 
 The drawer is where editing happens. Opening a card takes its pen, so a card somebody has open is
@@ -260,12 +250,6 @@ sentence, and a deleted card is never named.*
 
 ## What an initiative shows
 
-A card becomes an initiative from its card menu (**Convert to initiative**). It is the same item —
-the same id, people, tags, links, comments, dependencies, parent and history — wearing the reserved
-Initiative type; the card type it gave up is named in its history. Its placement leaves the cards
-flow for the initiatives flow's section of its stage, and its kind is left unset for a person to
-choose. One card at a time, and only where the board has an initiatives cell.
-
 An initiative is the outcome above the cards. It has no status field and no estimate of its own:
 its status is read from the work below it, and its size is the number of items below it.
 
@@ -278,11 +262,10 @@ and the roll-up label says what it rolls up to.*
 
 The small coloured squares across an initiative card are its **direct children**, one pip each, in
 the same order as the progress bar below them: **Done** (green), **In Progress** (violet), **Not
-Started** (blue), then **Backlog** (grey), so the state of the work reads left to right.
+Started** (blue), then **Backlog** (grey).
 
 - A pip is a way into that child: clicking it opens the child and, on a board, brings it into view.
-  If the child's workflow band or a column above its cell is folded, opening the pip unfolds it so
-  the card is there to be seen.
+  If the child's workflow band or a column above its cell is folded, opening the pip unfolds it.
 - Hovering a pip shows a small reading of that child without opening it: its status, title, type, kind and
   priority, people, deadline, tags, and the board, workflow and column it sits in. The reading is visual only — it takes no click and closes
   when the pointer leaves; the initiative's own panel remains the keyboard path to every child.
@@ -297,7 +280,7 @@ Started** (blue), then **Backlog** (grey), so the state of the work reads left t
   shape says "look here" first, and the hover reading still names the stage. A blocked child shows
   the blocked box even when it also has another warning, and the pip's accessible name says which
   it is. Hovering puts the blocker reason and the **Warnings** section directly under the title, before
-  the card's facts, so the reason a pip is alerting comes first; both use the same words as the
+  the card's facts; both use the same words as the
   child's card.
 - Up to 12 pips are drawn; beyond that a **+N** says how many more there are. Completed filed-away
   children still count, because their work is part of what was delivered; a discarded child is not
@@ -318,18 +301,15 @@ count. The same bar, in the same order and the board's stage colours, is drawn o
 **Summary**, and under the drawer's **Relationships** tab.
 
 The due date, external link, **Done** stamp and people sit in the footer band, as they do on a card.
-The progress bar above is the initiative's own reading; the footer is what a reader can act on.
 
-The denominator is all the items below, including those still in Backlog, so planning more
-uncommitted work moves the percentage back. A Backlog item does not drag the initiative's *status*
+The denominator is all the items below, including those still in Backlog. A Backlog item does not drag the initiative's *status*
 backwards, but it does count in the percentage. An initiative with nothing below it has no
 percentage and no bar, which is a different fact from 0%. **Done** on the card means everything
 below is done.
 
 ### The Hierarchy reading
 
-An initiative's **Relationships** tab opens with a reading of the work below, before the direct children.
-It is the same model every other surface reads, not a second tracker:
+An initiative's **Relationships** tab opens with a reading of the work below, before the direct children:
 
 - **Progress below** shows the item count, the four stage counts, the percentage and the
   `done of total` count, with a bar that carries no meaning on its own — the numbers beside it do.
@@ -367,8 +347,7 @@ An initiative's **section** is derived from the same rollup:
 
 The initiative therefore moves between **Backlog / Not Started / In Progress / Done** by itself when
 the work below changes. You do not drag it across a section boundary; dragging arranges it *within*
-its section, and a move that would cross a section is refused because the work, not the placement,
-decides the section. If its saved cell belonged to another section, the board draws it in the derived
+its section, and a move that would cross a section is refused. If its saved cell belonged to another section, the board draws it in the derived
 section rather than in the wrong column.
 
 A parent is a hierarchy edit, not a way off the board: an initiative that is given a parent on the
@@ -416,8 +395,7 @@ on every card: being in the external dependencies workflow already says the work
 | **Satisfied** | The external item is done; the card here has not finished yet. |
 | **Closed** | The card here is done. |
 
-A cleared entry stays in the workflow after it is satisfied or closed, so a reader can see what the
-board was waiting for last week. The dependency count on a card drops as each link is no longer open,
+A cleared entry stays in the workflow after it is satisfied or closed. The dependency count on a card drops as each link is no longer open,
 and disappears when none are; the workflow keeps the history. The header counts what is **open** and
 what has been **cleared**.
 

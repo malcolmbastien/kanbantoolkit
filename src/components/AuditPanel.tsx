@@ -53,10 +53,7 @@ export function AuditPanel() {
           for 90 days
         </span>
       </div>
-      <p className="mt-1 text-meta text-slate-600">
-        The trail is not shown here. Export it as a CSV file — a row per change, with who did it, what
-        it was done to, and the raw action — and read it wherever a record belongs.
-      </p>
+      <p className="mt-1 text-meta text-slate-600">The trail is not shown here.</p>
 
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <label className="block text-micro font-semibold uppercase tracking-wide text-slate-500">

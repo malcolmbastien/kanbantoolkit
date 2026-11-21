@@ -1,18 +1,18 @@
 # Upgrade
 
-An upgrade is: get the new code, build it, restart. The migrations run on boot, inside a transaction,
-and the server refuses to serve a database it cannot understand.
+The migrations run on boot, inside a transaction, and the server refuses to serve a database it cannot
+understand.
 
 ## The rule
 
-**Back up first.** A release that changes the schema says so in the changelog, and the way back is a
-restore, not a rollback: migrations are one-way, and the old code cannot read the new shape.
+**Back up first.** A schema-changing release says so in the changelog; the way back is a restore, not
+a rollback — migrations are one-way, and the old code cannot read the new shape.
 
 ```bash
 npm run backup -- backup ./kanbantoolkit.db ./backups
 ```
 
-[backup.md](backup.md) is the whole procedure, including the drill that proves the copy is good.
+See [backup.md](backup.md) for the procedure and the drill that proves the copy is good.
 
 ## The steps
 
@@ -25,25 +25,23 @@ sudo systemctl restart kanbantoolkit                    # 4. boot: migrations, t
 journalctl -u kanbantoolkit -n 20 --no-pager            # 5. what happened
 ```
 
-Step 5 prints one line at start, the migration the database reached:
+Step 5 prints the migration the database reached:
 
 ```
 kanbantoolkit schema vN
 ```
 
-If it prints nothing and exits, the migration refused — see *When a migration stops* below. If it
-prints `(applied 20, 21, …)` after the version, this boot moved the schema; read the release's notes
-for what changed.
+If it prints nothing and exits, the migration refused — see *When a migration stops*. If it prints
+`(applied 20, 21, …)` after the version, this boot moved the schema; read the release notes.
 
 ## Which releases need a backup
 
-Every release, and two kinds especially:
+Every release; two kinds especially:
 
 - **The changelog entry names a migration.** The server applies it at boot. Back up before the
-  restart, because a restore is the only way back.
-- **The changelog entry says `REQUIRED_SCHEMA` moved.** The same information with a consequence: an old
-  binary refuses the new database, so rolling the code back without restoring leaves a server that
-  will not start.
+  restart: a restore is the only way back.
+- **The changelog entry says `REQUIRED_SCHEMA` moved.** An old binary refuses the new database, so
+  rolling the code back without restoring leaves a server that will not start.
 
 **An example: schema 33, the vocabulary revision.** A database from before it gains
 `workspace.vocabulary_rev`, the revision the workspace's card types, templates, objectives and key
@@ -51,8 +49,7 @@ results are written against, so a stale save is refused instead of overwriting s
 `REQUIRED_SCHEMA` moved to 33 with the column, so an old binary refuses the new database. No row is
 rewritten: the lists are as they were, and the revision starts at zero.
 
-A release that changes only the client or the site can be rolled back by checking out the previous
-tag and rebuilding.
+A client- or site-only release can be rolled back by checking out the previous tag and rebuilding.
 
 ## A release that needs a value before it will start
 
@@ -65,7 +62,7 @@ keyed with either has its key in this repository. A Node instance with `NODE_ENV
 kanbantoolkit cannot start: ERROR_SALT is not set. Set it to a secret (docs/configure.md)
 ```
 
-The step is one line in the file the process already reads — `.env` on a Compose install,
+The step is one line in the file the process reads — `.env` on a Compose install,
 `Environment=ERROR_SALT=…` in a systemd unit — with the value from `openssl rand -hex 32`. Nothing in
 the database is rewritten, but the addresses hashed under the old value no longer match, so the
 sign-in attempt count and the per-hour error-report limit start fresh once. Set the value before an
@@ -76,9 +73,8 @@ the process. A served instance should not rely on that.
 
 ## When a migration stops
 
-The schema is applied in one transaction per file, and a failure leaves the version where it was, so
-the next attempt starts the same file again. The process exits rather than serving a half-migrated
-database.
+The schema is applied in one transaction per file; a failure leaves the version where it was, so the
+next attempt starts the same file again. The process exits rather than serving a half-migrated database.
 
 1. Read the error in the journal — it names the file, e.g. `0021_no_bill.sql`.
 2. **Do not edit a migration that has already run on another instance.** The file is the schema's
@@ -103,12 +99,12 @@ counts after copying, so it says *what* it restored.
 ## Downtime
 
 The restart is the only downtime: the process stops taking requests, the migrations run, and it serves
-again. Time depends on the size of the database and the migrations in the release; time the first
-upgrade on a real instance and note the number.
+again. Time depends on the database size and the release's migrations; time the first upgrade on a real
+instance and note the number.
 
-If the workspace is read while the schema is behind (for example, a second server still running the old
-code against a newer file), the API answers `503` with "this instance has not finished migrating" rather
-than serving data it may misread.
+If the workspace is read while the schema is behind (a second server on old code against a newer file),
+the API answers `503` with "this instance has not finished migrating" rather than serving data it may
+misread.
 
 ---
 
