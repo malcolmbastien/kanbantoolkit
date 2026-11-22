@@ -19,11 +19,12 @@ import { buildBoardModel } from '@/domain/boardModel'
 import { initiativeHealth, type HealthFlagInfo } from '@/domain/health'
 import { boardInitiatives, canAddInitiative, initiativeCellOf, initiativeRanks, initiativeTypeById, initiativeTypeId, isInitiativeItem, tagsOf } from '@/domain/board'
 import { detailFor, type BoardDetail } from '@/domain/boardDetail'
-import { childrenOf, isLeaf, lanePath, leavesUnder, topLevelLanes } from '@/domain/lanes'
-import { STAGE_ACCENT, STAGE_COLUMN, tintOn } from '@/lib/colors'
+import { childrenOf, isLeaf, lanePath, leavesUnder, topLevelLanes, wipState } from '@/domain/lanes'
+import { STAGE_ACCENT, STAGE_COLUMN, tintOn, WIP_PILL, WIP_SURFACE } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { announce } from '@/lib/announce'
 import {
+  AlertTriangle,
   ArrowLeftRight,
   BetweenHorizontalStart,
   ChevronDown,
@@ -204,7 +205,12 @@ export function BoardSummary({
           // when a filter is on — and only then.
           const held = initiativeRanks(graph, boardId, section.id, allInitiatives, flows)
           const total = [...held.values()].reduce((n, rank) => n + rank.length, 0)
-          return { section, stage, cells, byCell, held, total }
+          // A section's load is the initiatives its work rolled into it, not the cards beneath
+          // them. The badge already reads that number; the WIP warning reads the same one, so a
+          // filter can never quiet a full section. A band or a strategy-map group is a reading,
+          // not the board's own flow, so it carries no limit.
+          const wip = onlyIds === undefined ? wipState(total, section.wipLimit) : undefined
+          return { section, stage, cells, byCell, held, total, wip }
         }),
     [
       initiativesFlowOf,
@@ -217,6 +223,8 @@ export function BoardSummary({
       initiatives,
       allInitiatives,
       flows,
+      interactive,
+      onlyIds,
     ],
   )
 
@@ -589,7 +597,7 @@ export function BoardSummary({
       {lift && (
         <DragLayer html={lift.html} x={lift.x} y={lift.y} grabX={lift.grabX} grabY={lift.grabY} width={lift.width} height={lift.height} />
       )}
-      {sections.map(({ section, stage, cells, byCell, held, total }) => {
+      {sections.map(({ section, stage, cells, byCell, held, total, wip }) => {
         const split = cells.length > 1
         const folded = collapsedLanes[section.id] === true
         // The section's own orientation arranges its cells; 'columns' by default.
@@ -601,6 +609,7 @@ export function BoardSummary({
             stage={stage}
             isSection
             count={total}
+            wip={wip}
             sectionId={section.id}
             interactive={interactive}
             editMode={editMode}
@@ -622,7 +631,7 @@ export function BoardSummary({
             }
             className={cn(
               'flex min-w-0 flex-col overflow-hidden rounded-xl border',
-              STAGE_COLUMN[stage].surface,
+              wip === 'over' ? WIP_SURFACE.over.lane : STAGE_COLUMN[stage].surface,
             )}
           >
             {split ? (
@@ -679,6 +688,8 @@ function Cell({
   sectionId,
   isSection,
   count,
+  /** A section at or over its WIP limit. Cells inside it never carry one. */
+  wip,
   interactive,
   editMode,
   detail,
@@ -695,6 +706,7 @@ function Cell({
   sectionId: string
   isSection?: boolean
   count: number
+  wip?: 'at' | 'over' | null
   interactive: boolean
   editMode: boolean
   detail: BoardDetail
@@ -732,16 +744,28 @@ function Cell({
   // One header at every depth, the same shelf the cards workflow uses: a cell of a split section
   // is a column of the section above it, not a quieter kind of label. A translucent wash gives
   // the name its own ground without becoming a card: the work below stays the brightest plane.
+  const over = wip === 'over'
+  const atLimit = wip === 'at'
   const head = cn(
-    HEAD_ROW,
     'mx-1 mt-1 mb-1 gap-1.5 rounded-md px-2.5 py-1.5',
-    isSection && stage
-      ? cn('shadow-sm', STAGE_COLUMN[stage].header)
-      : 'border border-slate-200 bg-white/75 text-slate-700',
+    over
+      ? WIP_SURFACE.over.header
+      : isSection && stage
+        ? cn('shadow-sm', STAGE_COLUMN[stage].header)
+        : 'border border-slate-200 bg-white/75 text-slate-700',
   )
-  const headCount = isSection && stage
-    ? cn('rounded-full px-1.5 py-0.5 font-bold', STAGE_COLUMN[stage].count)
-    : 'rounded-full bg-white/70 px-1.5 py-0.5 font-semibold text-slate-600 ring-1 ring-slate-300/60'
+  const headCount = over
+    ? cn('rounded-full px-1.5 py-0.5 font-bold', WIP_PILL.over)
+    : atLimit
+      ? cn('rounded-full px-1.5 py-0.5 font-bold', WIP_PILL.at)
+      : isSection && stage
+        ? cn('rounded-full px-1.5 py-0.5 font-bold', STAGE_COLUMN[stage].count)
+        : 'rounded-full bg-white/70 px-1.5 py-0.5 font-semibold text-slate-600 ring-1 ring-slate-300/60'
+  const countTitle = over
+    ? `Over its WIP limit — ${count} initiative${count === 1 ? '' : 's'}, limit ${lane.wipLimit}`
+    : atLimit
+      ? `At its limit — ${count} of ${lane.wipLimit}; the next initiative would exceed it`
+      : `${count} initiative${count === 1 ? '' : 's'}${isSection && lane.wipLimit !== undefined ? ` of ${lane.wipLimit}` : ''}`
   const removeWithConfirm = () => {
     const kids = leavesUnder(lanes, lane.id).filter((l) => l.id !== lane.id)
     const target = kids[0]
@@ -762,7 +786,11 @@ function Cell({
     const accent = stage ? STAGE_ACCENT[stage] : undefined
     return (
       <div
-        className="flex min-h-0 w-full flex-col items-center gap-2 overflow-hidden rounded-lg border border-slate-300 py-2"
+        data-wip-label={wip ?? undefined}
+        className={cn(
+          'flex min-h-0 w-full flex-col items-center gap-2 overflow-hidden rounded-lg border border-slate-300 py-2',
+          over && WIP_SURFACE.over.cell,
+        )}
         style={{
           ...style,
           ...(accent
@@ -787,9 +815,9 @@ function Cell({
         </button>
         <span
           className="px-1 text-micro font-semibold tabular-nums text-slate-600"
-          title={`${count} initiative${count === 1 ? '' : 's'}`}
+          title={countTitle}
         >
-          {count}
+          {count}{isSection && lane.wipLimit !== undefined ? `/${lane.wipLimit}` : ''}
         </span>
         <button onClick={() => toggleCollapse(lane.id)} className="flex min-h-0 flex-1 items-center justify-center" title="Expand">
           <span
@@ -816,9 +844,18 @@ function Cell({
       data-section-id={sectionId}
     >
       <div className={head} data-lane-header>
+        {over && (
+          <div
+            aria-hidden
+            data-wip-stripe="over"
+            className="-mx-2.5 -mt-1.5 mb-1.5 h-2.5 rounded-t-md"
+            style={{ backgroundImage: WIP_SURFACE.over.hazard }}
+          />
+        )}
         {/* The same three slots the cards workflow uses: the fold control left, the name
             centred, the count and any edit controls right. The left slot was a spacer, which is
             what put this workflow's fold control over on the right with the editing. */}
+        <div className={HEAD_ROW}>
         <span className="flex items-center gap-1">
           {isSection && (
             <button
@@ -860,13 +897,15 @@ function Cell({
           </span>
         )}
         <span className="flex items-center justify-end gap-1">
+          {over && <AlertTriangle size={12} className="shrink-0 text-yellow-300" aria-label="Over its WIP limit" />}
           <span
+            data-lane-count
             className={cn('shrink-0 text-micro font-semibold tabular-nums', headCount)}
-            title={`${count} initiative${count === 1 ? '' : 's'}`}
+            title={countTitle}
           >
-            {count}
+            {count}{isSection && lane.wipLimit !== undefined ? `/${lane.wipLimit}` : ''}
           </span>
-          {editable && (
+        {editable && (
             <CtlGroup>
               {!isSection && (
                 <>
@@ -927,6 +966,19 @@ function Cell({
             </CtlGroup>
           )}
         </span>
+        </div>
+        {wip && (
+          <div
+            data-wip-label={wip}
+            className={cn(
+              '-mx-2.5 -mb-1.5 mt-1.5 rounded-b-md border-t px-2.5 py-1 text-center text-micro',
+              over ? 'font-bold uppercase tracking-wide' : 'font-medium',
+              WIP_SURFACE[wip].rule,
+            )}
+          >
+            {WIP_SURFACE[wip].label}
+          </div>
+        )}
       </div>
 
       {/* Every cell is a drop target, and says which section it belongs to: an initiative never
@@ -964,6 +1016,7 @@ function Cell({
           onClose={() => setSettingsOpen(false)}
           rename={(name) => renameLane(lane.id, name)}
           setWip={(w) => setLaneWip(lane.id, w)}
+          wipHidden={!isSection}
           setPolicy={(text) => setLaneDescription(lane.id, text)}
           remove={() => {
             setSettingsOpen(false)

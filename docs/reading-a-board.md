@@ -134,6 +134,9 @@ A board has exactly **one initiatives flow** and **one or more cards flows**.
   of the column it lands in. A new card is made from a workflow's own Backlog, or from the toolbar
   with its workflow chosen. The Flow view can be narrowed to one cards flow, and to one card type
   within it.
+- An initiatives section can wear the same amber count and rose warning when the initiatives rolled
+  into it reach its WIP limit. Unlike a cards column it never holds a move: the limit warns about
+  the view leaders read, while the work below stays free to move.
 - A **template** captures the design of a **team** or **program** board. A team template keeps its
   cards flows — their names, columns and limits — and the initiatives flow they roll up through; a
   program template is its initiatives flow, whose sections are fixed and whose cells are the design.

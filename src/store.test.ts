@@ -106,17 +106,17 @@ describe('store actions', () => {
     expect(s().items.some((item) => item.title === 'Orphan')).toBe(false)
   })
 
-  it('makes a board from the Upstream Kanban template, with both flows', () => {
+  it('makes a board from the Upstream Kanban template, with one end-to-end flow', () => {
     const id = s().addBoard('Upstream board', 'team', false, 'tpl-upstream-kanban')
     const flows = s().flows.filter((flow) => flow.boardId === id && flow.kind === 'cards')
-    expect(flows.map((flow) => flow.name)).toEqual(['Upstream', 'Downstream'])
+    expect(flows.map((flow) => flow.name)).toEqual(['End to end'])
 
     const lanes = s().lanes.filter((lane) => lane.boardId === id)
     const names = lanes.map((lane) => lane.name)
-    for (const name of ['Idea', 'Analysis', 'Concept', 'Ready to Pull', 'Next', 'Development', 'Test', 'UAT', 'Ready to Deploy']) {
+    for (const name of ['Idea', 'Value analysis', 'Concept', 'Incoming', 'Ready to Pull', 'Next', 'Being Pulled', 'Analysis', 'Development', 'Test', 'UAT', 'Pulled', 'Ready to Deploy']) {
       expect(names, name).toContain(name)
     }
-    // Two trees, never one: every card lane answers to one of the board's cards flows.
+    // One tree: every card lane answers to the board's one cards flow.
     const cardsFlows = new Set(flows.map((entry) => entry.id))
     for (const lane of lanes.filter((entry) => cardsFlows.has(entry.flowId))) {
       expect(cardsFlows.has(lane.flowId), lane.name).toBe(true)

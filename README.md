@@ -12,6 +12,12 @@ The board shows the wait: how long a card has sat in its lane, what is blocking 
 waiting for on another team's board, and which work in progress has nobody's name on it. All read
 from cards that are already there, none typed twice.
 
+It comes from ten years of direct experience in enterprise agile transformations. Kanban was core
+to helping teams self-organize and improve delivery and customer impact, and it was equally core to
+managing numerous multi-million-dollar programs and transformations across multiple lines of
+business. The lessons from creating real agility in that work — what makes it hold in practice, and
+what gets in the way — have gone into how this tool is built and designed.
+
 [**Run it with Docker**](#run-it) — one container, one SQLite file ·
 [Open the demo](https://kanbantoolkit.com/app) · [Documentation](docs/README.md)
 

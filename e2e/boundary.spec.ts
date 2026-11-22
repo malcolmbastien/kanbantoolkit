@@ -129,7 +129,7 @@ test('a selected boundary card draws the same dependency string the lens draws',
   await expect(link).toHaveCount(1)
   const fromLens = await drawn()
   expect(fromLens.stroke).toBe('#dc2626')
-  expect(fromLens.width).toBe('2.5')
+  expect(fromLens.width).toBe('3')
   expect(fromLens.marker).toContain('dependency')
   await expect(link).toHaveAttribute('data-connection-kind', 'dependency')
   // The attributes carry the model's direction (blocker → waiting item); the drawing turns it

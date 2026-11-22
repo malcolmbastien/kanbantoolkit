@@ -198,22 +198,21 @@ describe('board templates — a design, not its work', () => {
     ])
   })
 
-  it('ships the Upstream Kanban template as two flows, with the picture’s cells in order', () => {
+  it('ships the Upstream Kanban template as one flow, with the picture’s cells in order', () => {
     const t = s.boardTemplates.find((template) => template.name === 'Upstream Kanban')!
-    expect(t.flows.filter((flow) => flow.kind === 'cards').map((flow) => flow.name)).toEqual(['Upstream', 'Downstream'])
+    expect(t.flows.filter((flow) => flow.kind === 'cards').map((flow) => flow.name)).toEqual(['End to end'])
 
-    const up = (key: string | null) => templateChildren(t, key, 'up').map((lane) => lane.name)
-    expect(up(null)).toEqual(['Discovery', 'Ready to Pull', 'Being Pulled', 'Pulled'])
-    expect(up('u0')).toEqual(['Idea', 'Analysis', 'Concept'])
+    const cells = (key: string | null) => templateChildren(t, key, 'f0').map((lane) => lane.name)
+    expect(cells(null)).toEqual(['Backlog', 'Ready', 'In Progress', 'Done'])
+    expect(cells('c0')).toEqual(['Idea', 'Value analysis', 'Concept', 'Incoming'])
+    expect(cells('c6')).toEqual(['Ready to Pull', 'Next'])
+    expect(cells('c9')).toEqual(['Being Pulled', 'Analysis', 'Development', 'Test', 'UAT'])
+    expect(cells('c16')).toEqual(['Pulled', 'Ready to Deploy'])
 
-    const down = (key: string | null) => templateChildren(t, key, 'down').map((lane) => lane.name)
-    expect(down(null)).toEqual(['Incoming', 'Next', 'In Progress', 'Ready to Deploy'])
-    expect(down('d2')).toEqual(['Analysis', 'Development', 'Test', 'UAT'])
-
-    // A usable design: two cards flows, four typed roots each, every lane inside its own flow.
+    // A usable design: one cards flow, four typed roots, every lane inside that flow.
     let n = 0
     const { flows, lanes } = lanesFromTemplate(t, 'b', () => `id${++n}`)
-    expect(flows.filter((flow) => flow.kind === 'cards').map((flow) => flow.name)).toEqual(['Upstream', 'Downstream'])
+    expect(flows.filter((flow) => flow.kind === 'cards').map((flow) => flow.name)).toEqual(['End to end'])
     for (const flow of flows) {
       const root = lanes.find((lane) => lane.parentId === null && lane.flowId === flow.id)!
       const columns = lanes.filter((lane) => lane.parentId === root.id)

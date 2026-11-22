@@ -131,7 +131,8 @@ another cell to move it — including into another cards flow, where the target 
 applies. A column can carry a **WIP limit**; **Settings** decides what a limit does — show a soft amber
 **At limit** line and count when full, and mark a breach with hazard tape (**visualize**),
 hold the move until a reason is given (**justify**), or refuse it (**block**) — and that policy covers
-every cards flow on the board.
+every cards flow on the board. An initiatives **section** can carry a WIP limit too, but it only
+warns: its **N/limit** counts the initiatives whose rollup put them there, and no move is held by it.
 
 <kbd>Shift</kbd>-click cards to select several. Dragging any card in the selection moves the whole
 group to the cell it is dropped in, with the grabbed card at the drop point and the rest following
@@ -260,8 +261,7 @@ top, above every cards flow. A team's template also carries its **initiative kin
 made from it starts with the same labels. **Edit** opens the design as a draft: **Save** keeps it,
 and **Cancel** (or closing the dialog) reverts to what was there. The app ships a collection: **Basic Kanban**, **Personal
 Kanban**, **Scrumban**, **Shape Up**, **Incident Response**, **Design Sprint**, **Feature Flow**,
-**Scrum** and **Upstream Kanban** (upstream discovery and downstream delivery as two flows of one
-board). A template is used from the **Templates**
+**Scrum** and **Upstream Kanban** (discovery and delivery as the four stages of one flow). A template is used from the **Templates**
 tab — **Use template** on its card, or the same button in its preview — so the new-board dialog itself
 asks only for a name and a board type.
 

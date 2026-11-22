@@ -221,42 +221,38 @@ const TEMPLATE_DRAFTS: TemplateDraft[] = [
   },
   {
     /**
-     * The two halves of an upstream/downstream kanban, on one board.
+     * An upstream/downstream kanban as one flow, end to end.
      *
-     * The reference is two boards drawn hand in hand: upstream discovers and shapes work, then a
-     * downstream team pulls it. Here they are the board's two **cards flows**, so the hand-off is
-     * a move between flows rather than a copy between boards. Each flow still has the four typed
-     * columns the model requires; the picture's columns are the cells inside them, and the two
-     * extra columns each side are the hand-off states the picture implies but does not draw.
+     * Discovery and delivery used to be two cards flows, with the hand-off a move between them. As
+     * one flow they still read in the same order: a card is found and shaped, becomes ready to pull,
+     * is worked on and accepted, then finishes. The four roots are the typed stages the model
+     * requires, and the old flows' cells sit directly inside them as columns. Upstream's Discovery
+     * analysis is named differently from downstream's Analysis, so no two columns in the flow read
+     * the same.
      */
     id: 'tpl-upstream-kanban',
     name: 'Upstream Kanban',
     band: 'team',
     defaultCardTypeId: 't-story',
-    flows: [
-      { key: 'up', kind: 'cards', name: 'Upstream', order: 0 },
-      { key: 'down', kind: 'cards', name: 'Downstream', order: 1 },
-    ],
+    flows: [{ key: 'f0', kind: 'cards', name: 'End to end', order: 0 }],
     lanes: [
-      // Upstream: the discovery pool is one uncommitted column split into the three states the
-      // picture draws; Ready to Pull is the commitment point.
-      { key: 'u0', flowKey: 'up', parentKey: null, order: 0, name: 'Discovery', stage: 'backlog', orientation: 'columns' },
-      { key: 'u1', flowKey: 'up', parentKey: 'u0', order: 0, name: 'Idea', description: 'A problem, a request or an observation, before anybody has judged it.' },
-      { key: 'u2', flowKey: 'up', parentKey: 'u0', order: 1, name: 'Analysis', description: 'Is it worth doing? Value, cost of delay and the rough shape.' },
-      { key: 'u3', flowKey: 'up', parentKey: 'u0', order: 2, name: 'Concept', description: 'What it would take: a sketch, a decision and an estimate.' },
-      { key: 'u4', flowKey: 'up', parentKey: null, order: 1, name: 'Ready to Pull', stage: 'notStarted', description: 'Analysed and shaped, waiting for a downstream team to pull it.' },
-      { key: 'u5', flowKey: 'up', parentKey: null, order: 2, name: 'Being Pulled', stage: 'inProgress', description: 'A downstream team has taken it on; upstream is finishing its hand-off.' },
-      { key: 'u6', flowKey: 'up', parentKey: null, order: 3, name: 'Pulled', stage: 'done', description: 'Upstream is finished with it.' },
-      // Downstream: Incoming is the intake the picture leaves implicit; Next is the committed pull
-      // queue, Analysis through UAT are the work, and Ready to Deploy is done.
-      { key: 'd0', flowKey: 'down', parentKey: null, order: 0, name: 'Incoming', stage: 'backlog', description: 'Pulled from upstream, waiting for the next replenishment.' },
-      { key: 'd1', flowKey: 'down', parentKey: null, order: 1, name: 'Next', stage: 'notStarted', description: 'Selected for the next cycle; the team’s next pull.' },
-      { key: 'd2', flowKey: 'down', parentKey: null, order: 2, name: 'In Progress', stage: 'inProgress', orientation: 'columns' },
-      { key: 'd3', flowKey: 'down', parentKey: 'd2', order: 0, name: 'Analysis', description: 'Understanding it: options, impact and the plan.' },
-      { key: 'd4', flowKey: 'down', parentKey: 'd2', order: 1, name: 'Development', description: 'Building it, with its tests written alongside.' },
-      { key: 'd5', flowKey: 'down', parentKey: 'd2', order: 2, name: 'Test', description: 'Verifying it: automated, exploratory and peer review.' },
-      { key: 'd6', flowKey: 'down', parentKey: 'd2', order: 3, name: 'UAT', description: 'Acceptance by the people who asked for it, in their own words.' },
-      { key: 'd7', flowKey: 'down', parentKey: null, order: 3, name: 'Ready to Deploy', stage: 'done', description: 'Accepted and waiting for its release window.' },
+      { key: 'c0', flowKey: 'f0', parentKey: null, order: 0, name: 'Backlog', stage: 'backlog', orientation: 'columns' },
+      { key: 'c2', flowKey: 'f0', parentKey: 'c0', order: 0, name: 'Idea', description: 'A problem, a request or an observation, before anybody has judged it.' },
+      { key: 'c3', flowKey: 'f0', parentKey: 'c0', order: 1, name: 'Value analysis', description: 'Is it worth doing? Value, cost of delay and the rough shape.' },
+      { key: 'c4', flowKey: 'f0', parentKey: 'c0', order: 2, name: 'Concept', description: 'What it would take: a sketch, a decision and an estimate.' },
+      { key: 'c5', flowKey: 'f0', parentKey: 'c0', order: 3, name: 'Incoming', description: 'Pulled from upstream, waiting for the next replenishment.' },
+      { key: 'c6', flowKey: 'f0', parentKey: null, order: 1, name: 'Ready', stage: 'notStarted', orientation: 'columns' },
+      { key: 'c7', flowKey: 'f0', parentKey: 'c6', order: 0, name: 'Ready to Pull', description: 'Analysed and shaped, waiting for the downstream team to pull it.' },
+      { key: 'c8', flowKey: 'f0', parentKey: 'c6', order: 1, name: 'Next', description: 'Selected for the next cycle; the team’s next pull.' },
+      { key: 'c9', flowKey: 'f0', parentKey: null, order: 2, name: 'In Progress', stage: 'inProgress', orientation: 'columns' },
+      { key: 'c10', flowKey: 'f0', parentKey: 'c9', order: 0, name: 'Being Pulled', description: 'The downstream team has taken it on; upstream is finishing its hand-off.' },
+      { key: 'c12', flowKey: 'f0', parentKey: 'c9', order: 1, name: 'Analysis', description: 'Understanding it: options, impact and the plan.' },
+      { key: 'c13', flowKey: 'f0', parentKey: 'c9', order: 2, name: 'Development', description: 'Building it, with its tests written alongside.' },
+      { key: 'c14', flowKey: 'f0', parentKey: 'c9', order: 3, name: 'Test', description: 'Verifying it: automated, exploratory and peer review.' },
+      { key: 'c15', flowKey: 'f0', parentKey: 'c9', order: 4, name: 'UAT', description: 'Acceptance by the people who asked for it, in their own words.' },
+      { key: 'c16', flowKey: 'f0', parentKey: null, order: 3, name: 'Done', stage: 'done', orientation: 'columns' },
+      { key: 'c17', flowKey: 'f0', parentKey: 'c16', order: 0, name: 'Pulled', description: 'Upstream is finished with it.' },
+      { key: 'c18', flowKey: 'f0', parentKey: 'c16', order: 1, name: 'Ready to Deploy', description: 'Accepted and waiting for its release window.' },
     ],
   },
   {

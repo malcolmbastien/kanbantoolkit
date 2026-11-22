@@ -257,10 +257,6 @@ describe('the templates the app ships', () => {
       const keys = new Set(template.flows.map((flow) => flow.key))
       expect(template.lanes.every((lane) => keys.has(lane.flowKey)), template.name).toBe(true)
     }
-    // The collection is not limited to one flow per board: upstream and downstream are one design.
-    expect(
-      seed.boardTemplates.find((template) => template.name === 'Upstream Kanban')!.flows.filter((flow) => flow.kind === 'cards'),
-    ).toHaveLength(2)
     // Every template describes a board that has a design: a team or a program, never a portfolio.
     expect(seed.boardTemplates.every((template) => template.band === 'team' || template.band === 'program')).toBe(true)
   })

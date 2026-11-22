@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { cardsIn, dropAbove, laneRegion, openBoard } from './support'
+import { cardsIn, dropAbove, dropAtEnd, laneRegion, openBoard } from './support'
 
 /**
  * The justify policy, and the case that once broke while every unit test passed: the drop wrote
@@ -115,4 +115,41 @@ test('a reason lands the card where it was dropped, and is recorded on it', asyn
     return state.items.find((item) => item.id === id)?.lastMoveReason ?? null
   }, moved)
   expect(stored).toBe(reason)
+})
+
+test('an initiative section warns from its own rollup, and never holds a card', async ({ page }) => {
+  await openBoard(page)
+  const header = page
+    .locator('[data-workflow="initiatives"] [data-lane-header]')
+    .filter({ hasText: 'IN PROGRESS' })
+    .first()
+  const section = header.locator('xpath=..')
+
+  const setLimit = async (value: string) => {
+    await page.getByRole('button', { name: 'Edit board' }).click()
+    await header.getByRole('button', { name: 'Name, WIP limit and policy' }).click()
+    await page.locator('#lane-wip').fill(value)
+    await page.locator('#lane-wip').press('Enter')
+    await page.keyboard.press('Escape')
+    await page.getByRole('button', { name: 'Save' }).click()
+  }
+
+  // Two initiatives roll into In Progress. Meeting the limit is quiet: the stage keeps its colours
+  // and one amber line says the next initiative would exceed it.
+  await setLimit('2')
+  await expect(section.locator('[data-wip-label="at"]')).toHaveText('At limit')
+  await expect(section.locator('[data-wip-stripe]')).toHaveCount(0)
+  await expect(section.locator('[data-lane-count]')).toHaveText('2/2')
+
+  // One less and the breach reads exactly like a cards column's: tape, alert and rose edge.
+  await setLimit('1')
+  await expect(section).toHaveClass(/border-rose-400/)
+  await expect(section.locator('[data-wip-stripe="over"]')).toHaveCount(1)
+  await expect(section.locator('[data-wip-label="over"]')).toHaveText('Over WIP limit')
+  await expect(section.locator('[data-lane-count]')).toHaveText('2/1')
+
+  // A warning only: the card still lands. The initiative count follows the work on the next render.
+  const [moved] = await cardsIn(page, 'Backlog')
+  await dropAtEnd(page, moved, 'Done')
+  expect(await cardsIn(page, 'Done')).toContain(moved)
 })

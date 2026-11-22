@@ -222,7 +222,7 @@ export function ConnectionsLinks({
             d={line.d}
             fill="none"
             stroke={line.kind === 'hierarchy' ? HIERARCHY_COLOR : DEPENDENCY_COLOR}
-            strokeWidth={line.kind === 'hierarchy' ? 2 : 2.5}
+            strokeWidth={line.kind === 'hierarchy' ? 2.5 : 3}
             strokeOpacity={line.kind === 'hierarchy' ? 0.75 : 0.9}
             strokeLinecap="round"
             markerEnd={`url(#${arrowId}-${line.kind})`}
@@ -235,7 +235,7 @@ export function ConnectionsLinks({
             r={CONNECTION_START_RADIUS}
             fill="#ffffff"
             stroke={line.kind === 'hierarchy' ? HIERARCHY_COLOR : DEPENDENCY_COLOR}
-            strokeWidth={2}
+            strokeWidth={2.25}
           />
         </g>
       ))}
@@ -249,7 +249,7 @@ const CONNECTION_SPREAD = 20
 /** The start of a dependency sits on the card, not on its edge; the end overlaps the target edge. */
 const CONNECTION_START_INSET = 12
 const CONNECTION_END_INSET = 4
-const CONNECTION_START_RADIUS = 4
+const CONNECTION_START_RADIUS = 5
 /** Blue is structure, red is a blocker: two readings, not two shades of one. */
 const HIERARCHY_COLOR = '#2563eb'
 const DEPENDENCY_COLOR = '#dc2626'

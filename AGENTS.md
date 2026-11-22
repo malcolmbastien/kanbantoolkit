@@ -212,9 +212,11 @@ task-master list            # terminal 2
   **answers** whether the card is now in the lane, because a drop is a move *and* a position: the
   caller writes the position only when the answer is yes, or it lands the card the policy just
   stopped. A held move carries the place the gesture offered, so answering lands the card where it
-  was dropped rather than at the end. WIP is the cards flows' own — an initiatives lane neither
-  shows a limit nor enforces one. Counts read the **column**, not the view: narrowing what you
-  *see* (search, filters) never changes the load a column carries.
+  was dropped rather than at the end. WIP is the cards flows' own: their limits can hold or refuse a
+  move. An initiatives **section** may also carry a WIP limit, but it is a **warning only** — the
+  count is the initiatives whose rollup put them in that section, and a card move is never held or
+  refused by it. Counts read the **column**, not the view: narrowing what you *see* (search,
+  filters) never changes the load a column carries.
 - **An error report is about the code, never the workspace.** `POST /api/errors` accepts a
   message, a stack, the path, the view, the build and the browser — not a place's query, which is
   where board and item ids live. Reporting is silent in development, capped per page, and the

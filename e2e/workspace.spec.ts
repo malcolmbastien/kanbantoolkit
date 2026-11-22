@@ -90,14 +90,12 @@ test('a template makes a board, instead of a dropdown in the new-board dialog', 
   await dialog.getByLabel('New board name').fill('Upstream and downstream')
   await dialog.getByRole('button', { name: 'Create board' }).click()
 
-  // Two cards flows, drawn as two workflows: upstream discovers, downstream pulls.
-  await expect(page.locator('[data-flow-band][data-flow-name="Upstream"]')).toBeVisible({ timeout: 20_000 })
-  await expect(page.locator('[data-flow-band][data-flow-name="Downstream"]')).toBeVisible()
-  await expect(laneRegion(page, 'Idea', 'Upstream')).toBeVisible()
-  await expect(laneRegion(page, 'Ready to Pull', 'Upstream')).toBeVisible()
-  await expect(laneRegion(page, 'Analysis', 'Downstream')).toBeVisible()
-  await expect(laneRegion(page, 'UAT', 'Downstream')).toBeVisible()
-  await expect(laneRegion(page, 'Ready to Deploy', 'Downstream')).toBeVisible()
+  // One cards flow, drawn as one workflow: discovery and delivery in the same four stages.
+  await expect(page.locator('[data-flow-band][data-flow-name="End to end"]')).toBeVisible({ timeout: 20_000 })
+  await expect(page.locator('[data-flow-band][data-flow-name="Downstream"]')).toHaveCount(0)
+  for (const name of ['Idea', 'Value analysis', 'Concept', 'Incoming', 'Ready to Pull', 'Next', 'Being Pulled', 'Analysis', 'Development', 'Test', 'UAT', 'Pulled', 'Ready to Deploy']) {
+    await expect(laneRegion(page, name, 'End to end')).toBeVisible()
+  }
 })
 
 test('New template opens the template editor, and Cancel discards it', async ({ page }) => {

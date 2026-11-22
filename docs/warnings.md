@@ -118,9 +118,11 @@ raise a limit.
 | **N/limit** in a soft amber pill, with **At limit** | The lane is **at** its WIP limit. That is a normal, expected state: the column keeps its stage colours, and a warm amber count and line say only that the next card would exceed the limit. No tape and no alert icon — that language belongs to a breach. | Cards leave the lane. |
 | **N/limit** in red, an alert icon, rose hazard tape, a solid rose header and **Over WIP limit** | The lane is **over** its WIP limit. The breach is on the column, in a pattern the board uses nowhere else. | Cards leave the lane. |
 | A move that does not happen, or asks for a reason | The board's **WIP enforcement**: **justify** holds the move until a reason is given, recorded on the card; **block** refuses it; **visualize** only marks the lane and lets the move through. | The move is completed with a reason, or the card is placed elsewhere. |
+| **N/limit** on an initiatives section, with the same amber line or rose tape | The initiatives whose rollup put them in that section have reached its WIP limit. This is a **warning only**: moving a card that changes a rollup is never held or refused by it. | The work below rolls an initiative into another section, or the limit changes. |
 
 The count is the column's own, not the filtered view's: narrowing what you see never changes the load
-a column carries.
+a column carries. An initiatives section counts **initiatives**, not the cards below them — its
+section comes from their rollup, so the number moves when work beneath them moves.
 
 ## What is not a warning
 
