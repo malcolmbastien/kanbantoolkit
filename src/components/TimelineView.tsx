@@ -1,10 +1,11 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ChartNoAxesGantt, Minus, Plus } from 'lucide-react'
 import { Card } from './Card'
 import { stageCountsOf } from './StageProgressBar'
 import { PersonAvatar } from './PersonAvatar'
 import { boardInitiatives, isPortfolio, portfolioInitiatives } from '@/domain/board'
-import { blockedBelow, checklistProgress, decompositionChildren, dependenciesOf, isComplete, isDiscarded, openDependenciesOf, openDescendants, rollupOf, uncommittedBelow, type Graph } from '@/domain/derive'
+import { checklistProgress, isDiscarded, type Graph } from '@/domain/derive'
+import { buildBoardModel } from '@/domain/boardModel'
 import { layoutTimeline, type TimelineDay } from '@/domain/timelineLayout'
 import { TIMELINE_DAY_PX, TIMELINE_ZOOM_LABELS, TIMELINE_ZOOMS, zoomIn, zoomOut } from '@/domain/timelineZoom'
 import { peopleOf } from '@/domain/users'
@@ -139,28 +140,46 @@ export function TimelineView({ boardId }: { boardId: string }) {
   const setTimelineZoom = useStore((s) => s.setTimelineZoom)
 
   const graph: Graph = { items, edges, links, placements, lanes }
+  // The board's readings, indexed once. `rollupOf` per initiative per render walked the same
+  // arrays again and again; this is the model the board and the initiatives flow already use.
+  const model = useMemo(
+    () => buildBoardModel(graph),
+    // The graph object is rebuilt each render; these are the identities that can change.
+    [items, edges, links, placements, lanes],
+  )
   const typeOf = (typeId: string): IssueType =>
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
   const board = boards.find((b) => b.id === boardId)
   // A portfolio holds no initiatives of its own: its timeline reads the outcomes in its remit and
   // those linked to its objectives, wherever their board sits.
-  const initiatives = isPortfolio(board)
-    ? portfolioInitiatives(graph, boards, boardId, issueTypes)
-    : boardInitiatives(graph, boardId, issueTypes)
-  const layout = layoutTimeline(
-    initiatives.map((i) => ({
-      id: i.id,
-      title: i.title,
-      targetStartDate: i.targetStartDate,
-      targetEndDate: i.targetEndDate,
-      bucket: rollupOf(i.id, graph).bucket,
-    })),
+  const initiatives = useMemo(
+    () =>
+      isPortfolio(board)
+        ? portfolioInitiatives(graph, boards, boardId, issueTypes)
+        : boardInitiatives(graph, boardId, issueTypes),
+    [board, boards, boardId, edges, issueTypes, items, lanes, links, placements],
+  )
+  const layout = useMemo(
+    () =>
+      layoutTimeline(
+        initiatives.map((i) => ({
+          id: i.id,
+          title: i.title,
+          targetStartDate: i.targetStartDate,
+          targetEndDate: i.targetEndDate,
+          bucket: model.rollup.get(i.id)?.bucket ?? 'backlog',
+        })),
+      ),
+    [initiatives, model],
   )
 
   // One width for the whole axis, and the people of every block resolved once for the three places
   // a block can show them.
   const dayPx = TIMELINE_DAY_PX[timelineZoom]
-  const peopleByBar = new Map(initiatives.map((i) => [i.id, peopleOf(users, i.assignees)]))
+  const peopleByBar = useMemo(
+    () => new Map(initiatives.map((i) => [i.id, peopleOf(users, i.assignees)])),
+    [initiatives, users],
+  )
 
   /**
    * Zooming keeps the reader's place.
@@ -333,7 +352,7 @@ export function TimelineView({ boardId }: { boardId: string }) {
                           <span className="block truncate text-micro text-slate-500">{shown}</span>
                         </button>
                         <span className="shrink-0 text-micro font-semibold tabular-nums text-slate-600" title="Share of the work below that is done">
-                          {rollupOf(bar.id, graph).percent}%
+                          {model.rollup.get(bar.id)?.percent ?? 0}%
                         </span>
                       </div>
                     )
@@ -574,13 +593,14 @@ export function TimelineView({ boardId }: { boardId: string }) {
                     // The direct children — archived ones included, because the rollup counts them and the count
                     // beside the pips has to be the same number the percentage is about. Filtering them out here is
                     // what made a card with one filed-away child read "nothing below" and "1 below" at once.
-                    const childItems = decompositionChildren(item.id, edges)
-                      .map((id) => items.find((i) => i.id === id))
+                    const childItems = (model.childrenOf.get(item.id) ?? [])
+                      .map((id) => model.itemsById.get(id))
                       .filter((i): i is Item => Boolean(i))
                     const symbols = childItems
                       .filter((ci) => !isDiscarded(ci, graph))
-                      .map((ci) => ({ id: ci.id, bucket: rollupOf(ci.id, graph).bucket, title: ci.title }))
-                    const roll = rollupOf(item.id, graph)
+                      .map((ci) => ({ id: ci.id, bucket: model.rollup.get(ci.id)?.bucket ?? 'backlog', title: ci.title }))
+                    const roll = model.rollup.get(item.id)
+                    if (!roll) return null
                     return (
                       <div key={u.id} data-timeline-unscheduled={u.id} className="w-56 shrink-0">
                         <Card
@@ -593,16 +613,17 @@ export function TimelineView({ boardId }: { boardId: string }) {
                           onOpen={(id) => openItem(id)}
                           onOpenDependencies={openItemDependencies}
                           connectionsOpen={connectionScopeId === item.id}
-                          openDependencies={openDependenciesOf(item.id, graph).length}
-                          hasDependencies={dependenciesOf(item.id, graph).length > 0}
+                          openDependencies={model.openDependencies.get(item.id)?.size ?? 0}
+                          hasDependencies={(model.dependenciesOf.get(item.id)?.length ?? 0) > 0}
                           summary={{
-                            childCount: decompositionChildren(item.id, edges).length,
-                            blockedBelow: blockedBelow(item.id, graph),
-                            uncommittedBelow: uncommittedBelow(item.id, graph),
-                            openDescendants: openDescendants(item.id, graph).length,
+                            childCount: childItems.length,
+                            blockedBelow: model.blockedBelow.get(item.id) ?? 0,
+                            uncommittedBelow:
+                              roll.bucket === 'notStarted' || roll.bucket === 'inProgress' ? roll.uncommitted : 0,
+                            openDescendants: model.openDescendants.get(item.id) ?? 0,
                             rollupPercent: roll.percent,
                             rollupStages: childItems.length > 0 ? stageCountsOf(roll) : undefined,
-                            done: isComplete(item.id, graph),
+                            done: roll.bucket === 'done',
                             checklist: checklistProgress(item),
                           }}
                         />

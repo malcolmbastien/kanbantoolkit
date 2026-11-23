@@ -191,7 +191,7 @@ export function CommandPalette({ onNewCard, onNewInitiative, onGoToBoards, makes
             },
           }]
         : []),
-      ...(canWrite && doneLane && !targetIsDone
+      ...(canWrite && targetBoard && doneLane && !targetIsDone
         ? [{
             id: 'action:move-done',
             kind: 'action' as PaletteKind,
@@ -201,7 +201,7 @@ export function CommandPalette({ onNewCard, onNewInitiative, onGoToBoards, makes
             run: () => {
               // The board's own rule answers: `block` refuses with its sentence, `justify` opens the
               // reason dialog. The palette does not add a second wording.
-              moveCard(target.id, targetBoard!.id, doneLane.id)
+              moveCard(target.id, targetBoard.id, doneLane.id)
             },
           }]
         : []),

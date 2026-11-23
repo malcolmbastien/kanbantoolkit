@@ -562,24 +562,47 @@ export function isInitiativeItem(item: Item | undefined, types: IssueType[]): bo
 }
 
 /**
- * Would `setParent` accept this? One rule, so a drop preview and the store cannot disagree.
- *
- * A parent is always an initiative, an item is never its own ancestor, and an **initiative that
- * serves an objective stays a root** — giving it a parent would count its work under two outcomes
- * and leave its own rollup disagreeing with the objective's percentage. The preview reads this too,
- * so a mapped initiative's drop target does not light up.
+ * Why an item cannot take a parent. `serves_objective` is the one a person is most likely to meet:
+ * an initiative mapped to an objective has to stay a root, or its leaves would count under two
+ * outcomes and its own rollup would disagree with the objective's percentage.
  */
-export function canSetParent(childId: string, parentId: string, graph: Graph, issueTypes: IssueType[]): boolean {
-  if (childId === parentId) return false
+export type ParentRefusal = 'missing' | 'archived' | 'serves_objective' | 'self' | 'not_initiative' | 'cycle'
+
+/**
+ * Why `childId` may not roll up to `parentId`, or `undefined` when it may.
+ *
+ * `parentId` null asks whether the item may have **any** parent. That is the question the drawer
+ * asks when it explains an empty picker: the answer can be about the child itself (it is mapped to
+ * an objective), not about a candidate.
+ *
+ * One rule for the store, the drawer, the card menu and the drop preview, so a target that lights
+ * up is a target the write accepts.
+ */
+export function parentRefusal(
+  childId: string,
+  parentId: string | null,
+  graph: Graph,
+  issueTypes: IssueType[],
+): ParentRefusal | undefined {
   const child = graph.items.find((i) => i.id === childId)
-  const parent = graph.items.find((i) => i.id === parentId)
-  if (!child || !parent) return false
+  if (!child) return 'missing'
   // A filed-away item is read-only and off the board; it is not a parent to roll work up to, and
   // it cannot be given one either. Existing hierarchy stays — only a new link is refused.
-  if (child.archived || parent.archived) return false
-  if (!isInitiativeItem(parent, issueTypes)) return false
-  if (graph.edges.some((edge) => edge.kind === 'attribution' && edge.to === childId)) return false
-  return !descendants(childId, graph).includes(parentId)
+  if (child.archived) return 'archived'
+  if (graph.edges.some((edge) => edge.kind === 'attribution' && edge.to === childId)) return 'serves_objective'
+  if (parentId === null) return undefined
+  if (childId === parentId) return 'self'
+  const parent = graph.items.find((i) => i.id === parentId)
+  if (!parent) return 'missing'
+  if (parent.archived) return 'archived'
+  if (!isInitiativeItem(parent, issueTypes)) return 'not_initiative'
+  if (descendants(childId, graph).includes(parentId)) return 'cycle'
+  return undefined
+}
+
+/** Would `setParent` accept this? Shorthand for the shared rule above. */
+export function canSetParent(childId: string, parentId: string, graph: Graph, issueTypes: IssueType[]): boolean {
+  return parentRefusal(childId, parentId, graph, issueTypes) === undefined
 }
 
 /**

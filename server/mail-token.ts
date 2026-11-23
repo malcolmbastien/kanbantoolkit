@@ -29,7 +29,7 @@ function hex(bytes: Uint8Array): string {
   return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
-function unhex(value: string): Uint8Array | undefined {
+function unhex(value: string): Uint8Array<ArrayBuffer> | undefined {
   if (!/^[0-9a-f]*$/i.test(value) || value.length % 2 !== 0) return undefined
   const bytes = new Uint8Array(value.length / 2)
   for (let i = 0; i < bytes.length; i++) bytes[i] = Number.parseInt(value.slice(i * 2, i * 2 + 2), 16)

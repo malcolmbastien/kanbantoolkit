@@ -1,5 +1,8 @@
 # PRD — Kanban Toolkit (working title)
 
+> **Historical draft.** This is the v0.1 MVP PRD, kept for context. It is not the current product
+> plan; the shipped application and `docs/roadmap.md` are.
+
 **MVP scoped to prove one thing: work is a graph, and boards are views over it.**
 
 Version 0.1 — draft for review

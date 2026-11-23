@@ -1,4 +1,4 @@
-import { Fragment, lazy, Suspense, useState } from 'react'
+import { Fragment, lazy, Suspense, useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, Plus, Target, Trash2, TriangleAlert, X } from 'lucide-react'
 import { BoardSummary } from './BoardSummary'
 import { PortfolioHeatmap } from './PortfolioHeatmap'
@@ -68,41 +68,50 @@ export function StrategyMap({ boardId, editing = false }: { boardId: string; edi
 
   const graph: Graph = { items, edges, links, placements, lanes }
 
-  const attribution = edges.filter((e) => e.kind === 'attribution')
-  // Every initiative that can serve an objective — a root, wherever its board sits. Linking names
-  // the outcome; it does not move the work onto this board.
-  const candidates = objectiveInitiatives(graph, issueTypes)
-  // The work this portfolio is read for: the outcomes in its remit, plus anything already linked
-  // to an objective. The "serving nothing" gap is about that set.
-  const inScope = portfolioInitiatives(graph, boards, boardId, issueTypes)
+  // The map's readings, made once per change to the workspaces it draws. The per-objective rollups
+  // are the expensive part: each walks the work beneath an outcome, and every render used to walk
+  // them all again.
+  const reading = useMemo(() => {
+    const attribution = edges.filter((e) => e.kind === 'attribution')
+    // Every initiative that can serve an objective — a root, wherever its board sits. Linking names
+    // the outcome; it does not move the work onto this board.
+    const candidates = objectiveInitiatives(graph, issueTypes)
+    // The work this portfolio is read for: the outcomes in its remit, plus anything already linked
+    // to an objective. The "serving nothing" gap is about that set.
+    const inScope = portfolioInitiatives(graph, boards, boardId, issueTypes)
 
-  // One pass over the attribution edges: every objective's mapped ids, and the items they name, so
-  // a map of many objectives does not rescan the workspace once per card.
-  const attributedByObjective = new Map<string, string[]>()
-  for (const edge of attribution) {
-    const ids = attributedByObjective.get(edge.from)
-    if (ids) ids.push(edge.to)
-    else attributedByObjective.set(edge.from, [edge.to])
-  }
-  const itemById = new Map(items.map((item) => [item.id, item]))
+    // One pass over the attribution edges: every objective's mapped ids, and the items they name, so
+    // a map of many objectives does not rescan the workspace once per card.
+    const attributedByObjective = new Map<string, string[]>()
+    for (const edge of attribution) {
+      const ids = attributedByObjective.get(edge.from)
+      if (ids) ids.push(edge.to)
+      else attributedByObjective.set(edge.from, [edge.to])
+    }
+    const itemById = new Map(items.map((item) => [item.id, item]))
 
-  // The portfolio's risk reading, from the same attribution edges the flows below draw.
-  const heatmap = portfolioHeatmap(objectives, periods, graph)
+    // The portfolio's risk reading, from the same attribution edges the flows below draw.
+    const heatmap = portfolioHeatmap(objectives, periods, graph)
 
-  // Both coverage gaps, on the initiatives this portfolio reads: one served by no objective, and an
-  // objective served by no initiative.
-  const { unserved } = okrCoverage(inScope, objectives, edges)
-  const unservedIds = new Set(unserved.map((o) => o.id))
+    // Both coverage gaps, on the initiatives this portfolio reads: one served by no objective, and
+    // an objective served by no initiative.
+    const { unserved } = okrCoverage(inScope, objectives, edges)
+    const unservedIds = new Set(unserved.map((o) => o.id))
 
-  // Periods read in their own order — a start date when they have one, the name when they do not —
-  // so a map of two periods is a calendar, not the order somebody happened to type them in.
-  const ordered = [...objectives].sort(
-    (a, b) =>
-      periodRank(periods, a.periodId) - periodRank(periods, b.periodId) ||
-      (a.order ?? 0) - (b.order ?? 0) ||
-      a.title.localeCompare(b.title),
-  )
-  const periodCount = new Set(ordered.map((o) => o.periodId)).size
+    // Periods read in their own order — a start date when they have one, the name when they do not —
+    // so a map of two periods is a calendar, not the order somebody happened to type them in.
+    const ordered = [...objectives].sort(
+      (a, b) =>
+        periodRank(periods, a.periodId) - periodRank(periods, b.periodId) ||
+        (a.order ?? 0) - (b.order ?? 0) ||
+        a.title.localeCompare(b.title),
+    )
+    const periodCount = new Set(ordered.map((o) => o.periodId)).size
+    const objectiveRolls = new Map(objectives.map((o) => [o.id, objectiveRollup(o.id, graph)]))
+
+    return { attribution, attributedByObjective, itemById, candidates, inScope, heatmap, unservedIds, ordered, periodCount, objectiveRolls }
+  }, [items, edges, links, placements, lanes, boards, boardId, issueTypes, objectives, periods])
+  const { attribution, attributedByObjective, itemById, candidates, heatmap, unservedIds, ordered, periodCount, objectiveRolls } = reading
 
   /** The board an initiative is carried by, for the picker — where the work actually lives. */
   const boardNameOf = (itemId: string): string | undefined => {
@@ -122,7 +131,7 @@ export function StrategyMap({ boardId, editing = false }: { boardId: string; edi
     const krs = keyResults.filter((k) => k.objectiveId === o.id)
     const rows = serving(o.id)
     const available = candidates.filter((i) => !rows.some((r) => r.id === i.id))
-    const roll = objectiveRollup(o.id, graph)
+    const roll = objectiveRolls.get(o.id)
     const peers = ordered.filter((peer) => peer.periodId === o.periodId)
     const peerIndex = peers.findIndex((peer) => peer.id === o.id)
     return (

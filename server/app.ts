@@ -35,6 +35,7 @@ import { salt } from './config'
 import { LIVE_PATH } from './live'
 import type { Runtime } from './runtime'
 import { parseReport } from './report'
+import { pruneErrors } from './errors'
 
 /** A report is a few kilobytes at most; anything larger is not one of ours. */
 const MAX_BODY = 8 * 1024
@@ -65,6 +66,14 @@ export function createApp(runtime: Runtime, extras: AppExtras = {}) {
   // `object` rather than a shape: the app never reads a binding itself. Whatever the runtime
   // passes arrives at `Runtime`, which is the only code that knows what a binding is.
   const app = new Hono<{ Bindings: object }>()
+
+  // One last line for a route that did not expect its failure. The answer is the same on both
+  // runtimes and says nothing about the internals; the detail goes to the process log, where an
+  // operator can find it without it becoming a response body.
+  app.onError((error, c) => {
+    console.error(`unhandled route error: ${c.req.method} ${c.req.path}`, error)
+    return c.json({ error: 'something went wrong' }, 500)
+  })
 
   /**
    * Whether this instance can serve. It asks the database rather than assuming, so a deployment
@@ -104,6 +113,10 @@ export function createApp(runtime: Runtime, extras: AppExtras = {}) {
     const since = new Date(Date.now() - 60 * 60 * 1000).toISOString()
 
     try {
+      // The cap bounds the rate, not the table: distinct addresses and time would still grow it
+      // forever. Retention is the same 90 days as the audit trail, and the sweep rides the write
+      // that already opens this table; the shared periodic job does the same between reports.
+      await pruneErrors(db)
       const recent = await db.get<{ n: number }>(
         'SELECT COUNT(*) AS n FROM errors WHERE ip_hash = ?1 AND at >= ?2',
         [ipHash, since],

@@ -81,6 +81,12 @@ export function inviteLinkRoutes(runtime: Runtime) {
       const now = new Date().toISOString()
       const ipHash = await addressHashOf(runtime, c.env, c.req.raw)
 
+      // Claim the invitation before creating the account. Two racing accepts both read "valid" and
+      // both pass the account check; this conditional UPDATE is the one that wins, and the loser
+      // is answered 410 instead of racing the users.email unique index into a bare 500.
+      const claimed = await db.run('UPDATE invites SET accepted_at = ?1 WHERE id = ?2 AND accepted_at IS NULL', [now, invite.id])
+      if (claimed.changes === 0) return c.json({ error: 'this invitation is no longer available' }, 410)
+
       const accepted: Statement[] = [
         { sql: 'INSERT INTO users (id, name, email, password_hash) VALUES (?1, ?2, ?3, ?4)', params: [userId, name, invite.email, await hash(offered)] },
         { sql: "INSERT INTO instance_members (user_id, role) VALUES (?1, 'member')", params: [userId] },
@@ -88,7 +94,6 @@ export function inviteLinkRoutes(runtime: Runtime) {
           sql: 'INSERT INTO workspace_members (workspace_id, user_id, role, invited_by) VALUES (?1, ?2, ?3, ?4)',
           params: [WORKSPACE_ID, userId, invite.role, invite.invited_by],
         },
-        { sql: 'UPDATE invites SET accepted_at = ?1 WHERE id = ?2', params: [now, invite.id] },
         {
           sql: `INSERT INTO audit_events (actor_id, action, target_type, target_id) VALUES (?1, 'invite.accepted', 'invite', ?2)`,
           params: [userId, invite.id],

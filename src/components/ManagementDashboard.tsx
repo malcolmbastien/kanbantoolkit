@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   AlarmClock,
   Ban,
@@ -16,7 +16,8 @@ import {
 import { BAND_STYLES } from './BandBadge'
 import { StageProgressBar, stageCountsOf } from './StageProgressBar'
 import { PRIORITY_META } from './PriorityBadge'
-import { blockedBelow, decompositionChildren, rollupOf, type Graph } from '@/domain/derive'
+import type { Graph } from '@/domain/derive'
+import { buildBoardModel } from '@/domain/boardModel'
 import { boardInitiatives, initiativeTypeById, isPortfolio, portfolioInitiatives, tagsOf } from '@/domain/board'
 import { ATTENTION_TILES, boardAttention, type AttentionKey } from '@/domain/attention'
 import { HEALTH_META, initiativeHealth } from '@/domain/health'
@@ -112,21 +113,25 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
   useEffect(() => setAttentionFilter(null), [boardId])
 
   const graph: Graph = { items, edges, links, placements, lanes }
+  // The board's readings, built once: the model indexes the arrays the per-row scans used to walk.
+  const model = useMemo(() => buildBoardModel(graph), [items, edges, links, placements, lanes])
   // The cards workflow's columns, each reading how long its work has sat still — derived
   // from the placements' lane stamps, never stored, never acting on anything.
-  const done = new Set(items.filter((i) => i.archived).map((i) => i.id))
-  const boardPlacements = placements.filter((p) => p.boardId === boardId && !done.has(p.itemId))
-  // One group per cards flow: "Backlog" is only half an answer when a board carries several, and a
-  // dashboard that read only the first would hide the rest of the board's work.
-  const flowColumns = cardsFlows(flows, boardId).map((flow) => ({
-    flow,
-    columns: topLevelLanes(lanes, flow.id).map((c) => {
-      const ids = new Set(subtreeIds(lanes, c.id))
-      const cards = boardPlacements.filter((p) => ids.has(p.laneId)).length
-      const ages = laneAges(lanes, boardPlacements, c.id)
-      return { lane: c, cards, oldest: ages.length ? Math.max(...ages) : undefined, median: medianOf(ages) }
-    }),
-  }))
+  const flowColumns = useMemo(() => {
+    const done = new Set(items.filter((i) => i.archived).map((i) => i.id))
+    const boardPlacements = placements.filter((p) => p.boardId === boardId && !done.has(p.itemId))
+    // One group per cards flow: "Backlog" is only half an answer when a board carries several, and a
+    // dashboard that read only the first would hide the rest of the board's work.
+    return cardsFlows(flows, boardId).map((flow) => ({
+      flow,
+      columns: topLevelLanes(lanes, flow.id).map((c) => {
+        const ids = new Set(subtreeIds(lanes, c.id))
+        const cards = boardPlacements.filter((p) => ids.has(p.laneId)).length
+        const ages = laneAges(lanes, boardPlacements, c.id)
+        return { lane: c, cards, oldest: ages.length ? Math.max(...ages) : undefined, median: medianOf(ages) }
+      }),
+    }))
+  }, [boardId, flows, items, lanes, placements])
   const typeOf = (typeId: string): IssueType =>
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
@@ -143,41 +148,54 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
   // portfolio has none of its own: it reads the outcomes in its remit and those linked to its
   // objectives, wherever they live.
   const initiativeTypeId = issueTypes.find((t) => t.name === 'Initiative')?.id
-  const initiatives = isPortfolio(board)
-    ? portfolioInitiatives(graph, boards, boardId, issueTypes)
-    : boardInitiatives(graph, boardId, issueTypes)
+  const initiatives = useMemo(
+    () =>
+      isPortfolio(board)
+        ? portfolioInitiatives(graph, boards, boardId, issueTypes)
+        : boardInitiatives(graph, boardId, issueTypes),
+    [board, boards, boardId, edges, issueTypes, items, lanes, links, placements],
+  )
 
-  const rows = initiatives.map((item) => {
-    const roll = rollupOf(item.id, graph)
-    const blocked = blockedBelow(item.id, graph)
-    // Two different promises, read as two lines: the target window is the plan, and the due date
-    // is the day the work is promised for. They can fall months apart, so neither stands for the
-    // other in the Dates column.
-    const due = dueState(item.dueDate, roll.bucket === 'done')
-    const childInits = decompositionChildren(item.id, edges).filter(
-      (id) => items.find((i) => i.id === id)?.typeId === initiativeTypeId,
-    ).length
-    return {
-      item,
-      roll,
-      blocked,
-      due,
-      childInits,
-      health: initiativeHealth(item.id, graph),
-      // The kind is the board's own label, resolved wherever it is defined — and "None" is the
-      // absence of one, so the column is never blank in a way that needs explaining.
-      kind: initiativeTypeById(boards, item.initiativeTypeId)?.name ?? 'None',
-      tags: tagsOf(boards, item).map((t) => t.name).join('; '),
-    }
-  })
+  const rows = useMemo(
+    () =>
+      initiatives.flatMap((item) => {
+        const roll = model.rollup.get(item.id)
+        if (!roll) return []
+        // Two different promises, read as two lines: the target window is the plan, and the due date
+        // is the day the work is promised for. They can fall months apart, so neither stands for the
+        // other in the Dates column.
+        const due = dueState(item.dueDate, roll.bucket === 'done')
+        const childInits = (model.childrenOf.get(item.id) ?? []).filter(
+          (id) => model.itemsById.get(id)?.typeId === initiativeTypeId,
+        ).length
+        return [
+          {
+            item,
+            roll,
+            blocked: model.blockedBelow.get(item.id) ?? 0,
+            due,
+            childInits,
+            health: initiativeHealth(item.id, graph),
+            // The kind is the board's own label, resolved wherever it is defined — and "None" is the
+            // absence of one, so the column is never blank in a way that needs explaining.
+            kind: initiativeTypeById(boards, item.initiativeTypeId)?.name ?? 'None',
+            tags: tagsOf(boards, item).map((t) => t.name).join('; '),
+          },
+        ]
+      }),
+    [boards, edges, initiativeTypeId, initiatives, items, links, lanes, model, placements],
+  )
 
   const doneInitiatives = rows.filter((r) => r.roll.bucket === 'done').length
   const atRisk = rows.filter((r) => r.health.level === 'atRisk').length
 
   // The dashboard's first question — what is at risk of being forgotten — read from the work the
   // board renders. Team boards read their cards; coordination boards read their own initiatives.
-  const attention = boardAttention(graph, boardId, issueTypes, flows, { boards })
-  const signalRows = attention.rows.filter((r) => r.signals.length > 0)
+  const attention = useMemo(
+    () => boardAttention(graph, boardId, issueTypes, flows, { boards }),
+    [boardId, boards, edges, flows, issueTypes, items, lanes, links, placements],
+  )
+  const signalRows = useMemo(() => attention.rows.filter((r) => r.signals.length > 0), [attention])
   const attentionTiles = ATTENTION_TILES
   const visibleRows =
     attentionFilter === null

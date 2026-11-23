@@ -1,4 +1,5 @@
 import { effectiveStage } from './lanes'
+import { dueState } from './due'
 import type { ChecklistEntry, Edge, Item, ItemLink, KeyResult, Lane, Objective, Placement, Stage } from './types'
 
 export interface Graph {
@@ -201,6 +202,23 @@ export function readDependency(link: ItemLink, graph: Graph): DependencyInfo | n
   const dependent = graph.items.find((i) => i.id === link.to)
   if (!dependency || !dependent) return null
   return { link, dependency, dependent, state: dependencyState(link.from, link.to, graph) }
+}
+
+/**
+ * How a card's open dependencies should read on its face: quiet waiting, or a dependency that
+ * needs attention because the blocker itself is blocked or overdue.
+ *
+ * This is a reading of the blockers, not a health rule: the card's own `Blocked` badge remains
+ * the hard stop. A calm open dependency is still waiting; it is simply not shouting.
+ */
+export type DependencyTone = 'calm' | 'attention'
+
+export function dependencyTone(items: Iterable<Item>, now = Date.now()): DependencyTone {
+  for (const item of items) {
+    if (item.blocked) return 'attention'
+    if (dueState(item.dueDate, false, now)?.tone === 'overdue') return 'attention'
+  }
+  return 'calm'
 }
 
 /** The cards this item depends on (its links). */

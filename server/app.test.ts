@@ -9,7 +9,7 @@
 
 import { readFileSync, readdirSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createApp } from './app'
 import type { Database } from './db'
 import { fromSqlite } from './sqlite'
@@ -111,5 +111,39 @@ describe('the error endpoint, on the portable handler', () => {
     const response = await app().request('/api/health')
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ ok: true, database: 'ok' })
+  })
+})
+
+describe('the error log', () => {
+  it('prunes reports past the retention window when a report arrives', async () => {
+    const db = database()
+    await db.run(
+      "INSERT INTO errors (message, at, ip_hash) VALUES ('old', '2020-01-01T00:00:00.000Z', 'old')",
+    )
+    const response = await post(app(db), JSON.stringify(report))
+    expect(response.status).toBe(204)
+    expect(await db.get("SELECT 1 AS one FROM errors WHERE message = 'old'")).toBeUndefined()
+    expect((await db.get<{ n: number }>('SELECT COUNT(*) AS n FROM errors'))?.n).toBe(1)
+  })
+})
+
+describe('an unexpected route failure', () => {
+  it('logs once and answers a generic 500 on the portable handler', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const broken = createApp({
+      database: () =>
+        ({
+          get() {
+            throw new Error('the database exploded')
+          },
+        }) as unknown as Database,
+      clientIp: () => '203.0.113.7',
+    })
+
+    const answer = await broken.request('/api/auth/session', { headers: { cookie: 'fl_session=broken' } })
+    expect(answer.status).toBe(500)
+    expect(await answer.json()).toEqual({ error: 'something went wrong' })
+    expect(logged).toHaveBeenCalledTimes(1)
+    logged.mockRestore()
   })
 })

@@ -4,6 +4,7 @@ import { StorageBanner } from './components/StorageBanner'
 import { QuarantineBanner } from './components/QuarantineBanner'
 import { StaleTabBanner } from './components/StaleTabBanner'
 import { Announcer } from './components/Announcer'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 import { Overlays } from './components/Overlays'
 import { TopBar } from './components/TopBar'
@@ -252,7 +253,9 @@ export default function App() {
     <div className="flex h-full flex-col">
       {/* One host for the menu and the pick chips, so every surface has them — an aggregating
           board renders no BoardCanvas, and used to get neither. */}
-      <Overlays />
+      <ErrorBoundary label="The overlays">
+        <Overlays />
+      </ErrorBoundary>
       {/* What a sighted person sees, said out loud: a drag that landed, a drop the board
           refused, a warning that arrived. One region for the whole app. */}
       <Announcer />
@@ -260,9 +263,11 @@ export default function App() {
           same rules the toolbar's buttons do — a board that renders no cards workflow does not make
           cards, and a portfolio connects initiatives rather than making them — so the two ways in
           cannot disagree. */}
-      <Suspense fallback={null}>
-        <CommandPalette onNewCard={quickAdd} onNewInitiative={quickAddInitiative} onGoToBoards={goToBoards} makesCards={makesCards} addsInitiatives={addsInitiatives} />
-      </Suspense>
+      <ErrorBoundary label="The command palette">
+        <Suspense fallback={null}>
+          <CommandPalette onNewCard={quickAdd} onNewInitiative={quickAddInitiative} onGoToBoards={goToBoards} makesCards={makesCards} addsInitiatives={addsInitiatives} />
+        </Suspense>
+      </ErrorBoundary>
       <TopBar
         boards={boards}
         boardId={boardId}
@@ -302,49 +307,59 @@ export default function App() {
               {heading}
             </h1>
           )}
-          <Suspense fallback={<ViewLoading />}>
-            {showBoards ? (
-              <BoardWorkspace />
-            ) : showArchive ? (
-              <ArchiveView />
-            ) : showDashboard ? (
-              <ManagementDashboard boardId={boardId} />
-            ) : showMetrics ? (
-              <MetricsView boardId={boardId} />
-            ) : showTimeline ? (
-              <TimelineView boardId={boardId} />
-            ) : showSearch ? (
-              <BoardSearchView boardId={boardId} />
-            ) : showAdmin ? (
-              <AdminView />
-            ) : (
-              <BoardView requestMove={requestMove} />
-            )}
-          </Suspense>
+          <ErrorBoundary key={view} label={heading}>
+            <Suspense fallback={<ViewLoading />}>
+              {showBoards ? (
+                <BoardWorkspace />
+              ) : showArchive ? (
+                <ArchiveView />
+              ) : showDashboard ? (
+                <ManagementDashboard boardId={boardId} />
+              ) : showMetrics ? (
+                <MetricsView boardId={boardId} />
+              ) : showTimeline ? (
+                <TimelineView boardId={boardId} />
+              ) : showSearch ? (
+                <BoardSearchView boardId={boardId} />
+              ) : showAdmin ? (
+                <AdminView />
+              ) : (
+                <BoardView requestMove={requestMove} />
+              )}
+            </Suspense>
+          </ErrorBoundary>
         </main>
         {/* The standard side drawer first: a card, filters or activity. My work is a second
             sidebar at the far right, so a card opened from it leaves the list where it was. */}
         {showFilters && boardSurface ? (
-          <Suspense fallback={<aside aria-busy="true" className="h-full w-[460px] shrink-0 border-l border-slate-300 bg-slate-100" />}>
-            <FilterPanel />
-          </Suspense>
+          <ErrorBoundary label="The filters">
+            <Suspense fallback={<aside aria-busy="true" className="h-full w-[460px] shrink-0 border-l border-slate-300 bg-slate-100" />}>
+              <FilterPanel />
+            </Suspense>
+          </ErrorBoundary>
         ) : showBoardActivity && boardSurface ? (
-          <Suspense fallback={<aside aria-busy="true" className="h-full w-[460px] shrink-0 border-l border-slate-300 bg-slate-100" />}>
-            <BoardActivityPanel />
-          </Suspense>
+          <ErrorBoundary label="Board activity">
+            <Suspense fallback={<aside aria-busy="true" className="h-full w-[460px] shrink-0 border-l border-slate-300 bg-slate-100" />}>
+              <BoardActivityPanel />
+            </Suspense>
+          </ErrorBoundary>
         ) : selectedItemId ? (
-          <Suspense
-            fallback={<aside aria-busy="true" className="h-full w-[460px] shrink-0 border-l border-slate-300 bg-white" />}
-          >
-            <ItemPanel key={selectedItemId} itemId={selectedItemId} />
-          </Suspense>
+          <ErrorBoundary label="The card panel">
+            <Suspense
+              fallback={<aside aria-busy="true" className="h-full w-[460px] shrink-0 border-l border-slate-300 bg-white" />}
+            >
+              <ItemPanel key={selectedItemId} itemId={selectedItemId} />
+            </Suspense>
+          </ErrorBoundary>
         ) : null}
         {showMyWork ? (
-          <Suspense
-            fallback={<aside aria-busy="true" className="h-full w-[420px] shrink-0 border-l-2 border-sky-300 bg-slate-50" />}
-          >
-            <MyWorkView />
-          </Suspense>
+          <ErrorBoundary label="My work">
+            <Suspense
+              fallback={<aside aria-busy="true" className="h-full w-[420px] shrink-0 border-l-2 border-sky-300 bg-slate-50" />}
+            >
+              <MyWorkView />
+            </Suspense>
+          </ErrorBoundary>
         ) : null}
       </div>
 

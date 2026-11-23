@@ -12,9 +12,7 @@
 import { createApp } from '../server/app'
 import { liveCaller } from '../server/live'
 import { WORKSPACE_ID } from '../server/auth/session'
-import { dispatchDue } from '../server/webhooks'
-import { sendDigests } from '../server/digest'
-import { changeRetentionDays, pruneChanges } from '../server/workspace/changes'
+import { JOBS, jobEnabled, runJob } from '../server/jobs'
 import { d1 } from './d1'
 
 export { WorkspaceChannel } from './channel'
@@ -105,15 +103,11 @@ export default {
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     const db = database(env)
     if (!db) return
-    ctx.waitUntil(dispatchDue(db).catch((error) => console.error('webhook dispatch failed', error)))
-    // The Worker has no relay (SMTP is not a binding it can open), so this answers "unavailable"
-    // and sends nothing. It is here because the schedule is the deployment's, not the mailbox's:
-    // an entry that grows a mail binding gets delivery without a second timer.
-    ctx.waitUntil(sendDigests(db, { env }).catch((error) => console.error('mail digest failed', error)))
-    ctx.waitUntil(
-      pruneChanges(db, { days: changeRetentionDays(env) }).catch((error) =>
-        console.error('change feed prune failed', error),
-      ),
-    )
+    // The same list the Node entry installs; only the timing differs. No mailer is passed because
+    // SMTP is not a binding a Worker can open — an entry that grows one gets delivery here too.
+    const context = { db, env }
+    for (const job of JOBS) {
+      if (jobEnabled(job, context)) ctx.waitUntil(runJob(job, context))
+    }
   },
 }

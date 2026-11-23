@@ -10,6 +10,7 @@ import { STAGE_LABELS } from '@/domain/lanes'
 import { peopleOf } from '@/domain/users'
 import { externalLabelOf, hasExternalLink, safeExternalUrl } from '@/domain/externalLink'
 import { STALE_AFTER_DAYS } from '@/domain/filters'
+import { dependencyTone } from '@/domain/derive'
 import type { HealthFlagInfo } from '@/domain/health'
 import type { InitiativeType, Tag } from '@/domain/types'
 import { PersonAvatar } from './PersonAvatar'
@@ -390,6 +391,11 @@ interface Props {
    */
   openDependencies?: number
   /**
+   * The open dependencies themselves. The face names the first two in the door's tooltip and
+   * reads whether any of them is itself blocked or overdue; it still does not draw them as chips.
+   */
+  openDependencyItems?: Item[]
+  /**
    * Whether the item has any dependency links at all — open, satisfied or closed. An initiative's
    * hierarchy door is shown when there is a child or a link to read, even with no open count.
    */
@@ -563,42 +569,61 @@ function WarningBadge({ label, why, tone = 'watch' }: { label: string; why: stri
 
 function DependencyCount({
   count,
+  items = [],
   onOpen,
   always = false,
   open = false,
+  showLabel = false,
 }: {
   count?: number
+  /** The open dependency items, for the tooltip's names and the warning tone. */
+  items?: Item[]
   onOpen?: () => void
   /** Draw the door even with no open dependencies — an initiative always has a hierarchy. */
   always?: boolean
   /** The drawer is open on this card's scoped connections: the next press closes it. */
   open?: boolean
+  /** At Full detail a card names the reading instead of leaving the number to the icon alone. */
+  showLabel?: boolean
 }) {
   if (!count && (!always || !onOpen)) return null
   const countLabel = count ? `${count} open ${count === 1 ? 'dependency' : 'dependencies'}` : ''
+  const names = items.slice(0, 2).map((item) => item.title)
+  const more = Math.max(0, (count ?? 0) - names.length)
+  const named = names.length ? `${names.join(', ')}${more > 0 ? ` and ${more} more` : ''}` : ''
+  const waiting = count ? `Waiting on ${count}${named ? `: ${named}` : ''}` : ''
+  const hint = waiting
+    ? `${waiting} — ${open ? 'close' : 'open'} its hierarchy and connections`
+    : undefined
+  // The visible words are part of the name: at Full the door says "Waiting on 2", so a screen
+  // reader must hear that phrase too, not only the count's longer form.
+  const name = waiting || countLabel
   const label = open
     ? count
-      ? `${countLabel} — close its hierarchy and connections`
+      ? `${name} — close its hierarchy and connections`
       : 'Close hierarchy and connections'
     : count
-      ? `${countLabel} — open its hierarchy and connections`
+      ? `${name} — open its hierarchy and connections`
       : 'Open hierarchy and connections'
+  const attention = dependencyTone(items) === 'attention'
   const shape = cn(
-    'flex shrink-0 items-center gap-0.5 rounded py-0.5 text-micro font-semibold tabular-nums ring-1 transition',
+    'flex shrink-0 items-center rounded py-0.5 text-micro font-semibold tabular-nums ring-1 transition',
     open
       ? 'bg-indigo-100 text-indigo-800 ring-indigo-300'
-      : 'bg-slate-100 text-slate-700 ring-slate-300',
-    count ? 'px-1.5' : 'px-1',
+      : attention
+        ? 'bg-amber-50 text-amber-900 ring-amber-300'
+        : 'bg-slate-100 text-slate-700 ring-slate-300',
+    showLabel && count ? 'gap-1 px-1.5' : count ? 'gap-0.5 px-1.5' : 'gap-0.5 px-1',
   )
   const content = (
     <>
       <ArrowLeftRight size={11} className="shrink-0 text-slate-600" aria-hidden />
-      {count ? count : null}
+      {showLabel && count ? <span>Waiting on {count}</span> : count ? count : null}
     </>
   )
   if (!onOpen) {
     return (
-      <span data-open-dependencies={count} role="img" aria-label={countLabel} title={countLabel} className={shape}>
+      <span data-open-dependencies={count} role="img" aria-label={name || countLabel} title={hint ?? countLabel} className={shape}>
         {content}
       </span>
     )
@@ -611,7 +636,7 @@ function DependencyCount({
       data-open-dependencies={count || undefined}
       aria-label={label}
       aria-pressed={open}
-      title={label}
+      title={hint ?? label}
       onClick={(event) => {
         event.stopPropagation()
         onOpen()
@@ -621,7 +646,6 @@ function DependencyCount({
         // done its work, and Escape must still reach the app to close the drawer.
         if (event.key === 'Enter' || event.key === ' ') event.stopPropagation()
       }}
-      onPointerDown={(event) => event.stopPropagation()}
       className={cn(
         shape,
         open
@@ -640,7 +664,7 @@ const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset f
 /** The one badge that is allowed to shout: a card's own blockage, in the header's top-right. */
 const BLOCKED_BADGE = 'shrink-0 rounded bg-rose-600 px-1.5 py-0.5 text-micro font-bold uppercase tracking-wide text-white shadow-sm'
 
-function CardBase({ item, type, summary, completed = false, parent, wide, symbols, onOpenChild, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', draggable, onDragStateChange, locked, selected, boundary, openDependencies, hasDependencies, onOpenDependencies, connectionsOpen = false, showConnections = true, lateStart, multi, dimmed, filterDimmed, inert, connectRoot, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, summary, completed = false, parent, wide, symbols, onOpenChild, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', draggable, onDragStateChange, locked, selected, boundary, openDependencies, openDependencyItems, hasDependencies, onOpenDependencies, connectionsOpen = false, showConnections = true, lateStart, multi, dimmed, filterDimmed, inert, connectRoot, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const complete = summary.done || completed
   const held = heldByOther(usePresence((state) => state.locks), item.id)
 
@@ -938,6 +962,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
             {showConnections && (
               <DependencyCount
                 count={complete ? 0 : openDependencies}
+                items={openDependencyItems}
                 onOpen={openDependenciesDoor}
                 always={wide && (summary.childCount > 0 || Boolean(hasDependencies))}
                 open={connectionsOpen}
@@ -1274,6 +1299,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
               {showConnections && (
                 <DependencyCount
                   count={complete ? 0 : openDependencies}
+                  items={openDependencyItems}
                   onOpen={openDependenciesDoor}
                   always={summary.childCount > 0 || Boolean(hasDependencies)}
                   open={connectionsOpen}
@@ -1488,7 +1514,13 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
               </span>
             )}
             {showConnections && (
-              <DependencyCount count={complete ? 0 : openDependencies} onOpen={openDependenciesDoor} open={connectionsOpen} />
+              <DependencyCount
+                count={complete ? 0 : openDependencies}
+                items={openDependencyItems}
+                onOpen={openDependenciesDoor}
+                open={connectionsOpen}
+                showLabel
+              />
             )}
             <PriorityBadge priority={item.priority} />
             {blocked && <span className={BLOCKED_BADGE}>Blocked</span>}
@@ -1588,6 +1620,26 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
 }
 
 /**
+ * The fields a pip draws, compared one at a time. The nested readings (people, tags, warnings, the
+ * child's own work below) are part of the symbol, so a change to any of them redraws the pip.
+ */
+function symbolEqual(a: CardSymbol, b: CardSymbol): boolean {
+  if (a.id !== b.id || a.bucket !== b.bucket || a.title !== b.title) return false
+  if (a.type?.id !== b.type?.id || a.type?.name !== b.type?.name || a.type?.color !== b.type?.color) return false
+  if (a.kind?.id !== b.kind?.id || a.kind?.name !== b.kind?.name || a.kind?.color !== b.kind?.color) return false
+  if (a.dueDate !== b.dueDate || a.priority !== b.priority || a.blocked !== b.blocked || a.warned !== b.warned) return false
+  if (a.blockedReason !== b.blockedReason || a.boardName !== b.boardName || a.flowName !== b.flowName || a.laneName !== b.laneName) return false
+  if (a.assigneeIds?.length !== b.assigneeIds?.length || a.assigneeIds?.some((id, i) => id !== b.assigneeIds![i])) return false
+  if (a.tags?.length !== b.tags?.length || a.tags?.some((tag, i) => tag.id !== b.tags![i].id || tag.name !== b.tags![i].name || tag.color !== b.tags![i].color)) return false
+  if (
+    a.warnings?.length !== b.warnings?.length ||
+    a.warnings?.some((warning, i) => warning.label !== b.warnings![i].label || warning.why !== b.warnings![i].why || warning.tone !== b.warnings![i].tone)
+  ) return false
+  if (a.below?.total !== b.below?.total || a.below?.percent !== b.below?.percent) return false
+  return true
+}
+
+/**
  * When a card can be skipped.
  *
  * A board re-renders every card it draws whenever anything about the board changes — a filter, a
@@ -1609,6 +1661,10 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
   if (a.selected !== b.selected || a.boundary !== b.boundary || a.multi !== b.multi || a.dimmed !== b.dimmed || a.filterDimmed !== b.filterDimmed) return false
   if (a.inert !== b.inert || a.connectRoot !== b.connectRoot) return false
   if (a.openDependencies !== b.openDependencies) return false
+  // The array is rebuilt each render; the items in it are the stable references that matter.
+  const depsA = a.openDependencyItems ?? []
+  const depsB = b.openDependencyItems ?? []
+  if (depsA.length !== depsB.length || depsA.some((item, i) => item !== depsB[i])) return false
   if (a.connectionsOpen !== b.connectionsOpen) return false
   if (a.hasDependencies !== b.hasDependencies) return false
   if (a.showConnections !== b.showConnections) return false
@@ -1622,7 +1678,7 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
   if (a.symbols?.length !== b.symbols?.length) return false
   // A symbol now carries the child's own reading — people, dates, placement — so a change to the
   // child has to redraw the initiative's pips, not only a change to its title or stage.
-  if (a.symbols && b.symbols && JSON.stringify(a.symbols) !== JSON.stringify(b.symbols)) return false
+  if (a.symbols && b.symbols && a.symbols.some((symbol, i) => !symbolEqual(symbol, b.symbols![i]))) return false
   if (a.flags?.length !== b.flags?.length) return false
   if (a.flags && b.flags && a.flags.some((f, i) => f.flag !== b.flags![i].flag || f.label !== b.flags![i].label || f.tone !== b.flags![i].tone)) return false
   return summaryEqual(a.summary, b.summary)

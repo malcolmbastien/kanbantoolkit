@@ -56,16 +56,28 @@ async function addressHash(runtime: Runtime, env: unknown, request: Request): Pr
   return sha256(`${runtime.clientIp(request)}:${salt(env)}`)
 }
 
-/** A sign-in attempt, counted so a flood is not free. */
+/**
+ * A sign-in attempt, counted so a flood is not free.
+ *
+ * A refused request does not write: the row records requests that were considered, not requests
+ * that were turned away at the door. The sweep runs here because this is where the window is
+ * already read — an attempt table older than its window answers nothing, and a sign-in started and
+ * abandoned should not leave its state behind forever.
+ */
 async function overLimit(db: Database, address: string, env: unknown): Promise<boolean> {
   const ipHash = await sha256(`${address}:${salt(env)}`)
-  const since = new Date(Date.now() - 3_600_000).toISOString()
+  const now = Date.now()
+  const since = new Date(now - 3_600_000).toISOString()
+  const stateCutoff = new Date(now - STATE_MINUTES * 60_000).toISOString()
+  await db.run('DELETE FROM auth_attempts WHERE at < ?1', [since])
+  await db.run('DELETE FROM oauth_states WHERE created_at < ?1', [stateCutoff])
   const recent = await db.get<{ n: number }>(
     'SELECT COUNT(*) AS n FROM auth_attempts WHERE ip_hash = ?1 AND at >= ?2',
     [ipHash, since],
   )
+  if ((recent?.n ?? 0) >= ATTEMPTS_PER_HOUR) return true
   await db.run('INSERT INTO auth_attempts (ip_hash) VALUES (?1)', [ipHash])
-  return (recent?.n ?? 0) >= ATTEMPTS_PER_HOUR
+  return false
 }
 
 /**
@@ -723,6 +735,7 @@ export function authRoutes(runtime: Runtime) {
     if (!devAuth(c.env)) return c.json({ error: 'not found' }, 404)
     const db = runtime.database(c.env)
     if (!db) return c.json({ error: 'not configured' }, 503)
+    if (await overLimit(db, runtime.clientIp(c.req.raw), c.env)) return c.json({ error: 'too many attempts' }, 429)
 
     const body = (await c.req.json().catch(() => null)) as {
       email?: unknown

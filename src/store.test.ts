@@ -9,7 +9,7 @@ import { cumulativeFlow, flowRecord, flowSummary, throughput, weeklyBuckets } fr
 import { SEED_TODAY } from './domain/seed'
 import { STRESS_BOARD_ID, STRESS_PREFIX } from './domain/stressBoard'
 import { initiativeHealth } from './domain/health'
-import { flushQueue, isBoardSurface, migratePersisted, migrateState, persistedSlice, useStore, PERSIST_VERSION } from './store'
+import { flushQueue, isBoardSurface, migratePersisted, migrateState, persistedEqual, persistedSlice, useStore, PERSIST_VERSION } from './store'
 import { poll, stopLive } from './lib/live'
 import { queue } from './lib/queue'
 import { useAuth } from './lib/auth'
@@ -4557,5 +4557,14 @@ describe('the connections lens', () => {
 
     s().setBoardConnections('b-atlas', false)
     expect(s().connectionsOn).toEqual({ 'b-nova': true })
+  })
+})
+
+describe('a change that does not touch the workspace', () => {
+  it('does not count as a persistence change', () => {
+    const first = persistedSlice(s())
+    expect(persistedEqual(first, persistedSlice(s()))).toBe(true)
+    expect(persistedEqual(first, { ...first, boardId: 'another-board' })).toBe(false)
+    expect(persistedEqual(first, { ...first, items: [] })).toBe(false)
   })
 })

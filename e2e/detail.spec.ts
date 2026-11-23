@@ -355,3 +355,21 @@ test('the 1,000-card load test stays usable at Mini', async ({ page }) => {
   // still hundreds of tiles, all at once and with no windowing.
   expect(await page.locator('[data-card-detail="mini"]:not([data-card-initiative])').count()).toBeGreaterThan(800)
 })
+
+test('a card names what it is waiting on at Full, and keeps the compact count at Summary', async ({ page }) => {
+  await openBoard(page)
+  const card = page.locator('[data-card-id="st-enterprise-sso"]')
+  const door = card.locator('[data-open-connections]')
+
+  // Full says what the number is, and the tooltip names the blockers without turning the card into
+  // a list. The card's own Blocked badge remains the hard stop; waiting is a separate fact.
+  await expect(door).toContainText('Waiting on 2')
+  await expect(door).toHaveAttribute('title', /Waiting on 2: Identity platform, Define the identity contract/)
+  await expect(card.getByText('Blocked', { exact: true })).toBeVisible()
+
+  // Summary keeps the compact door and the count; it does not spend the width on the sentence.
+  await choose(page, 'Summary')
+  const compact = page.locator('[data-card-id="st-enterprise-sso"] [data-open-connections]')
+  await expect(compact).not.toContainText('Waiting on')
+  await expect(compact).toHaveAttribute('aria-label', /^Waiting on 2/)
+})

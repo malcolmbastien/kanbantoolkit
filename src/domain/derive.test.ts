@@ -13,6 +13,7 @@ import {
   decompositionParent,
   depth,
   dependencyState,
+  dependencyTone,
   isArchived,
   isComplete,
   isBlocked,
@@ -786,5 +787,28 @@ describe('the derived rules do not learn about flows', () => {
     expect(wipState(laneCardCount(lanesWithLimits, placements, 'f-a-inProgress'), 1)).toBe('at')
     expect(wipState(laneCardCount(lanesWithLimits, placements, 'f-b-backlog'), 1)).toBe('at')
     expect(inheritedWipState(lanesWithLimits, 'f-b-backlog', () => 0)).toBe(null)
+  })
+})
+
+describe('how a card reads its open dependencies', () => {
+  const item = (id: string, extra: Partial<Item> = {}): Item => ({
+    id,
+    title: id,
+    typeId: 't-card',
+    createdAt: 0,
+    ...extra,
+  })
+  const now = Date.UTC(2026, 10, 22)
+
+  it('is calm for an ordinary wait, and when there are no open dependencies', () => {
+    expect(dependencyTone([], now)).toBe('calm')
+    expect(dependencyTone([item('gateway', { dueDate: '2027-03-01' })], now)).toBe('calm')
+  })
+
+  it('needs attention when the blocker is blocked or overdue', () => {
+    expect(dependencyTone([item('gateway', { blocked: true })], now)).toBe('attention')
+    expect(dependencyTone([item('gateway', { dueDate: '2020-01-01' })], now)).toBe('attention')
+    // One quiet wait does not mask the other that needs attention.
+    expect(dependencyTone([item('quiet'), item('late', { dueDate: '2020-01-01' })], now)).toBe('attention')
   })
 })

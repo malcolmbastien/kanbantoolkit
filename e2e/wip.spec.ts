@@ -123,7 +123,9 @@ test('an initiative section warns from its own rollup, and never holds a card', 
     .locator('[data-workflow="initiatives"] [data-lane-header]')
     .filter({ hasText: 'IN PROGRESS' })
     .first()
-  const section = header.locator('xpath=..')
+  // The section is the header's parent; read its own attribute rather than walk the DOM by XPath.
+  const sectionId = await header.evaluate((el) => el.parentElement?.getAttribute('data-section-id') ?? '')
+  const section = page.locator(`[data-workflow="initiatives"] [data-section-id="${sectionId}"]`).first()
 
   const setLimit = async (value: string) => {
     await page.getByRole('button', { name: 'Edit board' }).click()

@@ -132,7 +132,7 @@ const EDITABLE_FIELDS: Array<{ key: keyof Item; label: string }> = [
   { key: 'discarded', label: 'discarded' },
 ]
 
-function sameValue(left: unknown, right: unknown): boolean {
+export function sameValue(left: unknown, right: unknown): boolean {
   if (left === right) return true
   if (typeof left !== 'object' || typeof right !== 'object' || left === null || right === null) return false
   if (Array.isArray(left) !== Array.isArray(right)) return false
@@ -144,7 +144,7 @@ function sameValue(left: unknown, right: unknown): boolean {
 }
 
 /** The labels of the fields that moved, once each, in the order above. */
-function changedFields(before: Item, after: Item): string[] {
+export function changedFields(before: Item, after: Item): string[] {
   const labels: string[] = []
   for (const { key, label } of EDITABLE_FIELDS) {
     if (sameValue(before[key], after[key])) continue

@@ -17,7 +17,7 @@ import {
 } from '@/domain/derive'
 import { buildBoardModel } from '@/domain/boardModel'
 import { initiativeHealth, type HealthFlagInfo } from '@/domain/health'
-import { boardInitiatives, canAddInitiative, initiativeCellOf, initiativeRanks, initiativeTypeById, initiativeTypeId, isInitiativeItem, tagsOf } from '@/domain/board'
+import { boardInitiatives, canAddInitiative, canSetParent, initiativeCellOf, initiativeRanks, initiativeTypeById, initiativeTypeId, isInitiativeItem, parentRefusal, tagsOf } from '@/domain/board'
 import { detailFor, type BoardDetail } from '@/domain/boardDetail'
 import { childrenOf, isLeaf, lanePath, leavesUnder, topLevelLanes, wipState } from '@/domain/lanes'
 import { STAGE_ACCENT, STAGE_COLUMN, tintOn, WIP_PILL, WIP_SURFACE } from '@/lib/colors'
@@ -414,10 +414,17 @@ export function BoardSummary({
     // parent is not a choice either — naming it again changes nothing — so it recedes too.
     const pickRoot = c.id === childPickId || c.id === parentPickId
     const currentParent = parentPickId ? model.parentOf.get(parentPickId) : undefined
+    // A candidate is lit only when the write would accept it. Without `canSetParent` here a
+    // mapped root made every initiative look like a parent and then refused the click.
+    const parentLock = parentPickId ? parentRefusal(parentPickId, null, graph, issueTypes) : undefined
     const picking =
       !pickRoot &&
       (childPickId !== null ||
-        (parentPickId !== null && (!onViewedBoard(c.id) || c.id === currentParent)))
+        (parentPickId !== null &&
+          (parentLock !== undefined ||
+            !onViewedBoard(c.id) ||
+            c.id === currentParent ||
+            !canSetParent(parentPickId, c.id, graph, issueTypes))))
     // The direct children, including filed-away ones: the hierarchy is history, and the drawer
     // names each child with its archived/discarded outcome. The pips are the part that counts
     // toward progress, so a discarded child is not drawn as a normal stage pip.
@@ -538,6 +545,9 @@ export function BoardSummary({
         onOpenDependencies={openItemDependencies}
         connectionsOpen={connectionScopeId === c.id}
         openDependencies={model.openDependencies.get(c.id)?.size ?? 0}
+        openDependencyItems={[...(model.openDependencies.get(c.id) ?? [])]
+          .map((id) => model.itemsById.get(id))
+          .filter((item): item is Item => Boolean(item))}
         hasDependencies={Boolean(model.dependenciesOf.get(c.id)?.length)}
         showConnections={showConnections}
         // A multi-select group is a group of cards. Initiatives cannot join it, so they recede and
@@ -562,6 +572,9 @@ export function BoardSummary({
             // that is what keeps a band from parenting another band: the act is a team
             // initiative rolling up to a management one, and this is what makes it that.
             if (!onViewedBoard(id)) return
+            // The preview has already receded this target; the guard keeps a stray click from
+            // announcing a refusal for a card the person was never offered.
+            if (!canSetParent(parentPick, id, graph, issueTypes)) return
             setParent(parentPick, id)
             cancelParentPick()
             return

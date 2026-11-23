@@ -359,10 +359,50 @@ test('an initiative card opens its hierarchy and dependencies, and counts only o
   // done children are not live waits.
   const badge = initiative.locator('[data-open-dependencies]')
   await expect(badge).toHaveAttribute('data-open-dependencies', '1')
-  await expect(badge).toHaveAttribute('aria-label', /^1 open dependency/)
+  await expect(badge).toHaveAttribute('aria-label', /^Waiting on 1/)
   await badge.click()
   await expect(panel).toHaveAttribute('aria-label', 'Card details: Billing migration')
   await expect(panel.getByRole('button', { name: 'Relationships', exact: true })).toHaveClass(/text-indigo-600/)
   await expect(panel.getByTitle(/Hide this item.s connections/)).toBeVisible()
   await expect(page.locator('[data-connection-link]').first()).toBeVisible()
+})
+
+test('a mapped initiative says why it stays top-level, and clearing the objective opens the parent picker', async ({ page }) => {
+  await page.goto('/app?board=b-lob')
+  const card = page.locator('[data-workflow="initiatives"] [data-card-id="init-revenue"]')
+  await expect(card).toBeVisible()
+  await card.click()
+  const panel = page.locator('[data-item-panel]')
+  await panel.getByRole('button', { name: 'Relationships', exact: true }).click()
+
+  // The parent section is not a picker with nothing in it: it names the objective that keeps the
+  // initiative at the top, and offers the one act that resolves it.
+  await expect(panel.getByRole('button', { name: 'Change parent' })).toHaveCount(0)
+  await expect(panel.getByText('Serves Grow activation.')).toBeVisible()
+  await expect(panel.getByText(/A mapped initiative stays top-level/)).toBeVisible()
+
+  await panel.getByRole('button', { name: 'Clear objective' }).click()
+  // Clearing it is the explicit act; the parent editor is then offered with real candidates.
+  await expect(panel.getByText('No objective yet.')).toBeVisible()
+  await expect(panel.locator('select').first()).toContainText('Platform consolidation')
+  await expect(panel.getByRole('button', { name: 'Set parent' })).toBeVisible()
+})
+
+test('a mapped initiative does not offer a parent pick from its card menu', async ({ page }) => {
+  await page.goto('/app?board=b-lob')
+  const card = page.locator('[data-workflow="initiatives"] [data-card-id="init-revenue"]')
+  await card.click({ button: 'right' })
+  const menu = page.locator('[data-card-menu][role="menu"]').first()
+  await expect(menu.getByText('Set parent…')).toHaveCount(0)
+  await expect(menu.getByText(/Serves Grow activation/)).toBeVisible()
+})
+
+test('an initiative\'s own overdue warning is in the top summary, not only by the due date', async ({ page }) => {
+  await openBoard(page)
+  await page.locator('[data-card-id="init-signup-redesign"]').click()
+  const panel = page.locator('[data-item-panel]')
+  const warnings = panel.locator('[data-card-warnings]')
+  await expect(warnings).toBeVisible()
+  await expect(warnings.getByRole('button', { name: 'Overdue', exact: true })).toBeVisible()
+  await expect(warnings).toContainText(/18d overdue|overdue/i)
 })

@@ -347,6 +347,24 @@ describe('the device flow: a tool asks, a person approves', () => {
     expect(trail?.data).not.toContain(secret)
   })
 
+  it('answers a racing second approver 409 and writes one approval row', async () => {
+    const { request, signIn, db } = await world()
+    await signIn('owner@example.com', 'instance')
+    const person = await signIn('person@example.com', 'editor')
+    const asked = await device(request, { name: 'kanbantoolkit-cli', scopes: ['boards:read'] })
+
+    const approve = () =>
+      person.call('/api/tokens/device/approve', {
+        method: 'POST',
+        body: JSON.stringify({ user_code: asked.user_code }),
+      })
+    const [first, second] = await Promise.all([approve(), approve()])
+    expect([first.status, second.status].sort()).toEqual([200, 409])
+
+    // The losing approval is not a second decision on the record.
+    expect((await db.get<{ n: number }>("SELECT COUNT(*) AS n FROM audit_events WHERE action = 'token.approve'"))?.n).toBe(1)
+  })
+
   it('will not let a person approve a scope they could not hold', async () => {
     const { request, signIn } = await world()
     await signIn('owner@example.com', 'instance')

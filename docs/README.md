@@ -78,6 +78,7 @@ the container is the install this project expects.
 | **[AGENTS](../AGENTS.md)** | the house rules, including the one about which services this project does not use |
 | **[Roadmap](roadmap.md)** | what is built, what is next, and what is deliberately not planned |
 | **[Product review](product-review.md)** | where the product is strong, where it is thin, and candidate enhancements |
+| **[MVP PRD](mvp-prd.md)** | the historical v0.1 draft, kept for context rather than as a plan |
 
 ## How this documentation is kept honest
 

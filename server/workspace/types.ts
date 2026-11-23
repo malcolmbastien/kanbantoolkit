@@ -64,5 +64,5 @@ export interface Vocabulary {
   keyResults: KeyResult[]
 }
 
-/** The settings row's name, until task 122 gives a workspace an identity of its own. */
+/** The one workspace's settings row. The workspace is a row like every other entity. */
 export const WORKSPACE_ROW = 'workspace'

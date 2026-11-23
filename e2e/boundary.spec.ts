@@ -47,7 +47,7 @@ test('a dependency card names the cards here that wait on it, and each counts wh
   const sso = page.locator('[data-card-id="st-enterprise-sso"]')
   const count = sso.locator('[data-open-dependencies]')
   await expect(count).toHaveAttribute('data-open-dependencies', '2')
-  await expect(count).toHaveAttribute('aria-label', /^2 open dependencies/)
+  await expect(count).toHaveAttribute('aria-label', /^Waiting on 2/)
 
   // The card itself is the control: pressing its face selects it, with no separate button to find.
   const title = identity.getByRole('button', { name: 'Identity platform', exact: true })
@@ -75,7 +75,7 @@ test('the count includes work this board waits on itself, not only its external 
   const attribution = page.locator('[data-card-id="st-cost-attribution"]')
   const count = attribution.locator('[data-open-dependencies]')
   await expect(count).toHaveAttribute('data-open-dependencies', '1')
-  await expect(count).toHaveAttribute('aria-label', /^1 open dependency/)
+  await expect(count).toHaveAttribute('aria-label', /^Waiting on 1/)
 })
 
 test('the dependency badge opens the Relationships tab with this item’s connections showing', async ({ page }) => {

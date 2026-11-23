@@ -35,6 +35,15 @@ npx playwright install --with-deps chromium firefox webkit
 npm run test:e2e
 ```
 
+On a Linux host, WebKit needs two system libraries as well as its browser binary. If the WebKit or
+mobile-Safari project fails at launch with **“Host system is missing dependencies”**, run:
+
+```bash
+sudo npx playwright install-deps webkit
+```
+
+That installs, on Debian/Ubuntu, `libicu74` and `libflite1`. Chromium and Firefox do not need it.
+
 The full suite runs on **Chromium**. A smoke spec — the board draws, a card opens, a card moves —
 runs on **Firefox**, **WebKit** and a **mobile Safari** profile. That is the matrix CI enforces;
 the other engines are where a layout or pointer difference shows up first.

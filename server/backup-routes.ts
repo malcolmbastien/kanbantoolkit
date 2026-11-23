@@ -21,6 +21,24 @@ import type { Runtime } from './runtime'
 const NAME = /^kanbantoolkit-[0-9T.-]+\.db$/
 const MAX_UPLOAD = 64 * 1024 * 1024
 
+/**
+ * A known file-system failure, said without the path that produced it.
+ *
+ * These are the failures an operator can act on — the database is missing, the directory cannot be
+ * written, the upload is not a database — so they get a sentence that names the problem. Anything
+ * else is unknown and is logged rather than echoed.
+ */
+function knownBackupFailure(error: unknown): string | undefined {
+  const message = error instanceof Error ? error.message : String(error)
+  if (/no database at|ENOENT.*database/i.test(message)) return 'the database file was not found'
+  if (/no backup at/i.test(message)) return 'that backup file was not found'
+  if (/EACCES|EPERM|permission denied|not permitted/i.test(message)) return 'the backup directory cannot be written'
+  if (/not a database|malformed database|not sound|file is encrypted/i.test(message)) {
+    return 'that file is not a database this instance can read'
+  }
+  return undefined
+}
+
 export function backupRoutes(runtime: Runtime) {
   const routes = new Hono<{ Bindings: object }>()
 
@@ -57,7 +75,10 @@ export function backupRoutes(runtime: Runtime) {
       })
       return c.json(copy, 201)
     } catch (error) {
-      return c.json({ error: error instanceof Error ? error.message : 'the copy could not be taken' }, 500)
+      const known = knownBackupFailure(error)
+      if (known) return c.json({ error: known }, 422)
+      console.error('backup create failed', error)
+      return c.json({ error: 'the copy could not be taken' }, 500)
     }
   })
 
@@ -108,7 +129,10 @@ export function backupRoutes(runtime: Runtime) {
         restart: 'set RESTORE_CONFIRM=yes and restart the server to apply it',
       })
     } catch (error) {
-      return c.json({ error: error instanceof Error ? error.message : 'that is not a database this instance can read' }, 422)
+      const known = knownBackupFailure(error)
+      if (known) return c.json({ error: known }, 422)
+      console.error('backup restore failed', error)
+      return c.json({ error: 'that file is not a database this instance can read' }, 422)
     }
   })
 

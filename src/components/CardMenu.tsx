@@ -20,7 +20,7 @@ import {
   CornerDownRight,
   Unlink,
 } from 'lucide-react'
-import { boardCardTypeId, boardInitiativeTypes, cardTypes, defaultDropLane, initiativeTypeById, isAggregating, isInitiativeItem, isPortfolio, NONE_TYPE_ID, placementOn } from '@/domain/board'
+import { boardCardTypeId, boardInitiativeTypes, cardTypes, defaultDropLane, initiativeTypeById, isAggregating, isInitiativeItem, isPortfolio, NONE_TYPE_ID, parentRefusal, placementOn } from '@/domain/board'
 import { decompositionParent, descendants, isComplete } from '@/domain/derive'
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
 import { lanePath, leafLanes } from '@/domain/lanes'
@@ -74,6 +74,7 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const startChildPick = useStore((s) => s.startChildPick)
   const edges = useStore((s) => s.edges)
   const links = useStore((s) => s.links)
+  const objectives = useStore((s) => s.objectives)
   const setItemsType = useStore((s) => s.setItemsType)
   const setItemsKind = useStore((s) => s.setItemsKind)
   const setItemsTargetStart = useStore((s) => s.setItemsTargetStart)
@@ -99,6 +100,14 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const count = targets.length
   const single = count === 1
   const only = targets[0]
+  const graph = { items, edges, links, placements, lanes }
+  // The same question the drawer and the store ask. A mapped initiative has no parent pick to
+  // offer — starting one that the write will refuse is a dead end, not a hierarchy edit.
+  const parentLock = single ? parentRefusal(only.id, null, graph, issueTypes) : undefined
+  const mappedObjective =
+    parentLock === 'serves_objective'
+      ? objectives.find((o) => edges.some((e) => e.kind === 'attribution' && e.to === only.id && e.from === o.id))
+      : undefined
   const types = cardTypes(issueTypes)
   // The Initiative type is reserved: an initiative is never retyped, so the menu does not
   // offer it — not even as a mixed selection where it would apply to some of the group.
@@ -126,14 +135,11 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   // offered there — the same rule the "Connect a card…" action follows.
   const childTypeId = boardCardTypeId(board, issueTypes)
   const childLane = board && !aggregating ? defaultDropLane(board, flows, lanes, boardId) : undefined
-  const canAddChildCard =
-    single &&
-    Boolean(only) &&
-    isInitiativeItem(only!, issueTypes) &&
-    !aggregating &&
-    may('item.write') &&
-    Boolean(childTypeId) &&
-    Boolean(childLane)
+  // The type and the lane are one answer: a card needs both, and neither is usable alone.
+  const childTarget =
+    single && isInitiativeItem(only, issueTypes) && !aggregating && may('item.write') && childTypeId && childLane
+      ? { typeId: childTypeId, laneId: childLane.id }
+      : undefined
   const lanesLeaf = cardsFlows(flows, boardId).flatMap((flow) => leafLanes(lanes, flow.id))
   const anyBlocked = targets.some((t) => t.blocked)
   const allBlocked = count > 0 && targets.every((t) => t.blocked)
@@ -503,28 +509,34 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
         {/* Lineage, for one card: point at the initiative it rolls up to, rather than hunting
             for it in a list of every item by name. A portfolio reads outcomes, not the
             decomposition under them, so it does not offer the hierarchy edit. */}
-        {single && !portfolio && (
+        {single && !portfolio && (parentLock ? (
+          <p role="status" className="mx-2.5 mb-1 rounded-md bg-indigo-50 px-2 py-1 text-meta text-indigo-900">
+            {parentLock === 'serves_objective'
+              ? `Serves ${mappedObjective?.title ?? 'an objective'}. A mapped initiative stays top-level; clear its objective before setting a parent.`
+              : 'This item cannot take a parent.'}
+          </p>
+        ) : (
           <button className={ITEM} onClick={() => run(() => startParentPick(only!.id))}>
             <span className="shrink-0 text-slate-600">
               <CornerDownRight size={13} />
             </span>
             <span className="flex-1">Set parent…</span>
           </button>
-        )}
+        ))}
         {/* A new card under the initiative, with the parent set as it is made — the act a person
             means when they are looking at an outcome and the work does not exist yet. It lands in
             the board's own drop cell and opens for naming, like every other new card. */}
-        {canAddChildCard && (
+        {childTarget && (
           <button
             className={ITEM}
             onClick={() =>
               run(() =>
                 addCard({
                   boardId,
-                  typeId: childTypeId!,
-                  laneId: childLane!.id,
+                  typeId: childTarget.typeId,
+                  laneId: childTarget.laneId,
                   title: 'New card',
-                  parentId: only!.id,
+                  parentId: only.id,
                 }),
               )
             }

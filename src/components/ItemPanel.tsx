@@ -10,11 +10,9 @@ import {
   dependentsOf,
   descendants,
   lineageOf,
-  objectiveRollup,
   type Graph,
 } from '@/domain/derive'
-import { boardInitiativeTypes, boardTags, canServeObjective, canSetParent, cardTypes, initiativeTypeById, isPortfolio, NONE_TYPE_ID, placementOn, tagsOf } from '@/domain/board'
-import { periodNameOf } from '@/domain/periods'
+import { boardInitiativeTypes, boardTags, canServeObjective, cardTypes, initiativeTypeById, isPortfolio, NONE_TYPE_ID, placementOn, tagsOf } from '@/domain/board'
 import { effectiveStage, lanePath, STAGE_LABELS } from '@/domain/lanes'
 import { ageDays } from '@/domain/filters'
 import { dueDay } from '@/domain/due'
@@ -48,6 +46,7 @@ import { TagInput } from './TagInput'
 import { PersonAvatar } from './PersonAvatar'
 import { PersonPicker } from './PersonPicker'
 import { ItemPicker } from './ItemPicker'
+import { Field, ParentSection, Section, StrategicImpactSection } from './ItemHierarchySections'
 import type { Item, ItemLogEntry, Stage } from '@/domain/types'
 
 interface Props {
@@ -179,8 +178,6 @@ export function ItemPanel({ itemId }: Props) {
   const typeMenuRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLInputElement>(null)
   const [blockOpen, setBlockOpen] = useState(false)
-  const [parentChoice, setParentChoice] = useState('')
-  const [parentEditorOpen, setParentEditorOpen] = useState(false)
   // Which warning's affected work is open. Closed by default: the chip row is the summary, and
   // the cards behind a chip are what you ask for, not what you are given.
   const [openWarning, setOpenWarning] = useState<string | null>(null)
@@ -327,11 +324,6 @@ export function ItemPanel({ itemId }: Props) {
       .map((id) => model.itemsById.get(id))
       .filter((i): i is Item => Boolean(i))
   }, [model, item?.id])
-  const parentCandidates = useMemo(
-    () => (item && parentEditorOpen ? items.filter((i) => canSetParent(item.id, i.id, graph, issueTypes)) : []),
-    // `graph` is rebuilt each render, so the arrays it holds are the dependencies that matter.
-    [item?.id, parentEditorOpen, items, edges, links, placements, lanes, issueTypes],
-  )
   const dependencyCandidates = useMemo(
     () =>
       item && tab === 'hierarchy'
@@ -508,6 +500,8 @@ export function ItemPanel({ itemId }: Props) {
   const dependencies = dependenciesOf(item.id, graph)
   const dependents = dependentsOf(item.id, graph)
   const attributed = attributedObjectives(item.id, edges, objectives)
+  // A mapped initiative is a root by rule; the drawer asks the same shared question the store
+  // does, so an explanation and the write cannot disagree about why.
   const roll = model.rollup.get(item.id)!
   const stage = roll.bucket
   // What this browser knew, plus the pages the drawer read. Ascending.
@@ -692,8 +686,18 @@ export function ItemPanel({ itemId }: Props) {
         cards: depending.map((d) => d.dependent),
       })
     }
+    // The initiative's own promise and its own blockage are facts about this outcome, not about the
+    // work below it. Health names the children; the top warning section must not send the reader to
+    // the due-date field to discover that the outcome itself is late.
+    const ownStage = scopedStage
+    const ownPlacement = boardPlacement ?? placements.find((p) => p.itemId === item.id)
+    const own = attentionSignals(item, ownStage, ageDays(ownPlacement, Date.now()), Date.now(), g)
+    for (const signal of own) {
+      if (signal.key !== 'blocked' && signal.key !== 'overdue' && signal.key !== 'dueSoon' && signal.key !== 'lateStart') continue
+      rows.push({ ...signal, key: `own-${signal.key}`, cards: [] })
+    }
     return rows
-  }, [isInitiative, item.id, item.archived, complete, items, edges, links, placements, lanes, issueTypes, today])
+  }, [isInitiative, item.id, item.archived, complete, items, edges, links, placements, lanes, issueTypes, today, scopedStage, boardPlacement])
   const openWarningRow = warnings.find((w) => w.key === openWarning)
 
   /**
@@ -811,9 +815,6 @@ export function ItemPanel({ itemId }: Props) {
 
   // A parent is always an initiative — the same rule the store enforces (`canSetParent`), offered
   // here so the select cannot propose something that would be refused, including a mapped
-  // initiative that has to stay a root. `parentCandidates` is the memoised list, and it is empty
-  // until the editor is open.
-  const candidates = parentCandidates
   // A dependency is a link across the decomposition, never along it, and never one that closes a
   // loop — the same rule the store enforces (`canDepend`). The picker therefore offers only the
   // cards the link would actually be made to: not the item itself, not a parent or a descendant.
@@ -1609,7 +1610,11 @@ export function ItemPanel({ itemId }: Props) {
                 something is wrong, and this says how much and takes you to it. One chip per
                 signal — the summary — and the work behind a chip on request. */}
             {isInitiative && !archived && warnings.length > 0 && (
-              <section className="rounded-xl bg-amber-50 p-3 ring-1 ring-amber-200">
+              <section
+                data-card-warnings
+                aria-label={`${warnings.length} warning${warnings.length === 1 ? '' : 's'}`}
+                className="rounded-xl bg-amber-50 p-3 ring-1 ring-amber-200"
+              >
                 <div className="flex items-center gap-2">
                   <span className="flex items-center gap-1.5 text-meta font-semibold text-amber-900">
                     <TriangleAlert size={14} className="shrink-0" />
@@ -2196,135 +2201,31 @@ export function ItemPanel({ itemId }: Props) {
             {/* The direct parent, called out on its own rather than left to be read out of the
                 chain: it is the one relationship a card has, and the one thing about it you can
                 change. The whole chain is a tab away. */}
-            <Section
-              label="Parent"
-              action={
-                <button
-                  onClick={() => {
-                    setParentEditorOpen((o) => !o)
-                    setParentChoice('')
-                  }}
-                  className="text-micro font-medium text-indigo-600 transition hover:text-indigo-500"
-                >
-                  {parentEditorOpen ? 'Cancel' : 'Change parent'}
-                </button>
-              }
-            >
-              {parentEditorOpen ? (
-                <div className="space-y-2 rounded-xl bg-slate-50 p-2.5 ring-1 ring-slate-200">
-                  <select
-                    value={parentChoice}
-                    onChange={(e) => setParentChoice(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
-                  >
-                    <option value="">Choose an initiative…</option>
-                    {candidates.map((c) => (
-                      <option key={c.id} value={c.id}>{c.title}</option>
-                    ))}
-                  </select>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      disabled={!parentChoice}
-                      onClick={() => { setParent(item.id, parentChoice); setParentChoice(''); setParentEditorOpen(false) }}
-                      className="rounded-lg bg-indigo-600 px-2.5 py-1 text-meta font-medium text-white transition hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
-                    >
-                      Set parent
-                    </button>
-                    {parent && (
-                      <button
-                        onClick={() => { setParent(item.id, null); setParentEditorOpen(false) }}
-                        className="rounded-lg px-2 py-1 text-meta font-medium text-slate-600 transition hover:bg-slate-200 hover:text-slate-900"
-                      >
-                        Remove parent
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-micro text-slate-600">Only an initiative can be a parent.</p>
-                </div>
-              ) : parent ? (
-                <button
-                  onClick={() => close(parent.id)}
-                  title={`Open ${parent.title}`}
-                  className="flex w-full items-center gap-2.5 rounded-xl bg-slate-50 px-3 py-2.5 text-left ring-1 ring-slate-200 transition hover:bg-slate-100"
-                >
-                  <CornerLeftUp size={15} className="shrink-0 text-slate-400" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-meta font-semibold text-slate-800">{parent.title}</span>
-                    <span className="block truncate text-micro text-slate-600">{parentKind}</span>
-                  </span>
-                  <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-micro font-medium text-slate-600 ring-1 ring-slate-200">
-                    {boardOf(parent.id)?.name ?? 'Not on a board'}
-                  </span>
-                </button>
-              ) : (
-                <p className="rounded-xl bg-slate-50 p-3 text-meta text-slate-600 ring-1 ring-slate-200">
-                  No parent.
-                </p>
-              )}
-            </Section>
+            <ParentSection
+              item={item}
+              parent={parent}
+              parentKind={parentKind}
+              graph={graph}
+              issueTypes={issueTypes}
+              boardNameOf={(id) => boardOf(id)?.name}
+              attributed={attributed}
+              onSetParent={(parentId) => setParent(item.id, parentId)}
+              onClearObjective={() => {
+                if (attributed[0]) setAttribution(item.id, attributed[0].id, false)
+              }}
+              onOpenParent={close}
+            />
 
-            {/* Strategic impact — an objective is served by a **top-level** initiative, wherever its
-                board sits. Everything below one inherits through the decomposition, so a nested
-                initiative is not offered as a second link. A card is not shown its initiative's OKRs
-                either: relating work to strategy is the initiative's job. */}
             {isInitiative && (
-              <Section label="Strategic impact">
-                {canServe ? (
-                <div className="space-y-2 rounded-xl bg-indigo-50/60 p-3 ring-1 ring-indigo-100">
-                    {/* One choice, not a set — the shape the kind and the type already have, and the
-                        shape the model keeps. Choosing another objective moves the initiative, so
-                        there is nothing here to tick twice and nothing that could serve two. */}
-                    <Field label="Objective">
-                      <select
-                        value={attributed[0]?.id ?? ''}
-                        onChange={(e) => {
-                          const next = e.target.value
-                          if (next) setAttribution(item.id, next, true)
-                          else if (attributed[0]) setAttribution(item.id, attributed[0].id, false)
-                        }}
-                        title="One objective. Choosing another moves the initiative."
-                        className="w-full rounded-lg border border-indigo-200 bg-white px-2 py-1.5 text-meta font-medium text-slate-700 outline-none transition focus:ring-2 focus:ring-indigo-400"
-                      >
-                        <option value="">No objective</option>
-                        {objectives.map((o) => (
-                          <option key={o.id} value={o.id}>
-                            {o.title} · {periodNameOf(periods, o.periodId)}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-
-                    {attributed.length === 0 ? (
-                      <p className="text-meta text-slate-600">No objective yet.</p>
-                    ) : (
-                      <>
-                        {/* What the objective means, and how far along the work that serves it is.
-                            The key results are the words; the number comes from the work. */}
-                        {keyResults.filter((k) => k.objectiveId === attributed[0].id).length === 0 ? (
-                          <p className="text-meta text-slate-600">No key results yet.</p>
-                        ) : (
-                          <ul className="space-y-0.5">
-                            {keyResults
-                              .filter((k) => k.objectiveId === attributed[0].id)
-                              .map((k) => (
-                                <li key={k.id} className="flex items-start gap-1.5 text-meta text-slate-700" title={k.title}>
-                                  <Target size={11} className="mt-0.5 shrink-0 text-indigo-400" />
-                                  <span className="min-w-0 flex-1">{k.title}</span>
-                                </li>
-                              ))}
-                          </ul>
-                        )}
-                      <ObjectiveProgress objectiveId={attributed[0].id} />
-                    </>
-                  )}
-                </div>
-                ) : (
-                  <p className="rounded-xl bg-slate-50 p-3 text-meta text-slate-600 ring-1 ring-slate-200">
-                    {parent?.title ?? 'Another initiative'} carries this initiative, so it inherits that objective.
-                    Only a top-level initiative is mapped.
-                  </p>
-                )}
-              </Section>
+              <StrategicImpactSection
+                canServe={canServe}
+                parent={parent}
+                attributed={attributed}
+                objectives={objectives}
+                periods={periods}
+                keyResults={keyResults}
+                onSetAttribution={(objectiveId, on) => setAttribution(item.id, objectiveId, on)}
+              />
             )}
 
             {/* The description — the card's own words. The editor is the rendered description:
@@ -2929,89 +2830,5 @@ function PlanRow({ label, own, children: below }: { label: string; own: string; 
       <span className="text-right tabular-nums text-slate-700">{own}</span>
       <span className="text-right tabular-nums text-slate-700">{below}</span>
     </>
-  )
-}
-
-function Section({
-  label,
-  count,
-  aside,
-  action,
-  children,
-}: {
-  label: string
-  count?: number
-  aside?: React.ReactNode
-  action?: React.ReactNode
-  children: React.ReactNode
-}) {
-  return (
-    <section className="space-y-2">
-      <div className="flex min-h-6 items-center gap-2">
-        <h3 className="text-micro font-semibold uppercase tracking-wide text-slate-600">{label}</h3>
-        {count !== undefined && count > 0 && (
-          <span className="rounded-full bg-slate-100 px-1.5 text-micro font-semibold tabular-nums text-slate-600">{count}</span>
-        )}
-        {(aside || action) && (
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            {aside}
-            {action}
-          </div>
-        )}
-      </div>
-      {children}
-    </section>
-  )
-}
-
-/**
- * How far along an objective is, wherever an objective is read beside work.
- *
- * The number comes from the initiatives attributed to the objective and the leaves below them —
- * the same rollup an initiative uses, so the two can never disagree. An objective nothing serves
- * has no number: 0% would be a worse way of saying that nothing serves it.
- */
-function ObjectiveProgress({ objectiveId }: { objectiveId: string }) {
-  const items = useStore((s) => s.items)
-  const edges = useStore((s) => s.edges)
-  const links = useStore((s) => s.links)
-  const placements = useStore((s) => s.placements)
-  const lanes = useStore((s) => s.lanes)
-  const roll = objectiveRollup(objectiveId, { items, edges, links, placements, lanes })
-  if (!roll) return null
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between gap-2 text-meta">
-        <span className="text-slate-600">Work serving it</span>
-        <span className="shrink-0 font-semibold tabular-nums text-slate-700">{roll.percent}%</span>
-      </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-indigo-100">
-        <div className="h-full bg-indigo-500 transition-all" style={{ width: `${roll.percent}%` }} />
-      </div>
-      <div className="text-micro text-slate-600">
-        {roll.done} of {roll.total} done
-      </div>
-    </div>
-  )
-}
-
-/** A field: what it is called, the value, and — where it helps — why the value is what it is. */
-function Field({
-  label,
-  hint,
-  children,
-  className,
-}: {
-  label: string
-  hint?: string
-  children: React.ReactNode
-  className?: string
-}) {
-  return (
-    <label className={cn('flex min-w-0 flex-col gap-1', className)}>
-      <span className="text-meta font-medium text-slate-600">{label}</span>
-      {children}
-      {hint && <span className="text-micro leading-snug text-slate-600">{hint}</span>}
-    </label>
   )
 }

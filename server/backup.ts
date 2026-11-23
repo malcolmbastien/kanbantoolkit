@@ -91,6 +91,10 @@ export function restoreDatabase(input: { from: string; to: string; force?: boole
   }
 
   mkdirSync(dirname(input.to), { recursive: true })
+  // WAL keeps recent pages beside the database. A restore replaces the database itself, so the
+  // old sidecars must go with it — otherwise SQLite reads the previous write-ahead log over the
+  // new file and reports a schema that never existed together.
+  for (const suffix of ['-wal', '-shm']) rmSync(`${input.to}${suffix}`, { force: true })
   copyFileSync(input.from, input.to)
 
   // Verify the file that was written, not the one that was read.

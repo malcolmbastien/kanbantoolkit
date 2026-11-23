@@ -90,6 +90,7 @@ export function Overlays() {
             onClick={cancelChildPick}
             className="shrink-0 rounded p-0.5 text-indigo-100 transition hover:bg-white/15 hover:text-white"
             title="Cancel"
+            aria-label="Cancel choosing a child"
           >
             <X size={12} />
           </button>
@@ -105,6 +106,7 @@ export function Overlays() {
             onClick={cancelParentPick}
             className="shrink-0 rounded p-0.5 text-indigo-100 transition hover:bg-white/15 hover:text-white"
             title="Cancel"
+            aria-label="Cancel choosing a parent"
           >
             <X size={12} />
           </button>

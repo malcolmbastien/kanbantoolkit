@@ -3,6 +3,8 @@ import { reportError } from '@/lib/errors'
 
 interface Props {
   children: ReactNode
+  /** What could not be drawn. A local boundary names its view; the app's outer one says nothing. */
+  label?: string
 }
 interface State {
   error: Error | null
@@ -28,9 +30,15 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.error) {
       return (
-        <div className="grid h-full place-items-center bg-slate-100 p-6 text-center">
+        <div
+          data-error-boundary={this.props.label ?? 'app'}
+          role="alert"
+          className="grid h-full place-items-center bg-slate-100 p-6 text-center"
+        >
           <div className="max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-lg">
-            <h2 className="text-title font-semibold text-slate-800">Something went wrong</h2>
+            <h2 className="text-title font-semibold text-slate-800">
+              {this.props.label ? `${this.props.label} could not be drawn` : 'Something went wrong'}
+            </h2>
             <p className="mt-1 break-words text-meta text-slate-600">
               {String(this.state.error.message || this.state.error)}
             </p>

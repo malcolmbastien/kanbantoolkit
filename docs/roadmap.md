@@ -39,8 +39,6 @@ a D1 database, and a browser holds a cache of the workspace:
 
 The open work is in the backlog:
 
-- **The sign-in task title** (117 names Google and Microsoft, but the built form is the operator's own OIDC
-  issuer, with a password and a magic link).
 - **Field-level presence and takeover notices**, from the collaboration design (`docs/collaboration.md`).
 
 ## The order that was followed

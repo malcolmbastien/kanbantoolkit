@@ -122,7 +122,7 @@ raise a limit.
 
 The count is the column's own, not the filtered view's: narrowing what you see never changes the load
 a column carries. An initiatives section counts **initiatives**, not the cards below them — its
-section comes from their rollup, so the number moves when work beneath them moves.
+count comes from their rollup, so the number moves when work beneath them moves.
 
 ## What is not a warning
 

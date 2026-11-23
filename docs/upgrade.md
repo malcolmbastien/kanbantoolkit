@@ -5,8 +5,9 @@ understand.
 
 ## The rule
 
-**Back up first.** A schema-changing release says so in the changelog; the way back is a restore, not
-a rollback — migrations are one-way, and the old code cannot read the new shape.
+**Back up first.** A release that changes the schema applies a migration at boot; the migrations in
+the release are the record of what changed. The way back is a restore, not a rollback — migrations
+are one-way, and the old code cannot read the new shape.
 
 ```bash
 npm run backup -- backup ./kanbantoolkit.db ./backups
@@ -32,16 +33,17 @@ kanbantoolkit schema vN
 ```
 
 If it prints nothing and exits, the migration refused — see *When a migration stops*. If it prints
-`(applied 20, 21, …)` after the version, this boot moved the schema; read the release notes.
+`(applied …)` after the version, this boot moved the schema; the migration numbers it names are the
+change.
 
 ## Which releases need a backup
 
 Every release; two kinds especially:
 
-- **The changelog entry names a migration.** The server applies it at boot. Back up before the
-  restart: a restore is the only way back.
-- **The changelog entry says `REQUIRED_SCHEMA` moved.** An old binary refuses the new database, so
-  rolling the code back without restoring leaves a server that will not start.
+- **The release adds a migration.** The server applies it at boot. Back up before the restart: a
+  restore is the only way back.
+- **The release moves `REQUIRED_SCHEMA`.** An old binary refuses the new database, so rolling the code
+  back without restoring leaves a server that will not start.
 
 **An example: schema 33, the vocabulary revision.** A database from before it gains
 `workspace.vocabulary_rev`, the revision the workspace's card types, templates, objectives and key

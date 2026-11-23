@@ -138,6 +138,21 @@ describe('an invitation is a link', () => {
     expect((await request(`/api/invite/${token}`)).status).toBe(410)
   })
 
+  it('answers the loser of two racing accepts 410, and keeps one account', async () => {
+    const { db, request, invite } = await world()
+    const { token } = await invite('grace@example.com', 'editor')
+    const accept = () =>
+      request(`/api/invite/${token}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ password: 'correct horse battery staple' }),
+      })
+
+    const [first, second] = await Promise.all([accept(), accept()])
+    expect([first.status, second.status].sort()).toEqual([200, 410])
+    expect(await db.get("SELECT COUNT(*) AS n FROM users WHERE email = 'grace@example.com'")).toEqual({ n: 1 })
+  })
+
   it('grants nothing to another address holding the link', async () => {
     const { db, dev, invite } = await world()
     const { token } = await invite('grace@example.com', 'editor')

@@ -385,7 +385,8 @@ given a `404`.
 | `POST /api/errors` | a report from a browser: message, stack, path, view, build, browser — never a query string, never an address |
 
 Reports are rate-limited per hashed address and capped per page. The endpoint answers `204`, and
-`503` when its database is not configured.
+`503` when its database is not configured. Rows are kept for 90 days — the same window as the audit
+trail — and older reports are pruned when a new one is accepted.
 
 ---
 

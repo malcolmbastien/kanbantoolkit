@@ -109,13 +109,12 @@ const cookieOf = (response: Response) =>
 
 type Init = RequestInit & { bearer?: string }
 
-async function world() {
+async function world(env: Record<string, string> = { AUTH_DEV: '1' }) {
   const db = database()
   await writeWorkspace(db, seeded(), 'workspace')
   await db.run('UPDATE instance_settings SET allowed_domains = ?1', [JSON.stringify(['example.com'])])
 
   const app = createApp({ database: () => db, clientIp: () => '203.0.113.11' })
-  const env = { AUTH_DEV: '1' }
   const request = (path: string, init: Init = {}) => {
     const { bearer, ...rest } = init
     const headers: Record<string, string> = { 'content-type': 'application/json', ...(rest.headers as Record<string, string>) }
@@ -558,6 +557,26 @@ describe('the planner’s questions', () => {
     expect(dataOf<{ data: Array<{ item: { id: string } }> }>(blocked).data.map((row) => row.item.id)).toEqual(['i-2'])
     expect(dataOf<{ counts: Record<string, number> }>(blocked).counts).toMatchObject({ overdue: 1, blocked: 1 })
     expect((await call(agent.rpc, 'list_attention', { signal: 'nope' })).result?.isError).toBe(true)
+  })
+
+  it('spends from the same token window as the v1 routes', async () => {
+    const { signIn, token } = await world({ AUTH_DEV: '1', API_RATE_LIMIT: '2' })
+    const person = await signIn('limited@example.com', 'editor')
+    const agent = await token(person, ['boards:read'], 'limited')
+
+    // Two calls fit the window; the third is refused at the MCP door.
+    const message = { jsonrpc: '2.0', id: 1, method: 'tools/list' }
+    expect((await agent.rpc(message)).status).toBe(200)
+    expect((await agent.rpc(message)).status).toBe(200)
+    const over = await agent.rpc(message)
+    expect(over.status).toBe(429)
+    expect(over.headers.get('retry-after')).toBeTruthy()
+
+    // The same credential on the v1 door is still spent: one budget, whichever way in.
+    const v1 = await person.call('/api/v1/boards', {
+      headers: { authorization: `Bearer ${agent.secret}` },
+    })
+    expect(v1.status).toBe(429)
   })
 
   it('maps an initiative to an objective, and refuses one that is part of another', async () => {

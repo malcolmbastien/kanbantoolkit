@@ -6,6 +6,8 @@ import {
   canDesignBoard,
   canRetype,
   canServeObjective,
+  canSetParent,
+  parentRefusal,
   duplicateBoard,
   isPortfolio,
   lanesFromTemplate,
@@ -831,5 +833,26 @@ describe('boardInitiatives — the one set every initiative surface reads', () =
       [on('parent'), on('leaf'), on('childless')],
     )
     expect(boardInitiatives(g, 'b-mine', [{ id: STORY, name: 'Story', color: '#64748b' }]).map((i) => i.id)).toEqual(['parent'])
+  })
+})
+
+describe('why an item cannot take a parent', () => {
+  const s = createFixture()
+  const graph = { items: s.items, edges: s.edges, links: s.links, placements: s.placements, lanes: s.lanes }
+
+  it('names the objective that keeps a mapped initiative at the top', () => {
+    // Activation serves an objective, so it stays a root even though a parent is otherwise valid.
+    expect(parentRefusal('init-activation', null, graph, s.issueTypes)).toBe('serves_objective')
+    expect(parentRefusal('init-activation', 'init-growth', graph, s.issueTypes)).toBe('serves_objective')
+    expect(canSetParent('init-activation', 'init-growth', graph, s.issueTypes)).toBe(false)
+  })
+
+  it('still lets an unmapped initiative roll up, and refuses the rest for their own reasons', () => {
+    expect(parentRefusal('init-growth', 'init-efficiency', graph, s.issueTypes)).toBeUndefined()
+    expect(parentRefusal('init-growth', 'init-growth', graph, s.issueTypes)).toBe('self')
+    expect(parentRefusal('init-growth', 'st-signup-form', graph, s.issueTypes)).toBe('not_initiative')
+    // A parent is never below the child already: that would close a loop.
+    expect(parentRefusal('init-activation', 'init-growth', graph, s.issueTypes)).toBe('serves_objective')
+    expect(parentRefusal('init-growth', 'init-onboarding', graph, s.issueTypes)).toBe('cycle')
   })
 })

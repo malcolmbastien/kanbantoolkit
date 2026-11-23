@@ -48,6 +48,12 @@ Every board has a **Detail** dial in its secondary bar, beside **Archive done** 
 Changing the Detail dial redraws the cards; it does not close the open card drawer or clear an
 active card selection.
 
+A card that waits on open work wears a **Waiting on N** door in its top row at Full detail; its title
+names up to two of the blockers. The count is open links only — a satisfied or closed link stays in
+the drawer and does not count. At Summary and Mini the same door keeps the compact icon and number.
+A blocker that is itself blocked or overdue gives the door an amber tone; the card's own **Blocked**
+badge remains the hard stop, because waiting and blocked are different facts.
+
 Every card ends in a **footer band**, at Full and Summary alike: the promise (due date), the link,
 the checklist, the finished stamp and the people sit on one opaque strip at the foot. A blocked card's band is rose, like its
 surface; a done card's is grey; a card with nothing in its foot draws no band rather than an empty
@@ -372,7 +378,8 @@ and the cards here that wait on it are named beside it.*
   not copied or moved here, and it is not a placement: it creates no WIP, no card count and no
   rollup on this board.
 - Each entry names the home board, its state, and the cards here that wait on it. A card that waits
-  wears a chain-link badge with the number of its open dependencies — here or on another board; the
+  wears a **Waiting on N** door at Full detail, or its compact count at Summary and Mini — here or on
+  another board; the
   card's panel names them. Selecting that badge opens the card's **Relationships** tab and scopes the
   **Connections** lens to that item; selecting the same badge again closes the drawer and ends the
   reading. Selecting a dependency card highlights its dependents.

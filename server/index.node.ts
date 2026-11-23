@@ -24,9 +24,7 @@ import { migrate } from './migrate'
 import type { Migration } from './migrate'
 import { openSqlite } from './sqlite'
 import { isProduction, saltProblem, workspaceName } from './config'
-import { dispatchDue } from './webhooks'
-import { sendDigests } from './digest'
-import { changeRetentionDays, pruneChanges } from './workspace/changes'
+import { JOBS, jobEnabled, runJob } from './jobs'
 import { fileBackups } from './file-backup'
 import { record } from './audit'
 
@@ -107,29 +105,6 @@ if (appliedPreRestore) {
 const live = process.env.LIVE !== '0'
 
 /**
- * Outbound webhooks, on a timer of this process's own.
- *
- * The Worker uses a cron trigger; a self-hosted instance has no scheduler but its process, so a
- * quiet interval is enough. `WEBHOOKS=0` turns it off for a deployment that only reads.
- */
-if (process.env.WEBHOOKS !== '0') {
-  const timer = setInterval(() => {
-    void dispatchDue(db).catch((error) => console.error('webhook dispatch failed', error))
-  }, 15_000)
-  // A test or a one-shot command should not be kept alive by a delivery timer.
-  timer.unref?.()
-}
-
-// The change feed is pruned on a timer of its own: a deployment that has turned deliveries off
-// still writes changes, and a feed that grows forever is a second history nobody asked for.
-const feedRetention = setInterval(() => {
-  void pruneChanges(db, { days: changeRetentionDays(process.env) }).catch((error) =>
-    console.error('change feed prune failed', error),
-  )
-}, 15_000)
-feedRetention.unref?.()
-
-/**
  * Mail, if this machine has a relay.
  *
  * `MAIL_CONSOLE=1` writes messages to the log instead — development, and the e2e lane, which must not
@@ -139,16 +114,14 @@ feedRetention.unref?.()
 const mail = process.env.MAIL_CONSOLE === '1' ? consoleMailer() : smtpMailer(process.env)
 
 /**
- * Digests, on the same kind of timer the webhook dispatcher uses.
- *
- * With no mailer this block is not even installed: a deployment without a relay does not collect a
- * queue it can never send. `MAIL_DIGEST=0` turns it off for a relay used only for sign-in links.
+ * The periodic work this process owns. The list is shared with the Worker (`server/jobs.ts`); only
+ * the timing is this entry's — a quiet interval, unref'd so a one-shot command is not kept alive by
+ * a timer. A job a deployment has switched off is not installed at all.
  */
-if (mail && process.env.MAIL_DIGEST !== '0') {
-  const digest = setInterval(() => {
-    void sendDigests(db, { mail, env: process.env }).catch((error) => console.error('mail digest failed', error))
-  }, 30_000)
-  digest.unref?.()
+for (const job of JOBS) {
+  if (!jobEnabled(job, { db, env: process.env, mail })) continue
+  const timer = setInterval(() => void runJob(job, { db, env: process.env, mail }), job.everyMs)
+  timer.unref?.()
 }
 
 /**
@@ -289,18 +262,27 @@ function staticFile(pathname: string): string | undefined {
  */
 app.get('/', (c) => c.redirect('/app', 302))
 
-/** The app's document, at `/app` and anywhere beneath it: a place in a board is a query string. */
-const shell = () => new Response(readFileSync(join(staticDir, 'app/index.html')), { headers: { 'content-type': TYPES['.html'] } })
+/** The app's document, read once at boot rather than from disk on every navigation. */
+const shellHtml = readFileSync(join(staticDir, 'app/index.html'))
+const shell = () => new Response(shellHtml, { headers: { 'content-type': TYPES['.html'] } })
 app.get('/app', shell)
 app.get('/app/*', shell)
 
 /** The app's own files: its chunks under `/assets`, and the icon its document asks for. */
+const assetCache = new Map<string, Buffer>()
+const assetBytes = (file: string): Buffer => {
+  const cached = assetCache.get(file)
+  if (cached) return cached
+  const bytes = readFileSync(file)
+  assetCache.set(file, bytes)
+  return bytes
+}
 app.get('/assets/*', (c) => {
   const file = staticFile(new URL(c.req.url).pathname)
   if (!file) return c.notFound()
-  return new Response(readFileSync(file), { headers: { 'content-type': TYPES[extname(file)] ?? 'application/octet-stream' } })
+  return new Response(assetBytes(file), { headers: { 'content-type': TYPES[extname(file)] ?? 'application/octet-stream' } })
 })
-app.get('/favicon.svg', () => new Response(readFileSync(join(staticDir, 'favicon.svg')), { headers: { 'content-type': TYPES['.svg'] } }))
+app.get('/favicon.svg', () => new Response(assetBytes(join(staticDir, 'favicon.svg')), { headers: { 'content-type': TYPES['.svg'] } }))
 
 /** An instance is one team's private work: no crawler has any business here. */
 app.get('/robots.txt', () => new Response('User-agent: *\nDisallow: /\n', { headers: { 'content-type': TYPES['.txt'] } }))

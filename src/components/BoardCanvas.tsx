@@ -652,6 +652,9 @@ function LaneBox({
               dropTarget={ctx.drag.dropTargetId === c.id}
               boundary={ctx.boundaryId ? ctx.model.openDependencies.get(c.id)?.has(ctx.boundaryId) === true : false}
               openDependencies={ctx.model.openDependencies.get(c.id)?.size ?? 0}
+              openDependencyItems={[...(ctx.model.openDependencies.get(c.id) ?? [])]
+                .map((id) => ctx.model.itemsById.get(id))
+                .filter((item): item is Item => Boolean(item))}
               multi={ctx.multiSelect.includes(c.id)}
               dimmed={
                 // A selected boundary card is the thing being read: everything that does not wait

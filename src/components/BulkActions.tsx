@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Archive, ArchiveX, CheckSquare, Trash2, TriangleAlert, X } from 'lucide-react'
-import { canSetParent, cardTypes, defaultDropLane, isInitiativeItem } from '@/domain/board'
+import { canSetParent, cardTypes, defaultDropLane, isInitiativeItem, parentRefusal, type ParentRefusal } from '@/domain/board'
 import { isComplete, descendants, type Graph } from '@/domain/derive'
 import { lanePath, leafLanes } from '@/domain/lanes'
 import { heldByOther, usePresence } from '@/lib/presence'
@@ -28,6 +28,16 @@ const GHOST_CLS =
 const DANGER_CLS =
   'flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2 py-1 font-medium text-rose-600 transition hover:bg-rose-50'
 
+/** What a refused roll-up says, in the reason the shared rule returned. */
+const PARENT_REFUSAL: Record<ParentRefusal, string> = {
+  missing: 'Nothing changed: that initiative is no longer available.',
+  archived: 'Nothing changed: filed-away work cannot be a parent.',
+  serves_objective: 'Nothing changed: a mapped initiative has to stay top-level.',
+  self: 'Nothing changed: an item cannot be its own parent.',
+  not_initiative: 'Nothing changed: a parent must be an initiative.',
+  cycle: 'Nothing changed: that initiative is below one of the selection.',
+}
+
 /**
  * The multi-select sub-menu: a floating bulk-action bar shown while cards are
  * shift-selected. Move to a lane, change type, assign, archive or delete them
@@ -45,6 +55,7 @@ export function BulkActions() {
   const boards = useStore((s) => s.boards)
   const setItemsType = useStore((s) => s.setItemsType)
   const items = useStore((s) => s.items)
+  const objectives = useStore((s) => s.objectives)
   // An initiative is never retyped, so the control is not offered for a selection that
   // contains one.
   const selectionHasInitiative = multiSelect.some((id) => isInitiativeItem(items.find((i) => i.id === id), issueTypes))
@@ -62,10 +73,10 @@ export function BulkActions() {
 
   const [targetBoard, setTargetBoard] = useState('')
   const [parentTarget, setParentTarget] = useState('')
-  const [parentRefused, setParentRefused] = useState(false)
+  const [parentRefused, setParentRefused] = useState<ParentRefusal | null>(null)
 
   // A refusal is about the selection it was judged against, so it does not outlive it.
-  useEffect(() => setParentRefused(false), [multiSelect])
+  useEffect(() => setParentRefused(null), [multiSelect])
 
   if (multiSelect.length === 0) return null
 
@@ -118,6 +129,18 @@ export function BulkActions() {
       onConfirm: (note) => archiveItems(multiSelect, note),
     })
   }
+  // Why the selection cannot roll up at all — a mapped initiative is the common case, and it is
+  // about the child rather than the candidate. Naming it is better than showing an empty list.
+  const parentBlock = multiSelect
+    .map((id) => ({ item: items.find((i) => i.id === id), reason: parentRefusal(id, null, graph, issueTypes) }))
+    .find((entry) => entry.reason)
+  const blockedObjective =
+    parentBlock?.reason === 'serves_objective'
+      ? objectives.find((o) =>
+          edges.some((e) => e.kind === 'attribution' && e.to === parentBlock.item?.id && e.from === o.id),
+        )
+      : undefined
+
   const parentCandidates = items.filter(
     (i) => isInitiativeItem(i, issueTypes) && multiSelect.every((id) => canSetParent(id, i.id, graph, issueTypes)),
   )
@@ -125,10 +148,16 @@ export function BulkActions() {
   const applyParent = () => {
     if (!parentTarget) return
     // The whole selection is judged before anything is written, so a refusal changes nothing —
-    // and says why.
+    // and says why, in the reason the shared rule returned.
     const applied = setParents(multiSelect, parentTarget)
-    setParentRefused(!applied)
-    if (applied) setParentTarget('')
+    if (applied) {
+      setParentTarget('')
+      setParentRefused(null)
+      return
+    }
+    setParentRefused(
+      multiSelect.map((id) => parentRefusal(id, parentTarget, graph, issueTypes)).find((reason) => reason) ?? 'missing',
+    )
   }
 
 
@@ -233,14 +262,21 @@ export function BulkActions() {
 
       {/* Hierarchy is not retyping: an initiative can be a child of another, so this control
           is offered for every selection, initiatives included. */}
-      {parentCandidates.length > 0 && (
+      {parentBlock ? (
+        <span role="status" className="flex items-center gap-1.5 rounded-md bg-indigo-50 px-2 py-1 font-medium text-indigo-900">
+          <TriangleAlert size={13} className="shrink-0" />
+          {parentBlock.reason === 'serves_objective'
+            ? `${parentBlock.item?.title ?? 'One item'} serves ${blockedObjective?.title ?? 'an objective'}; clear its objective before rolling it up.`
+            : `${parentBlock.item?.title ?? 'One item'} cannot take a parent.`}
+        </span>
+      ) : parentCandidates.length > 0 && (
         <label className={LABEL_CLS}>
           Roll up to
           <select
             value={parentTarget}
             onChange={(e) => {
               setParentTarget(e.target.value)
-              setParentRefused(false)
+              setParentRefused(null)
             }}
             className={SELECT_CLS}
             title="Make every selected item a child of one initiative"
@@ -262,7 +298,7 @@ export function BulkActions() {
           health section uses — rather than a colour of its own. */}
       {parentRefused && (
         <span role="status" className="flex items-center gap-1.5 rounded-md bg-amber-50 px-2 py-1 font-medium text-amber-800 ring-1 ring-amber-300">
-          <TriangleAlert size={13} className="shrink-0" /> Nothing changed: one of the selection sits above that initiative.
+          <TriangleAlert size={13} className="shrink-0" /> {PARENT_REFUSAL[parentRefused]}
         </span>
       )}
 

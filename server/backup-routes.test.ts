@@ -46,10 +46,11 @@ const cookie = (response: Response) =>
 
 async function world(withFiles: boolean) {
   const db = database()
+  const live = withFiles ? liveFile() : undefined
   const app = createApp({
     database: () => db,
     clientIp: () => '203.0.113.9',
-    ...(withFiles ? { backups: fileBackups(liveFile()) } : {}),
+    ...(live ? { backups: fileBackups(live) } : {}),
   })
   const request = (path: string, init: RequestInit = {}) => app.request(path, init, { AUTH_DEV: '1' })
   const signed = cookie(
@@ -59,7 +60,7 @@ async function world(withFiles: boolean) {
       body: JSON.stringify({ email: 'ada@example.com' }),
     }),
   )
-  return { request, signed }
+  return { request, signed, live }
 }
 
 describe('backups from Admin', () => {
@@ -102,4 +103,28 @@ describe('backups from Admin', () => {
     expect(staged.status).toBe(200)
     expect(await staged.json()).toMatchObject({ staged: true, boards: 1, items: 1 })
   }, 20_000)
+
+  it('answers a known failure in words, without the filesystem path', async () => {
+    const { request, signed, live } = await world(true)
+    rmSync(live!, { force: true })
+
+    const created = await request('/api/admin/backups', { method: 'POST', headers: { cookie: signed } })
+    expect(created.status).toBe(422)
+    const body = (await created.json()) as { error: string }
+    expect(body.error).toBe('the database file was not found')
+    expect(JSON.stringify(body)).not.toContain(live)
+  })
+
+  it('answers an upload that is not a database without echoing a path', async () => {
+    const { request, signed } = await world(true)
+    const staged = await request('/api/admin/backups/restore', {
+      method: 'POST',
+      headers: { 'content-type': 'application/octet-stream', cookie: signed },
+      body: new Uint8Array([1, 2, 3, 4]),
+    })
+    expect(staged.status).toBe(422)
+    const body = (await staged.json()) as { error: string }
+    expect(body.error).toBe('that file is not a database this instance can read')
+    expect(JSON.stringify(body)).not.toContain(tmpdir())
+  })
 })

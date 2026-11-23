@@ -44,8 +44,8 @@ export interface AuthUser {
   instanceRole: string
 }
 
-// The two axes, read together: the door from `instance_members`, the authority from
-// `workspace_members`. The workspace id is the settings row's until 122.1 gives it a table.
+// The one workspace this instance serves. It is a row like every other entity, named at
+// installation; queries bind its id rather than baking a literal into the SQL.
 export const WORKSPACE_ID = 'workspace'
 
 const USER_QUERY = `SELECT u.id, u.name, u.email, u.avatar_url AS avatarUrl,
@@ -53,11 +53,11 @@ const USER_QUERY = `SELECT u.id, u.name, u.email, u.avatar_url AS avatarUrl,
     COALESCE(i.role, 'member') AS instanceRole
   FROM users u
   LEFT JOIN instance_members i ON i.user_id = u.id
-  LEFT JOIN workspace_members w ON w.user_id = u.id AND w.workspace_id = '${WORKSPACE_ID}'
+  LEFT JOIN workspace_members w ON w.user_id = u.id AND w.workspace_id = ?2
   WHERE u.id = ?1`
 
 export async function userById(db: Database, id: string): Promise<AuthUser | undefined> {
-  return db.get<AuthUser>(USER_QUERY, [id])
+  return db.get<AuthUser>(USER_QUERY, [id, WORKSPACE_ID])
 }
 
 /**

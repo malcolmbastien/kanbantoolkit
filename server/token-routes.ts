@@ -331,10 +331,13 @@ export function tokenRoutes(runtime: Runtime) {
     const { role, refused } = await refusedFor(caller.db, caller.user.id, approved)
     if (refused.length) return refusal(c, role, refused)
 
-    await caller.db.run(
+    // The pre-read above is a courtesy, not the guard: two approvers can both see an unapproved
+    // row. The conditional UPDATE is the claim, and the loser must not write a second trail row.
+    const claimed = await caller.db.run(
       'UPDATE device_codes SET user_id = ?1, scopes = ?2, approved_at = ?3 WHERE id = ?4 AND approved_at IS NULL',
       [caller.user.id, JSON.stringify(approved), new Date().toISOString(), row.id],
     )
+    if (claimed.changes === 0) return c.json({ error: 'that code has already been approved' }, 409)
 
     await caller.db.run(
       ...audit({

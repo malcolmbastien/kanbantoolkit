@@ -28,6 +28,13 @@ export function InboxBell() {
   const watchedItemIds = useStore((state) => state.watchedItemIds)
   const watchStartedAt = useStore((state) => state.watchStartedAt)
   const inboxReadAt = useStore((state) => state.inboxReadAt)
+  // A watched card's history is append-only, so its length is enough to know the inbox could have
+  // changed. Listening to `items` re-read every log on every edit anywhere on the board.
+  const watchedLogKey = useStore((state) =>
+    state.watchedItemIds
+      .map((id) => `${id}:${state.items.find((item) => item.id === id)?.log?.length ?? 0}`)
+      .join('|'),
+  )
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -45,7 +52,7 @@ export function InboxBell() {
   useEffect(() => {
     if (user) return
     useStore.getState().recomputeInbox()
-  }, [user, items, watchedItemIds, watchStartedAt, inboxReadAt])
+  }, [user, watchedLogKey, watchedItemIds, watchStartedAt, inboxReadAt])
 
   // An instance's changes arrive through the live feed as items, so the bell reads the outbox again
   // shortly after the board moves — debounced, because a person typing edits the card on every key.

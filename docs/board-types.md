@@ -101,7 +101,8 @@ initiatives. A nested initiative inherits its parent's objective through the hie
 as well would count the same work twice, or leave the parent's card and the objective reading
 different numbers. The rule keeps progress a partition: each piece of work counts toward exactly one
 objective, and a mapped initiative's percentage is its own rollup. An initiative that is already
-mapped cannot be rolled up under another; unmap it first if the work belongs elsewhere.
+mapped cannot be rolled up under another; clear its objective in the card's **Parent** section first,
+if the work belongs elsewhere.
 
 **See the gaps.** An objective that nothing serves says so on the board and has no percentage at
 all, because there is no work to read. An objective's completeness is the union of the work below

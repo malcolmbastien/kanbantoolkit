@@ -23,6 +23,13 @@ export function openSqlite(path: string): SqliteDatabase {
   // A file on a disk is a real database: it should enforce what the schema says.
   const db = new DatabaseSync(path)
   db.exec('PRAGMA foreign_keys = ON')
+  // WAL lets a backup read while the server writes: `VACUUM INTO` then takes its snapshot without
+  // waiting for the writer, and a reader does not block a writer either. The timeout is the one
+  // wait we are willing to impose on a writer that arrives during a checkpoint or a restore-sized
+  // copy — five seconds is longer than any write this app makes, and short enough that a stuck
+  // process still answers rather than hanging forever.
+  db.exec('PRAGMA journal_mode = WAL')
+  db.exec('PRAGMA busy_timeout = 5000')
   return fromSqlite(db)
 }
 
@@ -46,7 +53,9 @@ export function fromSqlite(db: DatabaseSync): SqliteDatabase {
       return { changes: Number(result.changes) }
     },
     async batch(statements) {
-      db.exec('BEGIN')
+      // Take the write lock at the start: a deferred transaction upgrades mid-batch, and a second
+      // writer can then win the race between the first read and the first write.
+      db.exec('BEGIN IMMEDIATE')
       try {
         for (const statement of statements) db.prepare(statement.sql).run(...values(statement.params))
         db.exec('COMMIT')

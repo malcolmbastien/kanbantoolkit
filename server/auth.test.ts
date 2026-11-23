@@ -220,6 +220,43 @@ describe('signing in', () => {
     }
     expect((await request('/api/auth/start?provider=oidc')).status).toBe(429)
   })
+
+  it('does not grow the attempt table on a refused request, and sweeps old rows', async () => {
+    const { db, request } = instance(OIDC)
+    for (let i = 0; i < 30; i++) await request('/api/auth/start?provider=oidc')
+    expect((await db.get<{ n: number }>('SELECT COUNT(*) AS n FROM auth_attempts'))?.n).toBe(30)
+
+    // The request that is refused leaves the table where it was.
+    expect((await request('/api/auth/start?provider=oidc')).status).toBe(429)
+    expect((await db.get<{ n: number }>('SELECT COUNT(*) AS n FROM auth_attempts'))?.n).toBe(30)
+
+    // Old attempts and an abandoned sign-in do not survive the sweep that the next attempt runs.
+    await db.run("INSERT INTO auth_attempts (ip_hash, at) VALUES ('old', '2020-01-01T00:00:00.000Z')")
+    await db.run(
+      "INSERT INTO oauth_states (state, provider, verifier, next, created_at) VALUES ('old', 'oidc', 'v', '/', '2020-01-01T00:00:00.000Z')",
+    )
+    await request('/api/auth/start?provider=oidc')
+    expect(await db.get("SELECT 1 AS one FROM auth_attempts WHERE at = '2020-01-01T00:00:00.000Z'")).toBeUndefined()
+    expect(await db.get("SELECT 1 AS one FROM oauth_states WHERE state = 'old'")).toBeUndefined()
+  })
+
+  it('gives the development door the same attempt ceiling', async () => {
+    const { request } = instance({ AUTH_DEV: '1' })
+    for (let i = 0; i < 30; i++) {
+      const answer = await request('/api/auth/dev', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'person@example.com' }),
+      })
+      expect(answer.status).toBe(200)
+    }
+    const over = await request('/api/auth/dev', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'person@example.com' }),
+    })
+    expect(over.status).toBe(429)
+  })
 })
 
 describe('invitations', () => {

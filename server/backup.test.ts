@@ -91,6 +91,34 @@ describe('a backup of a self-hosted workspace', () => {
     expect(back).toEqual(workspace)
   }, 20_000)
 
+  it('runs the file database in WAL with a busy timeout', async () => {
+    const live = working()
+    const db = openSqlite(live)
+    expect(await db.get('PRAGMA journal_mode')).toMatchObject({ journal_mode: 'wal' })
+    expect(await db.get('PRAGMA busy_timeout')).toMatchObject({ timeout: 5000 })
+  })
+
+  it('takes a backup while a write transaction is open', () => {
+    const live = working()
+    const writer = new DatabaseSync(live)
+    writer.exec('BEGIN IMMEDIATE')
+    writer.exec(
+      "INSERT INTO boards (id, name, band, description, position, workspace_id) VALUES ('b-later', 'Later', 'team', '', 1, 'workspace')",
+    )
+
+    // The copy reads the committed workspace while the writer is still open; neither side waits
+    // for the other to finish, which is the whole point of WAL here.
+    const copy = backupDatabase({ from: live, directory: join(scratch!, 'backups') })
+    expect(copy.bytes).toBeGreaterThan(0)
+
+    writer.exec('ROLLBACK')
+    writer.close()
+    const back = new DatabaseSync(copy.path, { readOnly: true })
+    const counts = back.prepare('SELECT (SELECT COUNT(*) FROM boards) AS boards').get() as { boards: number }
+    back.close()
+    expect(counts.boards).toBe(1)
+  }, 20_000)
+
   it('is consistent, because it is a read transaction and not a file copy', () => {
     const live = working()
     const copy = backupDatabase({ from: live, directory: join(scratch!, 'backups') })

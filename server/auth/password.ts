@@ -49,12 +49,12 @@ function base64(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes))
 }
 
-function bytesOf(value: string): Uint8Array {
+function bytesOf(value: string): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(atob(value), (char) => char.charCodeAt(0))
 }
 
 /** PBKDF2 over the normalised password, so the same keystrokes hash the same way on every device. */
-async function derive(password: string, salt: Uint8Array, iterations: number): Promise<Uint8Array> {
+async function derive(password: string, salt: Uint8Array<ArrayBuffer>, iterations: number): Promise<Uint8Array> {
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password.normalize('NFKC')), 'PBKDF2', false, [
     'deriveBits',
   ])
@@ -93,8 +93,8 @@ export async function verify(password: string, stored: string): Promise<boolean>
   const iterations = Number(parts[1])
   if (!Number.isInteger(iterations) || iterations < 1 || iterations > 10_000_000) return false
 
-  let salt: Uint8Array
-  let expected: Uint8Array
+  let salt: Uint8Array<ArrayBuffer>
+  let expected: Uint8Array<ArrayBuffer>
   try {
     salt = bytesOf(parts[2])
     expected = bytesOf(parts[3])

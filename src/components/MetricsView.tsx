@@ -22,7 +22,6 @@ import {
   moveCoverage,
   openScope,
   percentile,
-  sampleStats,
   scatterPoints,
   serviceLevelOf,
   shareWithinDays,
@@ -37,6 +36,7 @@ import {
   type StageMove,
   type WipAgeBucket,
 } from '@/domain/metrics'
+import { scatterReading } from '@/domain/scatterChart'
 import { isInitiativeItem } from '@/domain/board'
 import { effectiveStage, STAGE_LABELS, STAGES } from '@/domain/lanes'
 import { chipColors, STAGE_PILL, STAGE_STACK } from '@/lib/colors'
@@ -1382,7 +1382,6 @@ function AgingWork({
   )
 }
 
-const MAX_SCATTER_POINTS = 400
 
 /**
  * Started versus finished each week, with the stability reading that follows.
@@ -1672,7 +1671,8 @@ function CycleScatter({
     )
   }
 
-  const stats = sampleStats(points.map((point) => point.cycle))
+  const reading = scatterReading(points, since, service)
+  const { cap, shown, above, from, to, lines } = reading
   const types = [
     ...new Map(
       points.map((point) => {
@@ -1683,30 +1683,11 @@ function CycleScatter({
   ].sort(
     (a, b) => (typeOrder.get(a.id) ?? 999) - (typeOrder.get(b.id) ?? 999) || a.name.localeCompare(b.name),
   )
-  const cap = Math.max(1, Math.ceil(percentile(points.map((point) => point.cycle), 98) ?? 1))
-  const shown = points.length > MAX_SCATTER_POINTS ? points.slice(-MAX_SCATTER_POINTS) : points
-  const above = points.filter((point) => point.cycle > cap).length
-  const latest = points[points.length - 1].resolvedAt
-  const from = Math.min(since ?? points[0].resolvedAt, latest - DAY_MS)
-  const to = Math.max(Date.now(), latest, from + DAY_MS)
   const width = 720
   const height = 260
   const plot = { left: 42, right: 700, top: 14, bottom: 218 }
   const x = (at: number) => plot.left + ((at - from) / (to - from)) * (plot.right - plot.left)
   const y = (value: number) => plot.bottom - (Math.min(value, cap) / cap) * (plot.bottom - plot.top)
-  const lines: { label: string; value: number; service: boolean }[] = service
-    ? [
-        ...(stats.p50 !== undefined && service.share !== 50
-          ? [{ label: 'p50', value: stats.p50, service: false }]
-          : []),
-        { label: shareLabel(service.share), value: service.days, service: true },
-      ]
-    : [
-        { label: 'p50', value: stats.p50 },
-        { label: 'p85', value: stats.p85 },
-        { label: 'p95', value: stats.p95 },
-      ].flatMap((line) => (line.value === undefined ? [] : [{ ...line, value: line.value, service: false }]))
-
   const show = (point: ScatterPoint, element: SVGCircleElement) => {
     const box = element.getBoundingClientRect()
     const parent = wrap.current?.getBoundingClientRect()

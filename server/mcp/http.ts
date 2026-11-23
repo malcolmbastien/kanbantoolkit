@@ -14,6 +14,7 @@
 import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
 import { requireToken, type V1Vars } from '../v1/routes'
+import { limitPerMinute, spend } from '../rate-limit'
 import { handleRpc } from './protocol'
 
 export function mcpRoutes(runtime: Runtime) {
@@ -22,6 +23,29 @@ export function mcpRoutes(runtime: Runtime) {
   routes.post('/', async (c) => {
     const caller = await requireToken(c, runtime)
     if (caller instanceof Response) return caller
+
+    // The same per-token window `/api/v1` spends from. A whole-workspace read over MCP is one of
+    // the most expensive requests a token can make, and the limit is about the credential rather
+    // than the door it came through. Spend before parsing: every POST is a request.
+    const limit = limitPerMinute(c.env)
+    const spent = spend(caller.tokenId, limit)
+    c.header('RateLimit-Limit', String(limit))
+    c.header('RateLimit-Remaining', String(spent.remaining))
+    c.header('RateLimit-Reset', String(spent.reset))
+    if (!spent.allowed) {
+      c.header('Retry-After', String(spent.reset))
+      return c.json(
+        {
+          jsonrpc: '2.0',
+          id: null,
+          error: {
+            code: -32000,
+            message: `this token may make ${limit} requests a minute; try again in ${spent.reset}s`,
+          },
+        },
+        429,
+      )
+    }
 
     const message = await c.req.json().catch(() => undefined)
     if (message === undefined) {
