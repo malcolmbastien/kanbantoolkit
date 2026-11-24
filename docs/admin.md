@@ -141,7 +141,7 @@ What exists:
 | Sign-in routes | `server/auth/routes.ts` | providers, start, callback, session, signout, dev |
 | Session handling | `server/auth/session.ts` | issue, read, revoke; no listing, no last seen |
 | Account menu | `src/components/AccountMenu.tsx` | name, email, role label, sign out |
-| Admin screen | `src/components/AdminView.tsx` | the browser's own workspace — snapshots, storage and the demo reset — beside the workspace and instance panels |
+| Admin screen | `src/components/AdminView.tsx` | an instance's workspace and administration panels; the demo shows only its Workspace data and snapshots, and its reset sits on the workspace home |
 
 Four findings:
 

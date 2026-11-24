@@ -1,5 +1,5 @@
 import { useEffect, useState, type KeyboardEvent } from 'react'
-import { History, RotateCcw } from 'lucide-react'
+import { History } from 'lucide-react'
 import { PeoplePanel } from './PeoplePanel'
 import { MembersPanel } from './MembersPanel'
 import { InvitationsPanel } from './InvitationsPanel'
@@ -32,24 +32,30 @@ type TabId = 'workspace' | 'people' | 'invitations' | 'audit' | 'webhooks' | 'ba
 export function AdminView() {
   // The People section exists only where there is somebody to administer: a session, and the
   // instance administrator's role. Without a server the rest of this screen is exactly as it was.
+  const signedIn = useAuth((s) => Boolean(s.user))
   const admin = useAuth((s) => s.user?.instanceRole === 'admin')
   // The workspace's own administration is a different door: its administrators see it whether or
   // not they run the instance.
   const workspaceAdmin = useAuth((s) => s.user?.role === 'admin' || s.user?.instanceRole === 'admin')
 
-  const tabs: Array<{ id: TabId; label: string }> = [
-    ...(workspaceAdmin ? [{ id: 'workspace' as const, label: 'Workspace' }] : []),
-    ...(workspaceAdmin ? [{ id: 'people' as const, label: 'People' }] : []),
-    ...(admin ? [{ id: 'invitations' as const, label: 'Invitations' }] : []),
-    ...(workspaceAdmin ? [{ id: 'audit' as const, label: 'Audit log' }] : []),
-    ...(workspaceAdmin ? [{ id: 'webhooks' as const, label: 'Webhooks' }] : []),
-    ...(admin ? [{ id: 'backups' as const, label: 'Backups' }] : []),
-    ...(admin ? [{ id: 'health' as const, label: 'Health' }] : []),
-    ...(admin ? [{ id: 'directory' as const, label: 'Directory' }] : []),
-    { id: 'snapshots', label: 'Snapshots' },
-    { id: 'data', label: 'Workspace data' },
-    ...(workspaceAdmin ? [{ id: 'danger' as const, label: 'Danger' }] : []),
-  ]
+  const tabs: Array<{ id: TabId; label: string }> = signedIn
+    ? [
+        ...(workspaceAdmin ? [{ id: 'workspace' as const, label: 'Workspace' }] : []),
+        ...(workspaceAdmin ? [{ id: 'people' as const, label: 'People' }] : []),
+        ...(admin ? [{ id: 'invitations' as const, label: 'Invitations' }] : []),
+        ...(workspaceAdmin ? [{ id: 'audit' as const, label: 'Audit log' }] : []),
+        ...(workspaceAdmin ? [{ id: 'webhooks' as const, label: 'Webhooks' }] : []),
+        ...(admin ? [{ id: 'backups' as const, label: 'Backups' }] : []),
+        ...(admin ? [{ id: 'health' as const, label: 'Health' }] : []),
+        ...(admin ? [{ id: 'directory' as const, label: 'Directory' }] : []),
+        { id: 'snapshots', label: 'Snapshots' },
+        { id: 'data', label: 'Workspace data' },
+        ...(workspaceAdmin ? [{ id: 'danger' as const, label: 'Danger' }] : []),
+      ]
+    : [
+        { id: 'snapshots', label: 'Snapshots' },
+        { id: 'data', label: 'Workspace data' },
+      ]
 
   const [tab, setTab] = useState<TabId>('workspace')
   const active = tabs.some((entry) => entry.id === tab) ? tab : (tabs[0]?.id ?? 'snapshots')
@@ -74,7 +80,7 @@ export function AdminView() {
       <div className="mx-auto flex w-full max-w-4xl min-h-0 flex-1 flex-col">
         {/* Admin is an organisation-level place, not a screen inside a board: opening it leaves
             the board, so it has no board to go back to. The workspace home is the logo's job. */}
-        <h1 className="text-title font-semibold tracking-tight text-slate-900">Admin</h1>
+        <h1 className="text-title font-semibold tracking-tight text-slate-900">{signedIn ? 'Admin' : 'Workspace data'}</h1>
 
         <nav
           role="tablist"
@@ -136,9 +142,7 @@ export function AdminView() {
  */
 function SnapshotsPanel() {
   const importWorkspace = useStore((s) => s.importWorkspace)
-  const resetDemo = useStore((s) => s.resetDemo)
   const askConfirm = useStore((s) => s.askConfirm)
-  const signedIn = useAuth((s) => Boolean(s.user))
   const [snapshots, setSnapshots] = useState<SnapshotMeta[]>([])
   const [snapshotError, setSnapshotError] = useState<string | null>(null)
 
@@ -202,38 +206,6 @@ function SnapshotsPanel() {
         )}
       </section>
 
-      {/* The demo, made fresh again. It lives here rather than on the board's toolbar because it is
-          not a thing you do to a board: it replaces the whole workspace this browser holds. */}
-      {!signedIn && (
-        <section data-demo-reset className="rounded-xl bg-white p-4 ring-1 ring-slate-200">
-          <div className="flex items-center gap-1.5 text-meta font-bold uppercase tracking-wide text-slate-600">
-            <RotateCcw size={12} /> Demo data
-          </div>
-          <p className="mt-0.5 text-meta text-slate-600">
-            Start the demo over: its boards, cards and people, exactly as a fresh browser opens it.
-            What is here now is replaced, and a snapshot of it is kept first, so the reset itself can
-            be undone from the list above.
-          </p>
-          <button
-            onClick={() =>
-              askConfirm({
-                title: 'Start the demo over?',
-                body: 'The demo workspace replaces every board, lane and card here. A snapshot is taken first.',
-                confirmLabel: 'Reset the demo',
-                danger: true,
-                onConfirm: () => {
-                  void writeSnapshot(persistedSlice(useStore.getState()), PERSIST_VERSION)
-                  resetDemo()
-                  void listSnapshots().then(setSnapshots)
-                },
-              })
-            }
-            className="mt-2 rounded-md border border-slate-300 px-2 py-1 text-meta font-medium text-slate-700 transition hover:border-rose-300 hover:text-rose-700"
-          >
-            Reset to the demo…
-          </button>
-        </section>
-      )}
     </div>
   )
 }

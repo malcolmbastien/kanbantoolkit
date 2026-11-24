@@ -175,7 +175,7 @@ test('objectives live on the portfolio board, not in the top bar', async ({ page
   await expect(page.getByText('Portfolio at a glance')).toBeVisible()
 })
 
-test('the demo is reset from the admin screen, not from the board toolbar', async ({ page }) => {
+test('the demo is reset from the workspace home, and the demo has no Admin section', async ({ page }) => {
   await openBoard(page)
 
   // The board's toolbar is for the board. There is no Reset beside Edit board any more.
@@ -190,11 +190,14 @@ test('the demo is reset from the admin screen, not from the board toolbar', asyn
   await page.keyboard.press('Escape')
   await expect(page.locator(`[data-card-id="${renamed}"]`)).toContainText('A card the demo does not have')
 
-  // The admin screen holds it, and says what it does before it does it.
-  await page.goto('/app?view=admin')
-  const demo = page.locator('[data-demo-reset]')
-  await expect(demo).toBeVisible()
-  await demo.getByRole('button', { name: 'Reset to the demo…' }).click()
+  // The workspace home holds it now, and says what it does before it does it. The demo has no
+  // Admin section: its data screen is called Workspace data and is about this browser's copy.
+  await page.getByRole('button', { name: 'Kanban Toolkit' }).click()
+  await expect(page.getByText('Every board in the organisation')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Admin', exact: true })).toHaveCount(0)
+  const reset = page.getByRole('button', { name: 'Reset demo data' })
+  await expect(reset).toBeVisible()
+  await reset.click()
   await expect(page.getByRole('dialog', { name: 'Start the demo over?' })).toBeVisible()
   await page.getByRole('button', { name: 'Reset the demo' }).click()
 
@@ -203,8 +206,6 @@ test('the demo is reset from the admin screen, not from the board toolbar', asyn
     const state = await stored(page)
     expect(state.items).toBeGreaterThan(0)
   }).toPass()
-  await page.getByRole('button', { name: 'Kanban Toolkit' }).click()
-  await expect(page.getByText('Every board in the organisation')).toBeVisible()
   await openBoard(page)
   await expect(page.locator(`[data-card-id="${renamed}"]`)).not.toContainText('A card the demo does not have')
 })
@@ -213,9 +214,9 @@ test('the demo is reset from the admin screen, not from the board toolbar', asyn
 async function openWorkspace(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Kanban Toolkit' }).click()
   await expect(page.getByText('Every board in the organisation')).toBeVisible()
-  await page.getByRole('button', { name: 'Admin' }).click()
+  await page.getByRole('button', { name: 'Workspace data' }).click()
   await page.getByRole('tab', { name: 'Workspace data' }).click()
-  await expect(page.getByRole('heading', { name: 'Workspace data' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Workspace data', level: 1 })).toBeVisible()
 }
 
 /** The workspace as the browser holds it: the board names and how many items there are. */
@@ -318,4 +319,16 @@ test('a template can carry a second cards flow, and keeps it', async ({ page }) 
   await expect(reopened.getByText('Cards', { exact: true })).toBeVisible()
   await expect(reopened.getByText('Support', { exact: true })).toBeVisible()
   await expect(reopened.getByText('Initiatives', { exact: true })).toBeVisible()
+})
+
+test('the All board filter counts the whole list, not the selected band', async ({ page }) => {
+  await page.goto('/app')
+  const filters = page.getByRole('group', { name: 'Filter boards by type' })
+  const all = filters.getByRole('button', { name: /^All/ })
+  const before = (await all.textContent()) ?? ''
+  expect(before).toMatch(/^All\d+$/)
+
+  await filters.getByRole('button', { name: /^Team/ }).click()
+  await expect(all).toHaveText(before)
+  await expect(filters.getByRole('button', { name: /^All/ })).toHaveAttribute('aria-pressed', 'false')
 })

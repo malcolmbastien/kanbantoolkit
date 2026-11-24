@@ -7,6 +7,8 @@ import { ImportBoardButton } from './ImportBoardButton'
 import { boardsByBand, isPortfolio } from '@/domain/board'
 import { favouriteBoardList, recentBoardList } from '@/domain/boardShortcuts'
 import { useMay } from '@/lib/permissions'
+import { useAuth } from '@/lib/auth'
+import { DemoResetButton } from './DemoResetButton'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { Board, BoardBand, BoardTemplate } from '@/domain/types'
@@ -40,6 +42,7 @@ export function BoardWorkspace() {
   // The role's half of the matrix: this screen is the way into every board, so a Viewer must not
   // be offered a New board, a duplicate or a template that would answer 403.
   const may = useMay()
+  const signedIn = useAuth((state) => Boolean(state.user))
   const canCreate = may('board.create')
   const canManage = may('board.settings')
   const canDelete = may('board.delete')
@@ -75,7 +78,9 @@ export function BoardWorkspace() {
   const allGroups = boardsByBand(boards, q, showArchived)
   const groups = bandFilter === 'all' ? allGroups : allGroups.filter((g) => g.band === bandFilter)
   const bandCount = (b: BoardBand) => allGroups.find((g) => g.band === b)?.boards.length ?? 0
-  const shown = groups.reduce((n, g) => n + g.boards.length, 0)
+  // The All filter's count is the whole list it would show, not the band currently selected:
+  // choosing Team must not make All claim there are only two boards in the workspace.
+  const allCount = allGroups.reduce((n, g) => n + g.boards.length, 0)
   const archivedCount = boards.filter((b) => b.archived).length
   const lastBoard = boards.length <= 1
 
@@ -145,6 +150,7 @@ export function BoardWorkspace() {
             <p className="mt-0.5 text-meta text-slate-600">Every board in the organisation.</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            {!signedIn && <DemoResetButton />}
             {activeTab === 'boards' && canCreate && (
               <>
                 <ImportBoardButton />
@@ -183,15 +189,30 @@ export function BoardWorkspace() {
                 <Archive size={13} /> {showArchived ? 'Hide archived' : `Show archived (${archivedCount})`}
               </button>
             )}
-            {/* The way into Admin, and the only one: it belongs to the organisation, not to a
-                board, so a board's toolbar does not offer it. */}
-            <button
-              onClick={() => setView('admin')}
-              className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
-              title="This browser's copies of the workspace, and its storage"
-            >
-              <Database size={13} /> Admin
-            </button>
+            {!signedIn && (
+              <>
+                {/* The demo has no account behind it: its data screen is about this browser's copy,
+                    not about administering people. The reset lives out here, where it is seen. */}
+                <button
+                  onClick={() => setView('admin')}
+                  className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
+                  title="Export, import and the copies this browser keeps"
+                >
+                  <Database size={13} /> Workspace data
+                </button>
+              </>
+            )}
+            {/* The way into Admin, and the only one, on an instance: it belongs to the organisation,
+                not to a board, so a board's toolbar does not offer it. */}
+            {signedIn && (
+              <button
+                onClick={() => setView('admin')}
+                className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
+                title="This instance's people, its data and its health"
+              >
+                <Database size={13} /> Admin
+              </button>
+            )}
           </div>
           </div>
           <nav role="tablist" aria-label="Workspace home sections" className="flex gap-1 border-t border-slate-100 px-3">
@@ -270,7 +291,7 @@ export function BoardWorkspace() {
             <div className="mb-2 flex flex-wrap items-center gap-1" role="group" aria-label="Filter boards by type">
               {(['all', ...BOARD_BANDS] as (BoardBand | 'all')[]).map((b) => {
                 const on = bandFilter === b
-                const count = b === 'all' ? shown : bandCount(b)
+                const count = b === 'all' ? allCount : bandCount(b)
                 const style = b === 'all' ? undefined : BAND_STYLES[b] ?? BAND_STYLES.team
                 return (
                   <button
