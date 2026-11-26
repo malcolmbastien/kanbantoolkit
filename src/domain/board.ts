@@ -136,7 +136,7 @@ export function boardsByBand(boards: Board[], query = '', includeArchived = fals
     band,
     boards: pool
       .filter((b) => b.band === band)
-      .filter((b) => !q || b.name.toLowerCase().includes(q))
+      .filter((b) => !q || b.name.toLowerCase().includes(q) || (b.description ?? '').toLowerCase().includes(q))
       .sort((a, b) => a.name.localeCompare(b.name)),
   })).filter((group) => group.boards.length > 0)
 }

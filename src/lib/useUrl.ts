@@ -30,6 +30,7 @@ export function useUrl() {
   const boardId = useStore((s) => s.boardId)
   const selectedItemId = useStore((s) => s.selectedItemId)
   const view = useStore(viewOf)
+  const homeTab = useStore((s) => s.homeTab)
   // The Flow view's reading: which window, cards flow and card type. Subscribed because a change
   // to any of them is a change to the place, and the URL has to follow it.
   const flowWindow = useStore((s) => s.flowWindow)
@@ -107,6 +108,7 @@ export function useUrl() {
     if (known(place.boardId, s().boards)) s().selectBoard(place.boardId!)
     if (params.get('edit')) s().beginEdit()
     if (place.view) s().setView(place.view)
+    if (place.view === 'boards') s().setHomeTab(place.tab ?? 'boards')
     applyFlowReading(place)
     applyTimelineReading(place)
     // My work is a drawer, not a view: a link that names it opens the drawer over the place it
@@ -169,6 +171,7 @@ export function useUrl() {
       ...(flow ? { range: s.flowWindow, flowId: s.metricsFlowId, typeId: s.metricsTypeId, serviceBasis: s.metricsServiceBasis, serviceShare: s.metricsServiceShare } : {}),
       ...(currentView === 'timeline' ? { zoom: s.timelineZoom } : {}),
       ...(currentView === 'search' ? { q: s.boardSearch } : {}),
+      ...(currentView === 'boards' && s.homeTab === 'templates' ? { tab: 'templates' as const } : {}),
     }
     const before = last.current
     last.current = place
@@ -182,7 +185,7 @@ export function useUrl() {
     const samePlace = before !== null && before.boardId === place.boardId && before.view === place.view
     if (wasFirst || samePlace) window.history.replaceState(null, '', query)
     else window.history.pushState(null, '', query)
-  }, [boardId, view, selectedItemId, flowWindow, metricsFlowId, metricsTypeId, metricsServiceBasis, metricsServiceShare, timelineZoom, boardSearch])
+  }, [boardId, view, homeTab, selectedItemId, flowWindow, metricsFlowId, metricsTypeId, metricsServiceBasis, metricsServiceShare, timelineZoom, boardSearch])
 
   // ---- And back: the places the app has been ----
   useEffect(() => {
@@ -194,6 +197,7 @@ export function useUrl() {
       // flow, so going back from the Timeline returns to the board rather than leaving the URL and
       // the screen disagreeing.
       if (place.view) s.setView(place.view)
+      if (place.view === 'boards') s.setHomeTab(place.tab ?? 'boards')
       applyFlowReading(place)
       applyTimelineReading(place)
       if (place.view === 'search') s.setBoardSearch(place.q ?? '')

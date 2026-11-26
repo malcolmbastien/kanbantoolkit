@@ -72,9 +72,14 @@ describe('board workspace — grouping, ordering and the name filter', () => {
   })
 
   it('filters by name, ignoring case and surrounding space', () => {
-    expect(names(boardsByBand(s.boards, 'team'))).toEqual(['Team Atlas', 'Team Nova'])
-    expect(names(boardsByBand(s.boards, '  ATLAS '))).toEqual(['Team Atlas'])
+    expect(names(boardsByBand(s.boards, 'company'))).toEqual(['Company Strategy'])
+    expect(names(boardsByBand(s.boards, '  COMPANY '))).toEqual(['Company Strategy'])
     expect(boardsByBand(s.boards, 'zzz')).toEqual([])
+  })
+
+  it('finds a board by the words that describe it, as well as its name', () => {
+    expect(names(boardsByBand(s.boards, 'delivery bridge'))).toEqual(['Product Delivery'])
+    expect(names(boardsByBand(s.boards, 'lanes, limits'))).toEqual(['Team Nova'])
   })
 
   it('hides archived boards', () => {

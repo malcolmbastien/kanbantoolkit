@@ -7,7 +7,6 @@ import {
   CircleAlert,
   Hourglass,
   Inbox,
-  Layers,
   SquareArrowOutUpRight,
   Target,
   UserRound,
@@ -16,6 +15,8 @@ import {
 import { BAND_STYLES } from './BandBadge'
 import { StageProgressBar, stageCountsOf } from './StageProgressBar'
 import { PRIORITY_META } from './PriorityBadge'
+import { ChildPip } from './Card'
+import { childSymbols } from './childSymbols'
 import type { Graph } from '@/domain/derive'
 import { buildBoardModel } from '@/domain/boardModel'
 import { boardInitiatives, initiativeTypeById, isPortfolio, portfolioInitiatives, tagsOf } from '@/domain/board'
@@ -105,6 +106,8 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
   const issueTypes = useStore((s) => s.issueTypes)
   const boards = useStore((s) => s.boards)
   const openItem = useStore((s) => s.openItem)
+  const revealItem = useStore((s) => s.revealItem)
+  const users = useStore((s) => s.users)
   const setView = useStore((s) => s.setView)
   const selectedItemId = useStore((s) => s.selectedItemId)
   // Narrowing the review list is view state: it never touches the board's saved filters, and it
@@ -175,6 +178,19 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
             blocked: model.blockedBelow.get(item.id) ?? 0,
             due,
             childInits,
+            // The pips are built by the same helper the board's initiative cards use, so a child
+            // cannot wear one status on the board and another in the table.
+            symbols: childSymbols(item.id, {
+              graph,
+              model,
+              boards,
+              placements,
+              lanes,
+              flows,
+              issueTypes,
+              flagsOf: (id) => initiativeHealth(id, graph).flags,
+              boardId,
+            }),
             health: initiativeHealth(item.id, graph),
             // The kind is the board's own label, resolved wherever it is defined — and "None" is the
             // absence of one, so the column is never blank in a way that needs explaining.
@@ -183,7 +199,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
           },
         ]
       }),
-    [boards, edges, initiativeTypeId, initiatives, items, links, lanes, model, placements],
+    [boardId, boards, edges, flows, initiativeTypeId, initiatives, issueTypes, items, links, lanes, model, placements],
   )
 
   const doneInitiatives = rows.filter((r) => r.roll.bucket === 'done').length
@@ -340,7 +356,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ item, roll, due, childInits, health }) => {
+              {rows.map(({ item, roll, due, childInits, symbols, health }) => {
                 const type = typeOf(item.typeId)
                 const bucket = roll.bucket as Stage
                 return (
@@ -353,7 +369,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                       selectedItemId === item.id && 'bg-indigo-50',
                     )}
                   >
-                    <td className="max-w-[280px] px-4 py-2.5">
+                    <td className="max-w-[280px] px-4 py-2.5 align-top">
                       <div className="flex items-center gap-1.5">
                         <span
                           className="rounded px-1 py-px text-micro font-bold uppercase tracking-wide"
@@ -364,13 +380,26 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                       </div>
                       <div className="truncate text-body font-semibold text-slate-800">{item.title}</div>
                       {childInits > 0 && (
-                        <div className="flex items-center gap-1 text-micro text-slate-600" title={`${childInits} child initiatives`}>
-                          <Layers size={10} /> {childInits} child initiative{childInits === 1 ? '' : 's'}
+                        <div className="mt-0.5 flex min-w-0 items-center gap-1.5" title={`${childInits} child initiatives`}>
+                          {/* The same pips the board draws — stage colour, rose for blocked, amber
+                              for a warning — with the child's own reading on hover. The count is
+                              the history; the pips are the children that count toward progress. */}
+                          <span data-child-pips className="flex shrink-0 items-center gap-0.5">
+                            {symbols.slice(0, 5).map((symbol) => (
+                              <ChildPip key={symbol.id} symbol={symbol} onOpen={revealItem} users={users} />
+                            ))}
+                            {symbols.length > 5 && (
+                              <span className="text-micro font-semibold text-slate-600">+{symbols.length - 5}</span>
+                            )}
+                          </span>
+                          <span className="truncate text-micro text-slate-600">
+                            {childInits} child initiative{childInits === 1 ? '' : 's'}
+                          </span>
                         </div>
                       )}
                     </td>
 
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2.5 align-top">
                       <div className="flex items-center gap-2">
                         <StageProgressBar counts={stageCountsOf(roll)} className="w-28" height="h-1.5" />
                         <span className="w-9 text-right text-meta font-bold tabular-nums text-slate-600">{roll.percent}%</span>
@@ -381,44 +410,55 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                       </div>
                     </td>
 
-                    <td className="px-4 py-2.5">
-                      {/* The plan and the promise, labelled. A target end in December beside an
-                          overdue chip for a November due date was two dates arguing with no word
-                          saying which was which. */}
-                      <div className="flex items-start gap-1.5" data-date="target" title="The target window is the plan.">
-                        <span className="mt-px w-10 shrink-0 text-micro font-semibold uppercase tracking-wide text-slate-500">
+                    <td className="px-4 py-2.5 align-top">
+                      {/* The plan and the promise, labelled. One three-column grid on both rows —
+                          label, marker, value — so the dates start at the same edge. Marker slots
+                          are the same width on both rows, although one holds a clock and the other
+                          a dot, which is what previously pushed the Due value to the left. */}
+                      <div
+                        className="grid grid-cols-[2.5rem_0.75rem_minmax(0,1fr)] items-start gap-x-1.5"
+                        data-date="target"
+                        title="The target window is the plan."
+                      >
+                        <span className="text-micro font-semibold uppercase tracking-wide text-slate-500">
                           Target
                         </span>
-                        <CalendarClock size={12} className="mt-0.5 shrink-0 text-slate-400" />
+                        <span className="flex w-3 justify-center pt-0.5 text-slate-400">
+                          <CalendarClock size={12} />
+                        </span>
                         <span className="min-w-0 text-meta text-slate-700">
-                          {item.targetEndDate ? (
-                            <>
-                              {item.targetStartDate ? `${formatDate(item.targetStartDate)} → ` : ''}
-                              {formatDate(item.targetEndDate)}
-                            </>
+                          {item.targetStartDate && item.targetEndDate ? (
+                            // Wrap at the arrow, never inside a date: each is one unbreakable
+                            // piece, and both start in the same value column as the Due date.
+                            <span className="flex min-w-0 flex-wrap items-baseline gap-x-1">
+                              <span data-date-part="start" className="whitespace-nowrap">{formatDate(item.targetStartDate)}</span>
+                              <span aria-hidden className="text-slate-400">→</span>
+                              <span data-date-part="end" className="whitespace-nowrap">{formatDate(item.targetEndDate)}</span>
+                            </span>
+                          ) : item.targetEndDate ? (
+                            <span data-date-part="end" className="whitespace-nowrap">{formatDate(item.targetEndDate)}</span>
                           ) : item.targetStartDate ? (
-                            `From ${formatDate(item.targetStartDate)}`
+                            <span data-date-part="start" className="whitespace-nowrap">From {formatDate(item.targetStartDate)}</span>
                           ) : (
                             <span className="text-slate-500">Not set</span>
                           )}
                         </span>
                       </div>
                       <div
-                        className="mt-1 flex items-start gap-1.5"
+                        className="mt-1 grid grid-cols-[2.5rem_0.75rem_minmax(0,1fr)] items-start gap-x-1.5"
                         data-date="due"
                         title={due ? dueWhy(due) : 'No due date is set.'}
                       >
-                        <span className="mt-px w-10 shrink-0 text-micro font-semibold uppercase tracking-wide text-slate-500">
+                        <span className="text-micro font-semibold uppercase tracking-wide text-slate-500">
                           Due
                         </span>
-                        <span
-                          aria-hidden
-                          className={cn(
-                            'mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full',
-                            due ? DUE_DOT[due.tone] : 'bg-slate-300',
-                          )}
-                        />
-                        <span className={cn('min-w-0 text-meta', due ? DUE_TEXT[due.tone] : 'text-slate-500')}>
+                        <span aria-hidden className="flex w-3 justify-center pt-1.5">
+                          <span className={cn('h-1.5 w-1.5 rounded-full', due ? DUE_DOT[due.tone] : 'bg-slate-300')} />
+                        </span>
+                        {/* The whole promise is one reading: a past-due date and its "n days
+                            overdue" note must never split across two lines. The suffix alone
+                            being unbreakable still let the date break before it. */}
+                        <span className={cn('min-w-0 whitespace-nowrap text-meta', due ? DUE_TEXT[due.tone] : 'text-slate-500')}>
                           {due ? (
                             <>
                               {formatDate(item.dueDate)}
@@ -431,8 +471,9 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                       </div>
                     </td>
 
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2.5 align-top">
                       <span
+                        data-status-level={bucket}
                         className={cn(
                           'inline-flex shrink-0 items-center whitespace-nowrap rounded px-1.5 py-0.5 text-micro font-bold',
                           stageChip(bucket),
@@ -442,25 +483,41 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                       </span>
                     </td>
 
-                    {/* Health: the level, then each rule that spoke. A healthy initiative says so
-                        quietly — the absence of a flag is information too. */}
-                    <td className="px-4 py-2.5">
-                      <div className="flex flex-wrap items-center gap-1">
-                        <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-micro font-bold ring-1', HEALTH_META[health.level].chip)}>
+                    {/* Health: the level is the status, and the rules are the reasons behind it.
+                        Keeping the reasons as a muted second line — rather than five more pills —
+                        makes that distinction visible before a reader parses the words. */}
+                    <td className="px-4 py-2.5 align-top">
+                      <div className="flex flex-col items-start gap-1">
+                        <span
+                          data-health-level={health.level}
+                          className={cn(
+                            'shrink-0 rounded px-1.5 py-0.5 text-micro font-bold uppercase tracking-wide ring-1',
+                            HEALTH_META[health.level].chip,
+                          )}
+                        >
                           {HEALTH_META[health.level].label}
                         </span>
-                        {health.flags.map((f) => (
-                          <span
-                            key={f.flag}
-                            title={f.why}
-                            className={cn(
-                              'shrink-0 rounded px-1 py-px text-micro font-medium',
-                              f.tone === 'risk' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-800',
-                            )}
+                        {health.flags.length > 0 && (
+                          <div
+                            data-health-warnings
+                            className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-micro text-slate-600"
                           >
-                            {f.label}
-                          </span>
-                        ))}
+                            {health.flags.map((f) => (
+                              <span
+                                key={f.flag}
+                                data-health-warning={f.flag}
+                                title={f.why}
+                                className="inline-flex items-center gap-1 whitespace-nowrap"
+                              >
+                                <span
+                                  aria-hidden
+                                  className={cn('h-1.5 w-1.5 shrink-0 rounded-full', f.tone === 'risk' ? 'bg-rose-500' : 'bg-amber-500')}
+                                />
+                                {f.label}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>

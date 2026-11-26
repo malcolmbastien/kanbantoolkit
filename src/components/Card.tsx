@@ -233,7 +233,7 @@ function PipPreview({ symbol, anchor, users }: { symbol: CardSymbol; anchor: DOM
 }
 
 /** One pip: a way into a child, with the child's own facts on hover. */
-function ChildPip({ symbol, onOpen, users }: { symbol: CardSymbol; onOpen: (id: string) => void; users?: User[] }) {
+export function ChildPip({ symbol, onOpen, users }: { symbol: CardSymbol; onOpen: (id: string) => void; users?: User[] }) {
   const ref = useRef<HTMLButtonElement>(null)
   const [anchor, setAnchor] = useState<DOMRect | null>(null)
 

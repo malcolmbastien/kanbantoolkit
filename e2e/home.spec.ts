@@ -87,6 +87,8 @@ test('the home with both rows and the stars has no barrier a machine can find', 
   await page.goto(HOME)
   await expect(page.locator('[data-favourites]')).toBeVisible()
   await expect(page.locator('[data-recent-boards]')).toBeVisible()
+  await page.getByRole('button', { name: 'More for Team Atlas' }).click()
+  await expect(page.getByText('Duplicate', { exact: true })).toBeVisible()
 
   const { violations } = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
@@ -102,4 +104,78 @@ test('the home with both rows and the stars has no barrier a machine can find', 
             .join(' | ')}`,
       ),
   ).toEqual([])
+})
+
+test('a board card reads the work, and its doors have names', async ({ page }) => {
+  await page.goto(HOME)
+
+  const card = page.locator('[data-board-card="b-atlas"]')
+  await expect(card.locator('[data-board-reading="b-atlas"]')).toContainText(/\d+ open/)
+
+  await expect(card.getByRole('link', { name: "Open Team Atlas's dashboard" })).toBeVisible()
+  await expect(card.getByRole('link', { name: "Open Team Atlas's timeline" })).toBeVisible()
+  await expect(card.getByRole('button', { name: 'More for Team Atlas' })).toBeVisible()
+})
+
+test('the kebab closes on Escape, and search finds descriptions and clears back to the list', async ({ page }) => {
+  await page.goto(HOME)
+  const card = page.locator('[data-board-card="b-atlas"]')
+
+  await card.getByRole('button', { name: 'More for Team Atlas' }).click()
+  await expect(card.getByText('Duplicate', { exact: true })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(card.getByText('Duplicate', { exact: true })).toHaveCount(0)
+
+  // The description is part of what a board is, so it is part of the search.
+  await page.getByLabel('Search boards').fill('delivery bridge')
+  await expect(page.locator('[data-board-card="b-delivery"]')).toBeVisible()
+  await expect(page.locator('[data-board-card="b-atlas"]')).toHaveCount(0)
+
+  // A dead end has a way back, whether the query or the band filter emptied the list.
+  await page.getByLabel('Search boards').fill('nothing matches this')
+  await expect(page.locator('[data-clear-search]')).toBeVisible()
+  await page.locator('[data-clear-search]').click()
+  await expect(page.getByLabel('Search boards')).toHaveValue('')
+  await expect(page.locator('[data-board-card="b-atlas"]')).toBeVisible()
+})
+
+test('the home tabs answer the arrow keys, and templates can be searched', async ({ page }) => {
+  await page.goto(HOME)
+  const boardsTab = page.getByRole('tab', { name: /Boards/ })
+  const templatesTab = page.getByRole('tab', { name: /Templates/ })
+
+  await boardsTab.focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(templatesTab).toHaveAttribute('aria-selected', 'true')
+  await expect(templatesTab).toBeFocused()
+
+  await page.getByLabel('Search templates').fill('upstream')
+  await expect(page.locator('[data-template-card="tpl-upstream-kanban"]')).toBeVisible()
+  await expect(page.locator('[data-template-card]')).toHaveCount(1)
+  await page.getByLabel('Search templates').fill('')
+  expect(await page.locator('[data-template-card]').count()).toBeGreaterThan(1)
+})
+
+test('a link names the workspace home tab', async ({ page }) => {
+  await page.goto('/app?view=boards&tab=templates')
+  const templates = page.getByRole('tab', { name: /Templates/ })
+  await expect(templates).toHaveAttribute('aria-selected', 'true')
+  await expect(page).toHaveURL(/tab=templates/)
+
+  await page.reload()
+  await expect(templates).toHaveAttribute('aria-selected', 'true')
+  await page.getByRole('tab', { name: /Boards/ }).click()
+  await expect(page.getByRole('tab', { name: /Boards/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page).toHaveURL(/view=boards/)
+  await expect(page).not.toHaveURL(/tab=templates/)
+})
+
+test('a board with a description offers it on hover', async ({ page }) => {
+  await page.goto(HOME)
+  const description = page.locator('[data-board-description="b-atlas"]')
+  await expect(description).toHaveCount(1)
+  await expect(page.getByText("Team Atlas’s own flow", { exact: false })).not.toBeVisible()
+
+  await description.hover()
+  await expect(page.getByText("Team Atlas’s own flow", { exact: false })).toBeVisible()
 })

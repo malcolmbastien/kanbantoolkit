@@ -160,6 +160,8 @@ export interface ViewState {
   showArchive: boolean
   /** Show the board workspace — every board in the organisation — instead of a board. */
   showBoards: boolean
+  /** Which list the workspace home is showing. View state, named in the URL. */
+  homeTab: 'boards' | 'templates'
   showAdmin: boolean
   /** The My work drawer open — a left-side panel over whatever surface is in front. */
   showMyWork: boolean
@@ -356,6 +358,7 @@ export interface Actions {
   setTimelineZoom: (zoom: TimelineZoom) => void
   toggleBoards: () => void
   setBoards: (v: boolean) => void
+  setHomeTab: (tab: 'boards' | 'templates') => void
   /** The workspace's own administration: copies and storage. Not a board surface. */
   setAdmin: (v: boolean) => void
   /** Toggle the filters side panel (closes the item panel when opening). */
@@ -1300,7 +1303,7 @@ const initialView: ViewState = {
   // The store's fallback is the board. The app's home is the workspace home, applied from the URL
   // before the first paint (`useUrl`), so a link that names a board still opens that board without
   // loading the home screen first.
-  showBoards: false, showAdmin: false,
+  showBoards: false, homeTab: 'boards', showAdmin: false,
   showMyWork: false,
   showMetrics: false,
   flowWindow: DEFAULT_FLOW_WINDOW,
@@ -2185,6 +2188,7 @@ export const useStore = create<Store>()(
           ...(on ? { showFilters: false, selectedItemId: null } : {}),
         })
       },
+      setHomeTab: (homeTab) => set({ homeTab }),
       setBoards: (v) =>
         set({
           showBoards: v,
@@ -3107,7 +3111,7 @@ export const useStore = create<Store>()(
           showDashboard: false,
           showTimeline: false,
           showArchive: false,
-          showBoards: false, showAdmin: false,
+          showBoards: false, homeTab: 'boards', showAdmin: false,
           showMetrics: false,
         })
       },

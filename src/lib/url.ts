@@ -80,6 +80,8 @@ export interface Place {
   zoom?: TimelineZoom
   /** The board search's query, when the place is the Search view. */
   q?: string
+  /** Which workspace-home list a `view=boards` link names. */
+  tab?: 'boards' | 'templates'
 }
 
 /**
@@ -129,6 +131,7 @@ export function urlQuery(place: Place): string {
   // The Search view's query is part of the place: a link that found something must open on the
   // same words. A blank query is the view's empty state, so it is not written.
   if (place.view === 'search' && place.q?.trim()) params.set('q', place.q.trim())
+  if (place.view === 'boards' && place.tab === 'templates') params.set('tab', 'templates')
   if (place.itemId) params.set('item', place.itemId)
   const query = params.toString()
   return query ? `?${query}` : ''
@@ -204,5 +207,6 @@ export function placeFromQuery(search: string): Partial<Place> {
     const q = params.get('q')
     if (q) place.q = q
   }
+  if (view === 'boards' && params.get('tab') === 'templates') place.tab = 'templates'
   return place
 }

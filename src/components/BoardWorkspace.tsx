@@ -1,10 +1,11 @@
-import { useState } from 'react'
-import { Archive, ArchiveRestore, ArrowRight, ChartNoAxesGantt, CopyPlus, Database, History, LayoutDashboard, LayoutTemplate, MoreVertical, Plus, Ruler, Search, Star, Trash2, Users } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Archive, ArchiveRestore, ArrowRight, ChartNoAxesGantt, CopyPlus, Database, History, Info, LayoutDashboard, LayoutTemplate, MoreVertical, Plus, Ruler, Search, Star, Trash2, Users } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { NewBoardDialog } from './NewBoardDialog'
 import { TemplateEditor } from './TemplateEditor'
 import { ImportBoardButton } from './ImportBoardButton'
 import { boardsByBand, isPortfolio } from '@/domain/board'
+import { boardAttention } from '@/domain/attention'
 import { favouriteBoardList, recentBoardList } from '@/domain/boardShortcuts'
 import { useMay } from '@/lib/permissions'
 import { useAuth } from '@/lib/auth'
@@ -25,6 +26,13 @@ import type { Board, BoardBand, BoardTemplate } from '@/domain/types'
  */
 export function BoardWorkspace() {
   const boards = useStore((s) => s.boards)
+  const items = useStore((s) => s.items)
+  const edges = useStore((s) => s.edges)
+  const links = useStore((s) => s.links)
+  const placements = useStore((s) => s.placements)
+  const lanes = useStore((s) => s.lanes)
+  const flows = useStore((s) => s.flows)
+  const issueTypes = useStore((s) => s.issueTypes)
   const selectBoard = useStore((s) => s.selectBoard)
   const favouriteBoardIds = useStore((s) => s.favouriteBoardIds)
   const recentBoards = useStore((s) => s.recentBoards)
@@ -63,7 +71,8 @@ export function BoardWorkspace() {
   const [previewId, setPreviewId] = useState<string | null>(null)
   // The home is two sections: the boards, and the designs boards are made from. A workspace with
   // many boards should not bury its templates under the list.
-  const [homeTab, setHomeTab] = useState<'boards' | 'templates'>('boards')
+  const homeTab = useStore((s) => s.homeTab)
+  const setHomeTab = useStore((s) => s.setHomeTab)
   const activeTab = homeTab === 'templates' && canTemplates ? 'templates' : 'boards'
 
   // This browser's two shortcuts. They are the first row of the boards tab, above the band filter,
@@ -83,6 +92,36 @@ export function BoardWorkspace() {
   const allCount = allGroups.reduce((n, g) => n + g.boards.length, 0)
   const archivedCount = boards.filter((b) => b.archived).length
   const lastBoard = boards.length <= 1
+
+  /**
+   * One reading per board, in the dashboard's own attention rules. The graph is indexed once per
+   * change to the work; the home only asks for three counts, and stores none of them.
+   */
+  const readings = useMemo(() => {
+    const graph = { items, edges, links, placements, lanes }
+    const found = new Map<string, { open: number; blocked: number; waiting: number }>()
+    for (const board of boards) {
+      const attention = boardAttention(graph, board.id, issueTypes, flows, { boards })
+      found.set(board.id, {
+        open: attention.rows.length,
+        blocked: attention.counts.blocked,
+        waiting: attention.counts.waiting,
+      })
+    }
+    return found
+  }, [items, edges, links, placements, lanes, boards, issueTypes, flows])
+
+  // The home's kebab is a menu: Escape closes it before the app's own dismissal sees the key.
+  useEffect(() => {
+    if (!menuFor) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.stopPropagation()
+      setMenuFor(null)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [menuFor])
 
   const createBoard = (name: string, band: BoardBand) => {
     // Creating a board is the end of browsing: it opens immediately through the normal navigation,
@@ -130,6 +169,26 @@ export function BoardWorkspace() {
   }
 
   const preview = boardTemplates.find((t) => t.id === previewId)
+  const templateQuery = q.trim().toLowerCase()
+  const filteredTemplates = boardTemplates.filter(
+    (template) => !templateQuery || template.name.toLowerCase().includes(templateQuery),
+  )
+  const homeTabs = [
+    { id: 'boards' as const, label: 'Boards' },
+    ...(canTemplates ? [{ id: 'templates' as const, label: 'Templates' }] : []),
+  ]
+  const moveHomeTab = (event: React.KeyboardEvent<HTMLElement>, index: number) => {
+    if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return
+    event.preventDefault()
+    const next =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? homeTabs.length - 1
+          : (index + (event.key === 'ArrowRight' ? 1 : -1) + homeTabs.length) % homeTabs.length
+    setHomeTab(homeTabs[next].id)
+    document.getElementById(`home-tab-${homeTabs[next].id}`)?.focus()
+  }
 
   const remove = (board: Board) =>
     askConfirm({
@@ -163,18 +222,16 @@ export function BoardWorkspace() {
                 </button>
               </>
             )}
-            {activeTab === 'boards' && (
             <div className="relative">
               <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Search boards…"
-                aria-label="Search boards"
+                placeholder={activeTab === 'templates' ? 'Search templates…' : 'Search boards…'}
+                aria-label={activeTab === 'templates' ? 'Search templates' : 'Search boards'}
                 className="w-56 rounded-md border border-slate-300 py-1 pl-7 pr-2 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
               />
             </div>
-            )}
             {activeTab === 'boards' && archivedCount > 0 && (
               <button
                 onClick={() => setShowArchived((v) => !v)}
@@ -219,14 +276,16 @@ export function BoardWorkspace() {
             {[
               { id: 'boards' as const, label: 'Boards', count: boards.length },
               ...(canTemplates ? [{ id: 'templates' as const, label: 'Templates', count: boardTemplates.length }] : []),
-            ].map((entry) => (
+            ].map((entry, index) => (
               <button
                 key={entry.id}
                 id={`home-tab-${entry.id}`}
                 role="tab"
                 aria-selected={activeTab === entry.id}
                 aria-controls={`home-panel-${entry.id}`}
+                tabIndex={activeTab === entry.id ? 0 : -1}
                 onClick={() => setHomeTab(entry.id)}
+                onKeyDown={(event) => moveHomeTab(event, index)}
                 className={cn(
                   '-mb-px border-b-2 px-2.5 py-1.5 text-meta font-medium',
                   activeTab === entry.id
@@ -342,8 +401,22 @@ export function BoardWorkspace() {
             </p>
           </div>
         ) : groups.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-100 p-8 text-center text-meta text-slate-600">
-            No board matches “{q.trim()}”.
+          <div
+            data-no-board-match
+            className="rounded-lg border border-dashed border-slate-300 bg-slate-100 p-8 text-center text-meta text-slate-600"
+          >
+            <p>{q.trim() ? `No board matches “${q.trim()}”.` : 'No board is in this type.'}</p>
+            <button
+              type="button"
+              data-clear-search
+              onClick={() => {
+                setQ('')
+                setBandFilter('all')
+              }}
+              className="mt-2 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700"
+            >
+              Clear search and filters
+            </button>
           </div>
         ) : null}
 
@@ -360,7 +433,7 @@ export function BoardWorkspace() {
                     key={b.id}
                     data-board-card={b.id}
                     className={cn(
-                      'flex flex-col gap-2.5 rounded-xl border border-slate-300 bg-white p-3 shadow-sm transition',
+                      'relative flex flex-col gap-2.5 rounded-xl border border-slate-300 bg-white p-3 shadow-sm transition',
                       b.archived ? 'opacity-60' : 'hover:border-indigo-300 hover:shadow-md',
                     )}
                   >
@@ -383,6 +456,25 @@ export function BoardWorkspace() {
                       >
                         {b.name}
                       </button>
+                      {b.description?.trim() && (
+                        <span className="group/desc relative inline-flex shrink-0">
+                          <span
+                            tabIndex={0}
+                            role="img"
+                            data-board-description={b.id}
+                            aria-label={`Description of ${b.name}: ${b.description}`}
+                            className="grid h-5 w-5 place-items-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400"
+                          >
+                            <Info size={12} />
+                          </span>
+                          <span
+                            role="note"
+                            className="pointer-events-none invisible absolute left-0 top-6 z-30 w-64 rounded-lg border border-slate-200 bg-white p-2 text-meta font-normal leading-snug text-slate-600 opacity-0 shadow-xl transition group-hover/desc:visible group-hover/desc:opacity-100 group-focus-within/desc:visible group-focus-within/desc:opacity-100"
+                          >
+                            {b.description}
+                          </span>
+                        </span>
+                      )}
                       {b.archived && (
                         <span className="shrink-0 rounded bg-slate-200 px-1 py-px text-micro font-semibold uppercase tracking-wide text-slate-600">
                           archived
@@ -390,6 +482,18 @@ export function BoardWorkspace() {
                       )}
                     </div>
 
+                    {(() => {
+                      const reading = readings.get(b.id)
+                      if (!reading) return null
+                      const parts = [`${reading.open} open`]
+                      if (reading.blocked > 0) parts.push(`${reading.blocked} blocked`)
+                      if (reading.waiting > 0) parts.push(`${reading.waiting} waiting`)
+                      return (
+                        <p data-board-reading={b.id} className="text-micro text-slate-500">
+                          {parts.join(' · ')}
+                        </p>
+                      )
+                    })()}
                     <div className="mt-auto flex items-center gap-1 border-t border-slate-100 pt-2">
                       <button
                         onClick={() => selectBoard(b.id)}
@@ -438,6 +542,7 @@ export function BoardWorkspace() {
                               }}
                               className="rounded p-1 text-slate-600 transition hover:text-slate-700"
                               title={`Open ${b.name}'s dashboard`}
+                              aria-label={`Open ${b.name}'s dashboard`}
                             >
                               <LayoutDashboard size={13} />
                             </a>
@@ -451,6 +556,7 @@ export function BoardWorkspace() {
                               }}
                               className="rounded p-1 text-slate-600 transition hover:text-slate-700"
                               title={`Open ${b.name}'s timeline`}
+                              aria-label={`Open ${b.name}'s timeline`}
                             >
                               <ChartNoAxesGantt size={13} />
                             </a>
@@ -466,6 +572,7 @@ export function BoardWorkspace() {
                                 menuFor === b.id ? 'bg-slate-100 text-slate-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-700',
                               )}
                               title={`More for ${b.name}`}
+                              aria-label={`More for ${b.name}`}
                             >
                               <MoreVertical size={14} />
                             </button>
@@ -529,7 +636,7 @@ export function BoardWorkspace() {
             <div className="mb-1 flex items-center gap-2 px-1">
               <LayoutTemplate size={12} className="text-slate-400" />
               <span className="text-micro font-bold uppercase tracking-wide text-slate-600">Templates</span>
-              <span className="text-micro font-semibold tabular-nums text-slate-600">{boardTemplates.length}</span>
+              <span className="text-micro font-semibold tabular-nums text-slate-600">{filteredTemplates.length}</span>
               <button
                 onClick={createTemplate}
                 className="ml-auto flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
@@ -539,13 +646,22 @@ export function BoardWorkspace() {
               </button>
             </div>
 
-            {boardTemplates.length === 0 ? (
+            {filteredTemplates.length === 0 ? (
               <div className="rounded-lg border border-dashed border-slate-300 bg-slate-100 p-6 text-center text-meta text-slate-600">
-                No templates yet. Make one here, or save a board as a template from its settings.
+                {templateQuery ? `No template matches “${q.trim()}”.` : 'No templates yet. Make one here, or save a board as a template from its settings.'}
+                {templateQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setQ('')}
+                    className="mt-2 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700"
+                  >
+                    Clear search
+                  </button>
+                )}
               </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {boardTemplates.map((t) => (
+                {filteredTemplates.map((t) => (
                   <div
                     key={t.id}
                     data-template-card={t.id}

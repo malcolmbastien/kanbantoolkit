@@ -5192,13 +5192,59 @@
         "priority": "medium",
         "subtasks": [],
         "updatedAt": "2026-11-23T03:28:51.820Z"
+      },
+      {
+        "id": "261",
+        "title": "The workspace home reads the work, not only the list of boards.",
+        "description": "Every board card on the home is identical apart from its name and band, so the screen a person stands on to decide where to go answers nothing about the work; and its small doors — the kebab, the two icon links, the search — are a notch below the board’s own standards.",
+        "details": "SYSTEM\nKanban Toolkit. Read src/components/BoardWorkspace.tsx (the home at ?view=boards), src/domain/attention.ts, src/domain/board.ts (boardsByBand), src/components/CardMenu.tsx:203-206, and e2e/home.spec.ts.\n\nWHAT WAS FOUND — a review on 2026-11-25\n1. Every board card is visually identical apart from name and band (BoardWorkspace.tsx:353-517): the home cannot tell a reader which board needs attention.\n2. A program board's card does not say what it aggregates; linkedBoardIds is invisible on the home.\n3. The card's kebab menu has no key handler and closes only on a mouse-click scrim (:473-509), while the board's own CardMenu closes on Escape first (CardMenu.tsx:203-206).\n4. The dashboard and timeline links (:432-456) and the kebab (:462-471) are icon-only with title alone; the star button beside them carries an explicit aria-label.\n5. boardsByBand matches the name only (src/domain/board.ts:139), although boards carry a description a person would search by.\n6. The no-match state (:344-347) offers no way back.\n\nREQUIREMENTS\n\nR1 — One derived reading per card\nA single muted line per board card, in the dashboard's own attention vocabulary (open, blocked, waiting), computed by the rules src/domain/attention.ts already owns, memoized on the graph so it is paid once per change and never stored. Counts, not pills: the card stays quiet, and no new persisted state exists (no PERSIST_VERSION bump).\n\nR2 — A program card names what it aggregates\nFrom linkedBoardIds: \"aggregates Team Atlas + Team Nova\". A portfolio leads with its strategy map and carries no bands — the house rule — so the line is for program cards only.\n\nR3 — Escape closes the kebab menu\nThe same first-then-outside order the board's CardMenu uses.\n\nR4 — The icon-only doors carry names\naria-labels matching the titles on the dashboard link, the timeline link and the kebab — the star button's own standard.\n\nR5 — The search matches a description as well as a name\nIn boardsByBand and its test: a person looking for where the identity work lives should find Team Nova by its words, not only its name.\n\nR6 — The no-match state offers the way back\nA Clear search affordance in the empty state, covering a stale query and a band filter that empties the list alike.\n\nNOT IN SCOPE\n- Re-grouping the list by band sections: the flat list with a band chip and a band filter is deliberate, and the file's own comment says grouping would say it twice.\n- Per-card progress bars or mini-dashboards: the dashboard is one click away and the cards stay quiet.\n- Sort controls (alphabetical is predictable), and a second pinned concept (favourites already are that).\n\nVERIFICATION\nOne e2e assertion per requirement in e2e/home.spec.ts; the existing axe scan stays clean with the kebab menu open; boardsByBand keeps its unit test green.",
+        "testStrategy": "e2e/home.spec.ts gains one assertion per requirement (the reading, the aggregation line, Escape, the labels, the description search, clear search); the axe scan stays clean with the menu open; boardsByBand unit test covers the description match.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "The home's tab is in the address bar, so a link can name it.",
+            "description": "view=boards carries no state: the tab, the band filter and the archived toggle are component state, so a reload lands on Boards/All and a link cannot name the templates list. The app's rule is that the address names the board, the view and the open card; encode at least the tab.",
+            "details": "BoardWorkspace.tsx keeps homeTab, bandFilter and showArchived in useState (:54-67). url.ts (src/lib/url.ts:151,175) already maps view=boards. The decision to record either way: the tab is encoded, and the filters stay transient — or all three are encoded. A reload restores what the link named.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 261,
+            "parentId": "undefined",
+            "updatedAt": "2026-11-26T02:36:28.744Z"
+          },
+          {
+            "id": 2,
+            "title": "The home's two tabs answer the arrow keys.",
+            "description": "The tablist's roles and aria-controls wiring are correct (home-tab-*, home-panel-*), but the WAI-ARIA tabs pattern's roving focus is not implemented. Two tabs is polish, not a violation.",
+            "details": "BoardWorkspace.tsx:218-243 renders the nav with role=tab and aria-selected but no key handling. The pattern: ArrowRight/ArrowLeft move focus between tabs, Home/End optional. Keep the plain buttons; add the roving tabindex.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 261,
+            "parentId": "undefined",
+            "updatedAt": "2026-11-26T02:36:28.760Z"
+          },
+          {
+            "id": 3,
+            "title": "A search finds templates as well as boards.",
+            "description": "The search input is hidden on the Templates tab (BoardWorkspace.tsx:166) — fine at two templates, invisible at twenty. One search across both lists, or the templates tab keeps its own; say which.",
+            "details": "The search guards on activeTab === 'boards' at :166 and :246. Either widen the same input to filter boardTemplates by name (and record the choice in the task), or leave the templates tab unsearched and say why. The shortcuts row stays boards-only either way.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 261,
+            "parentId": "undefined",
+            "updatedAt": "2026-11-26T02:36:28.774Z"
+          }
+        ],
+        "updatedAt": "2026-11-26T02:36:28.774Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-11-23T15:17:43.202Z",
-      "taskCount": 259,
-      "completedCount": 229,
+      "lastModified": "2026-11-26T02:36:28.774Z",
+      "taskCount": 260,
+      "completedCount": 230,
       "tags": [
         "backlog"
       ]

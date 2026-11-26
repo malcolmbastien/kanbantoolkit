@@ -8,6 +8,9 @@ test('an In Progress status pill stays on one line', async ({ page }) => {
   await expect(pill).toBeVisible()
   // The cell is narrow; without nowrap the two words break and the pill grows into a block.
   await expect(pill).toHaveCSS('white-space', 'nowrap')
+  // Pale ground, dark label: a status is read at a glance, not squinted at.
+  await expect(pill).toHaveClass(/bg-violet-50/)
+  await expect(pill).toHaveClass(/text-violet-800/)
   const box = await pill.boundingBox()
   expect(box).not.toBeNull()
   expect(box!.height).toBeLessThan(24)
@@ -111,4 +114,90 @@ test('the Dates column names the plan and the promise separately', async ({ page
   // Neither line stands in for the other.
   expect(await target.innerText()).not.toContain('Nov 4, 2026')
   expect(await due.innerText()).not.toContain('Dec 31, 2026')
+})
+
+test('health separates the level from the warnings behind it', async ({ page }) => {
+  await page.goto('/app?board=b-lob&view=dashboard')
+  const row = page.locator('[data-item-row="init-revenue"]')
+  const level = row.locator('[data-health-level]')
+  await expect(level).toHaveText(/At risk/i)
+  await expect(level).toHaveClass(/uppercase/)
+  const warnings = row.locator('[data-health-warnings]')
+  await expect(warnings).toBeVisible()
+  await expect(warnings.locator('[data-health-warning]')).not.toHaveCount(0)
+  await expect(warnings.getByText('1 blocked')).toBeVisible()
+})
+
+test('the initiatives table reads a child without leaving the summary', async ({ page }) => {
+  await page.goto('/app?board=b-lob&view=dashboard')
+  const row = page.locator('[data-item-row="init-revenue"]')
+  const pip = row.locator('[data-child-pip][data-pip-for="init-selfserve"]')
+  await expect(pip).toBeVisible()
+  await expect(pip).toHaveAttribute('data-pip-stage', /^(backlog|notStarted|inProgress|done)$/)
+  await expect(row.locator('td').first()).toContainText('1 child initiative')
+
+  // The hover is the board's own child reading: the title, the status and where the child lives.
+  await pip.hover()
+  const preview = page.locator('[data-pip-preview]')
+  await expect(preview).toContainText('Self-serve growth')
+  await expect(preview.getByText('Status', { exact: true })).toBeVisible()
+  await expect(preview).toContainText('Board')
+
+  // A pip opens its child, not the initiative whose row it sits in.
+  await pip.click()
+  await expect(page.locator('[data-item-panel]')).toHaveAttribute('aria-label', 'Card details: Self-serve growth')
+})
+
+test('the target range shares the due value column and never breaks a date', async ({ page }) => {
+  await page.goto('/app?board=b-lob&view=dashboard')
+  const row = page.locator('[data-item-row="init-revenue"]')
+  const target = row.locator('[data-date="target"]')
+  const due = row.locator('[data-date="due"]')
+
+  const parts = target.locator('[data-date-part]')
+  await expect(parts).toHaveCount(2)
+  for (const part of await parts.all()) {
+    const box = (await part.boundingBox())!
+    expect(box.height, 'a date stays on one line').toBeLessThan(20)
+  }
+  // Both rows are the same three-track grid, so their values begin at the same left edge.
+  const targetValue = target.locator(':scope > span').nth(2)
+  const dueValue = due.locator(':scope > span').nth(2)
+  const [targetBox, dueBox] = [await targetValue.boundingBox(), await dueValue.boundingBox()]
+  expect(Math.round(targetBox!.x)).toBe(Math.round(dueBox!.x))
+})
+
+test('an overdue due date keeps its promise and its note on one line', async ({ page }) => {
+  await page.goto('/app?board=b-atlas&view=dashboard')
+  // No seeded initiative is overdue, so move this one's promise into the past the way other
+  // specs change demo state: edit the persisted slice, then reload to derive the new reading.
+  const changed = await page.evaluate(() => {
+    const key = 'kanbantoolkit-state-v3'
+    const raw = localStorage.getItem(key)
+    if (!raw) return false
+    const parsed = JSON.parse(raw) as { state?: { items?: Array<{ id: string; dueDate?: string }> } }
+    const item = parsed.state?.items?.find((i) => i.id === 'init-signup-redesign')
+    if (!item) return false
+    item.dueDate = new Date(Date.now() - 10 * 86_400_000).toISOString().slice(0, 10)
+    localStorage.setItem(key, JSON.stringify(parsed))
+    return true
+  })
+  expect(changed).toBe(true)
+  await page.reload()
+
+  const due = page.locator('[data-item-row="init-signup-redesign"] [data-date="due"]')
+  await expect(due).toContainText(/overdue/)
+  const value = due.locator(':scope > span').nth(2)
+  const box = (await value.boundingBox())!
+  expect(box.height, 'the date and its overdue note share one line').toBeLessThan(20)
+})
+
+test('the status level and the health level start on the same line', async ({ page }) => {
+  await page.goto('/app?board=b-lob&view=dashboard')
+  const row = page.locator('[data-item-row="init-revenue"]')
+  // This row has a warning line under its health level — the case where the two pills drifted.
+  await expect(row.locator('[data-health-warnings]')).toBeVisible()
+  const status = (await row.locator('[data-status-level]').boundingBox())!
+  const health = (await row.locator('[data-health-level]').boundingBox())!
+  expect(Math.abs(status.y - health.y)).toBeLessThan(2)
 })

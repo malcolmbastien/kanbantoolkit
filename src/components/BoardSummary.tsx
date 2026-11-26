@@ -12,7 +12,6 @@ import { LaneSettings } from './LaneSettings'
 import {
   checklistProgress,
   canPlaceInSection,
-  isDiscarded,
   type Graph,
 } from '@/domain/derive'
 import { buildBoardModel } from '@/domain/boardModel'
@@ -42,8 +41,7 @@ import { useStore } from '@/store'
 import { useDrag } from '@/lib/drag'
 import type { IssueType, Item, Lane, Stage } from '@/domain/types'
 import { initiativesFlow } from '@/domain/flows'
-import { dueLabel, dueState, dueWhy, lateStartDay } from '@/domain/due'
-import { ageDays, STALE_AFTER_DAYS } from '@/domain/filters'
+import { childSymbols } from './childSymbols'
 
 /**
  * A lane header row: the name truly centred, with the WIP count and any edit controls pinned
@@ -431,80 +429,20 @@ export function BoardSummary({
     const childItems = (model.childrenOf.get(c.id) ?? [])
       .map((id) => model.itemsById.get(id))
       .filter((i): i is Item => Boolean(i))
-    const progressItems = childItems.filter((ci) => !isDiscarded(ci, graph))
     // Symbols summarise the direct children that count — team initiatives for a top-level
-    // initiative, cards for a team-level one — coloured by their status.
-    const symbols = progressItems.map((ci) => {
-      const roll = model.rollup.get(ci.id)
-      const bucket = roll?.bucket ?? 'backlog'
-      // The child may sit on another board when this is a linked band; its own placement is the
-      // one its reading should name, wherever the reader is.
-      const placement =
-        placements.find((p) => p.itemId === ci.id && p.boardId === (viewedBoardId ?? boardId)) ??
-        placements.find((p) => p.itemId === ci.id)
-      const lane = placement ? lanes.find((l) => l.id === placement.laneId) : undefined
-      const flow = lane ? flows.find((f) => f.id === lane.flowId) : undefined
-      const board = placement ? boards.find((b) => b.id === placement.boardId) : undefined
-      const initiative = isInitiativeItem(ci, issueTypes)
-      const kind = initiative ? initiativeTypeById(boards, ci.initiativeTypeId) : undefined
-      const complete = bucket === 'done'
-      // The same compact warning set the Mini tile wears, read from the child rather than copied
-      // from its face: a blockage, a promise that has passed, a start that is late, a lane that has
-      // stopped moving, nobody owning in-progress work, and an initiative's own health flags.
-      const flags = initiative ? (health.get(ci.id) ?? []).filter((flag) => flag.flag !== 'discarded') : []
-      const due = complete ? undefined : dueState(ci.dueDate, false)
-      const late = complete ? undefined : lateStartDay(ci.targetStartDate, bucket)
-      const age = complete ? undefined : ageDays(placement)
-      const unowned = !complete && bucket === 'inProgress' && !(ci.assignees?.length ?? 0)
-      // The reasons, in the card's own words. The blocked flag is not repeated here when the card
-      // is itself blocked — the rose callout carries that — but a child initiative blocked *below*
-      // has no other place to say why its pip is rose, so it joins the list.
-      const ownWarnings = !complete
-        ? [
-            ...(due && due.tone !== 'later'
-              ? [{ label: dueLabel(due), why: dueWhy(due), tone: due.tone === 'overdue' ? ('risk' as const) : ('watch' as const) }]
-              : []),
-            ...(late
-              ? [{ label: 'Late start', why: `Its planned start (${late}) passed and it has not started`, tone: 'watch' as const }]
-              : []),
-            ...(unowned
-              ? [{ label: 'Unowned', why: 'It is in progress and nobody is assigned', tone: 'watch' as const }]
-              : []),
-            ...(age !== undefined && age >= STALE_AFTER_DAYS
-              ? [{ label: `${age}d in lane`, why: `${age} days in this lane — work that has stopped moving`, tone: 'watch' as const }]
-              : []),
-            ...flags
-              .filter((flag) => flag.flag !== 'blocked')
-              .map((flag) => ({ label: flag.label, why: flag.why, tone: flag.tone })),
-          ]
-        : []
-      const warnings = [
-        ...ownWarnings,
-        ...flags
-          .filter((flag) => flag.flag === 'blocked')
-          .map((flag) => ({ label: flag.label, why: flag.why, tone: flag.tone })),
-      ]
-      const warned = ownWarnings.length > 0
-      const blocked = Boolean(ci.blocked && !complete) || flags.some((flag) => flag.flag === 'blocked')
-      return {
-        id: ci.id,
-        bucket,
-        title: ci.title,
-        type: typeOf(ci.typeId),
-        ...(kind ? { kind } : {}),
-        assigneeIds: ci.assignees,
-        dueDate: ci.dueDate,
-        priority: ci.priority,
-        tags: tagsOf(boards, ci),
-        blocked,
-        warned,
-        ...(warnings.length ? { warnings } : {}),
-        blockedReason: ci.blockedReason,
-        ...(board ? { boardName: board.name } : {}),
-        ...(flow ? { flowName: flow.name } : {}),
-        ...(lane ? { laneName: lanePath(lanes, lane.id).join(' / ') } : {}),
-        ...(initiative && roll ? { below: { total: roll.total, percent: roll.total > 0 ? roll.percent : undefined } } : {}),
-      }
+    // initiative, cards for a team-level one — coloured by their status. The dashboard builds
+    // them through this same helper, so a child cannot read differently away from the board.
+    const symbols = childSymbols(c.id, {
+      graph,
+      model,
+      boards,
+      placements,
+      lanes,
+      flows,
+      issueTypes,
+      flagsOf: (id) => health.get(id) ?? [],
+      boardId,
+      viewedBoardId,
     })
     const roll = model.rollup.get(c.id)
     return (

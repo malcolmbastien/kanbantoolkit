@@ -248,15 +248,17 @@ export const STAGE_COLOR: Record<Stage, string> = {
 
 /** Solid-ish chip styling for a stage (used on rows and stage chips). */
 export function stageChip(stage: Stage): string {
+  // A pale ground with a dark label and a same-hue ring. The earlier mid-weight fills put dark
+  // text on a dark background; status is read at a glance in a narrow table cell.
   switch (stage) {
     case 'done':
-      return 'bg-emerald-400/80 text-emerald-950'
+      return 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-300'
     case 'inProgress':
-      return 'bg-violet-400/80 text-violet-950'
+      return 'bg-violet-50 text-violet-800 ring-1 ring-violet-300'
     case 'notStarted':
-      return 'bg-blue-400/80 text-blue-950'
+      return 'bg-blue-50 text-blue-800 ring-1 ring-blue-300'
     case 'backlog':
-      return 'bg-slate-400/80 text-slate-900'
+      return 'bg-slate-100 text-slate-700 ring-1 ring-slate-300'
   }
 }
 
