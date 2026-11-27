@@ -171,6 +171,18 @@ test('an overdue due date keeps its promise and its note on one line', async ({ 
   await page.goto('/app?board=b-atlas&view=dashboard')
   // No seeded initiative is overdue, so move this one's promise into the past the way other
   // specs change demo state: edit the persisted slice, then reload to derive the new reading.
+  // The demo seeds into localStorage on boot, which can land after `goto` returns; wait for the
+  // item to exist before asking to change it.
+  await page.waitForFunction(() => {
+    try {
+      const raw = localStorage.getItem('kanbantoolkit-state-v3')
+      if (!raw) return false
+      const parsed = JSON.parse(raw) as { state?: { items?: Array<{ id: string }> } }
+      return Boolean(parsed.state?.items?.some((item) => item.id === 'init-signup-redesign'))
+    } catch {
+      return false
+    }
+  })
   const changed = await page.evaluate(() => {
     const key = 'kanbantoolkit-state-v3'
     const raw = localStorage.getItem(key)
